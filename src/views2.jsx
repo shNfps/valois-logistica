@@ -4,13 +4,16 @@ import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, Ped
 
 // ─── COMERCIAL VIEW ───
 export function ComercialView({ pedidos, refresh, user }) {
-  const [cliente,setCliente]=useState('');const [motorista,setMotorista]=useState('');const [cidade,setCidade]=useState('')
-  const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('')
+  const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
+  const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('')
   const fileRef=useRef(null);const nfFileRefs=useRef({})
-  const handleOrcamento=async(e)=>{
-    const file=e.target.files[0];if(!file)return;if(!cliente.trim()){alert('Informe o cliente');return};if(!cidade){alert('Selecione a cidade');return}
+  const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
+  const handleSubmit=async()=>{
+    if(!cliente.trim()){alert('Informe o nome do cliente');return}
+    if(!cidade){alert('Selecione a cidade');return}
+    if(!arquivo){alert('Selecione o PDF do orçamento');return}
     setUploading(true)
-    try{const url=await uploadPdf(file,'orcamentos');if(url){const pedido=await createPedido(cliente.trim(),motorista.trim(),cidade,url,user.nome);if(pedido)await addHistorico(pedido.id,user.nome,'Criou o pedido');setCliente('');setMotorista('');setCidade('');refresh()}}finally{setUploading(false);e.target.value=''}
+    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim());if(pedido)await addHistorico(pedido.id,user.nome,'Criou o pedido');setNumero('');setCliente('');setCidade('');setArquivo(null);if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
   }
   const handleNf=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return;setUploading(true)
@@ -25,7 +28,7 @@ export function ComercialView({ pedidos, refresh, user }) {
         {p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}
       </div><Badge status={p.status}/>
     </div>
-    <div style={{fontSize:12,color:'#94A3B8',marginBottom:4}}>{p.motorista&&<span>Motorista: {p.motorista} · </span>}{p.criado_por&&<span>Por: {p.criado_por} · </span>}{fmt(p.criado_em)}</div>
+    <div style={{fontSize:12,color:'#94A3B8',marginBottom:4}}>{p.criado_por&&<span>Por: {p.criado_por} · </span>}{fmt(p.criado_em)}</div>
     {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:6}}>📋 Obs: {p.obs}</div>}
     {(p.status==='CONFERIDO'||p.status==='INCOMPLETO')&&(<div style={{marginTop:8}}>
       <input type="file" accept=".pdf" ref={el=>nfFileRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleNf(p.id,e)}/>
@@ -34,19 +37,22 @@ export function ComercialView({ pedidos, refresh, user }) {
     <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
   </div>)
   return(<div>
+    <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
     <div style={{...card,padding:24,marginBottom:20}}>
       <h3 style={{margin:'0 0 16px',fontSize:16,fontWeight:700,color:'#0A1628'}}>Novo Pedido</h3>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:10}}>
+      <div style={{display:'grid',gridTemplateColumns:'90px 1fr',gap:12,marginBottom:10}}>
+        <input value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Nº" style={inputStyle}/>
         <input value={cliente} onChange={e=>setCliente(e.target.value)} placeholder="Nome do Cliente / Unidade" style={inputStyle}/>
-        <input value={motorista} onChange={e=>setMotorista(e.target.value)} placeholder="Motorista (opcional)" style={inputStyle}/>
       </div>
-      <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:14,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
+      <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
         <option value="">Selecione a cidade...</option>{CIDADES.map(c=><option key={c} value={c}>{c}</option>)}
       </select>
-      <input type="file" accept=".pdf" ref={fileRef} onChange={handleOrcamento} style={{display:'none'}}/>
-      <button onClick={()=>{if(!cliente.trim()){alert('Informe o cliente');return};if(!cidade){alert('Selecione a cidade');return};fileRef.current.click()}} disabled={uploading} style={{...btnPrimary,width:'100%',opacity:uploading?0.6:1}}>{uploading?'Enviando...':'📄 Upload PDF do Orçamento'}</button>
+      <input type="file" accept=".pdf" ref={fileRef} onChange={handleFileSelect} style={{display:'none'}}/>
+      <button onClick={()=>fileRef.current.click()} style={{...btnSmall,width:'100%',justifyContent:'center',marginBottom:12,borderColor:arquivo?'#10B981':'#CBD5E1',color:arquivo?'#10B981':'#64748B'}}>
+        {arquivo?`✓ ${arquivo.name}`:'📎 Selecionar PDF do Orçamento *'}
+      </button>
+      <button onClick={handleSubmit} disabled={uploading} style={{...btnPrimary,width:'100%',opacity:uploading?0.6:1}}>{uploading?'Enviando...':'+ Criar Pedido'}</button>
     </div>
-    <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
     {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>{g.items.map(renderCard)}</DateGroup>)}
     {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
   </div>)
