@@ -7,7 +7,7 @@ import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
 export function ComercialView({ pedidos, refresh, user }) {
   const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
   const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('')
-  const [clientes,setClientes]=useState([]);const [extractingPedido,setExtractingPedido]=useState(null)
+  const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
   const fileRef=useRef(null);const nfFileRefs=useRef({})
   useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
@@ -16,7 +16,7 @@ export function ComercialView({ pedidos, refresh, user }) {
     if(!cidade){alert('Selecione a cidade');return}
     if(!arquivo){alert('Selecione o PDF do orçamento');return}
     setUploading(true)
-    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim());if(pedido)await addHistorico(pedido.id,user.nome,'Criou o pedido');setNumero('');setCliente('');setCidade('');setArquivo(null);if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
+    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId);if(pedido)await addHistorico(pedido.id,user.nome,'Criou o pedido');setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
   }
   const handleNf=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return;setUploading(true)
@@ -49,7 +49,7 @@ export function ComercialView({ pedidos, refresh, user }) {
       <h3 style={{margin:'0 0 16px',fontSize:16,fontWeight:700,color:'#0A1628'}}>Novo Pedido</h3>
       <div style={{display:'grid',gridTemplateColumns:'90px 1fr',gap:12,marginBottom:10}}>
         <input value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Nº" style={inputStyle}/>
-        <ClienteCombobox clientes={clientes} value={cliente} onChange={setCliente}/>
+        <ClienteCombobox clientes={clientes} value={cliente} onChange={v=>{setCliente(v);setClienteId(null)}} onSelect={c=>{if(c){setCliente(c.nome);setClienteId(c.id)}}}/>
       </div>
       <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
         <option value="">Selecione a cidade...</option>{CIDADES.map(c=><option key={c} value={c}>{c}</option>)}

@@ -65,10 +65,10 @@ export async function uploadImage(file){
   const{data:urlData}=supabase.storage.from('documentos').getPublicUrl(filename);return urlData.publicUrl
 }
 
-export async function createPedido(cliente,motorista,cidade,orcamentoUrl,criadoPor,numeroRefCustom){
+export async function createPedido(cliente,motorista,cidade,orcamentoUrl,criadoPor,numeroRefCustom,clienteId){
   const now=new Date();const prefix=String(now.getDate()).padStart(2,'0')+String(now.getMonth()+1).padStart(2,'0')
   const numero_ref=numeroRefCustom?.trim()||`${prefix}-${String(Math.floor(Math.random()*9000)+1000)}`
-  const{data,error}=await supabase.from('pedidos').insert({cliente,motorista,cidade,orcamento_url:orcamentoUrl,status:'PENDENTE',criado_por:criadoPor,numero_ref}).select().single()
+  const{data,error}=await supabase.from('pedidos').insert({cliente,motorista,cidade,orcamento_url:orcamentoUrl,status:'PENDENTE',criado_por:criadoPor,numero_ref,cliente_id:clienteId||null}).select().single()
   if(error){console.error(error);return null};return data
 }
 

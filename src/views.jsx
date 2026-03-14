@@ -131,7 +131,7 @@ export function AdminView({ pedidos, refresh, user }) {
       </div>)})}
     </div>)}
 
-    {tab==='clientes'&&<AdminClientesTab/>}
+    {tab==='clientes'&&<AdminClientesTab pedidos={pedidos}/>}
     {tab==='pedidos'&&(<div>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade, funcionário..."/>
       {pedidosAgrupados.map(g=>(<DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>

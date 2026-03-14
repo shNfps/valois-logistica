@@ -90,7 +90,7 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
 // ─── ADMIN CLIENTES TAB ───
 const fmtDoc = v => { const n=v.replace(/\D/g,'').slice(0,14); if(n.length<=3)return n; if(n.length<=6)return n.slice(0,3)+'.'+n.slice(3); if(n.length<=9)return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6); if(n.length<=11)return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6,9)+'-'+n.slice(9); if(n.length<=12)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8); return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8,12)+'-'+n.slice(12) }
 
-export function AdminClientesTab() {
+export function AdminClientesTab({ pedidos = [] }) {
   const [clientes, setClientes] = useState([])
   const [nome, setNome] = useState(''); const [cidade, setCidade] = useState('')
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState(''); const [documento, setDocumento] = useState('')
@@ -129,17 +129,23 @@ export function AdminClientesTab() {
     </div>
     <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.2 }}>Clientes ({clientes.length})</div>
     {clientes.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>Nenhum cliente cadastrado</div>}
-    {clientes.map(c => (<div key={c.id} style={card}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</div>
-          <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
-            {c.documento && <span style={{ fontWeight: 600 }}>{fmtDoc(c.documento)} &nbsp;</span>}{c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}
+    {clientes.map(c => {
+      const nPedidos = pedidos.filter(p => p.cliente_id === c.id).length
+      return (<div key={c.id} style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</span>
+              {nPedidos > 0 && <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{nPedidos} pedido{nPedidos > 1 ? 's' : ''}</span>}
+            </div>
+            <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
+              {c.documento && <span style={{ fontWeight: 600 }}>{fmtDoc(c.documento)} &nbsp;</span>}{c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}
+            </div>
           </div>
+          <button onClick={async () => { if (!confirm(`Deletar ${c.nome}?`)) return; await deleteCliente(c.id); load() }} style={{ ...btnSmall, fontSize: 11, padding: '4px 10px', color: '#EF4444' }}>Deletar</button>
         </div>
-        <button onClick={async () => { if (!confirm(`Deletar ${c.nome}?`)) return; await deleteCliente(c.id); load() }} style={{ ...btnSmall, fontSize: 11, padding: '4px 10px', color: '#EF4444' }}>Deletar</button>
-      </div>
-    </div>))}
+      </div>)
+    })}
   </div>)
 }
 
@@ -232,22 +238,23 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
 }
 
 // ─── CLIENTE COMBOBOX ───
-export function ClienteCombobox({ clientes, value, onChange }) {
+export function ClienteCombobox({ clientes, value, onChange, onSelect }) {
   const [open, setOpen] = useState(false)
   const filtered = clientes.filter(c => !value || c.nome.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
   return (
     <div style={{ position: 'relative' }}>
-      <input value={value} onChange={e => { onChange(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
+      <input value={value} onChange={e => { onChange(e.target.value); onSelect?.(null); setOpen(true) }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder="Nome do Cliente / Unidade" style={inputStyle} />
       {open && filtered.length > 0 && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '2px solid #E2E8F0', borderTop: 'none', borderRadius: '0 0 10px 10px', zIndex: 50, maxHeight: 200, overflowY: 'auto', boxShadow: '0 8px 16px rgba(0,0,0,0.08)' }}>
           {filtered.map(c => (
-            <div key={c.id} onMouseDown={() => { onChange(c.nome); setOpen(false) }}
+            <div key={c.id} onMouseDown={() => { onChange(c.nome); onSelect?.(c); setOpen(false) }}
               style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #F1F5F9' }}
               onMouseEnter={e => e.currentTarget.style.background = '#F1F5F9'}
               onMouseLeave={e => e.currentTarget.style.background = ''}>
               <span style={{ fontWeight: 600 }}>{c.nome}</span>
               {c.cidade && <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 6 }}>📍 {c.cidade}</span>}
+              {c.documento && <span style={{ fontSize: 10, color: '#94A3B8', marginLeft: 6 }}>{fmtDoc(c.documento)}</span>}
             </div>
           ))}
         </div>
