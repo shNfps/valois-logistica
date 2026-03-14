@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase.js'
 import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, updateProduto, deleteProduto } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
+import { ExtractorPanel, AdminClientesTab, AdminVendasSection } from './views3.jsx'
 
 // ─── ADMIN VIEW ───
 export function AdminView({ pedidos, refresh, user }) {
   const [usuarios,setUsuarios]=useState([]);const [produtos,setProdutos]=useState([]);const [tab,setTab]=useState('dashboard')
   const [nome,setNome]=useState('');const [usuarioNovo,setUsuarioNovo]=useState('');const [senhaNova,setSenhaNova]=useState('')
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
-  const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('')
+  const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
   const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
@@ -37,10 +38,11 @@ export function AdminView({ pedidos, refresh, user }) {
 
   return(<div>
     <div style={{display:'flex',gap:6,marginBottom:20,flexWrap:'wrap'}}>
-      {[{key:'dashboard',label:'Dashboard',icon:'📊'},{key:'usuarios',label:'Funcionários',icon:'👥'},{key:'produtos',label:'Produtos',icon:'🏷️'},{key:'pedidos',label:'Pedidos',icon:'📋'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>{t.icon} {t.label}</button>))}
+      {[{key:'dashboard',label:'Dashboard',icon:'📊'},{key:'usuarios',label:'Funcionários',icon:'👥'},{key:'produtos',label:'Produtos',icon:'🏷️'},{key:'pedidos',label:'Pedidos',icon:'📋'},{key:'clientes',label:'Clientes',icon:'👤'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>{t.icon} {t.label}</button>))}
     </div>
 
     {tab==='dashboard'&&(<div>
+      <AdminVendasSection pedidos={pedidos}/>
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Pipeline</h3>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:20}}>
         {Object.entries(STATUS_MAP).map(([key,s])=>(<div key={key} style={{background:'#fff',borderRadius:12,padding:14,textAlign:'center',borderLeft:`4px solid ${s.color}`,boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
@@ -59,7 +61,10 @@ export function AdminView({ pedidos, refresh, user }) {
         </div>
         <div style={{fontSize:11,color:'#94A3B8'}}>{[p.criado_por&&`📋${p.criado_por}`,p.conferido_por&&`📦${p.conferido_por}`,p.entregue_por&&`🚛${p.entregue_por}`].filter(Boolean).join(' → ')} · {fmt(p.atualizado_em||p.criado_em)}</div>
         <PedidoDetail pedido={p}/>
-        <div style={{marginTop:6}}><button onClick={()=>handleDeletePedido(p.id,p.cliente)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#EF4444'}}>🗑 Deletar</button></div>
+        <div style={{marginTop:6,display:'flex',gap:6,flexWrap:'wrap'}}>
+          {p.orcamento_url&&<button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#7C3AED'}}>🤖 Extrair itens</button>}
+          <button onClick={()=>handleDeletePedido(p.id,p.cliente)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#EF4444'}}>🗑 Deletar</button>
+        </div>
       </div>))}
     </div>)}
 
@@ -119,6 +124,7 @@ export function AdminView({ pedidos, refresh, user }) {
       </div>)})}
     </div>)}
 
+    {tab==='clientes'&&<AdminClientesTab/>}
     {tab==='pedidos'&&(<div>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade, funcionário..."/>
       {pedidosAgrupados.map(g=>(<DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>
@@ -135,11 +141,13 @@ export function AdminView({ pedidos, refresh, user }) {
           </div>
           {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginTop:6}}>Obs: {p.obs}</div>}
           <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
-          <div style={{marginTop:8,borderTop:'1px solid #F1F5F9',paddingTop:8}}>
+          <div style={{marginTop:8,borderTop:'1px solid #F1F5F9',paddingTop:8,display:'flex',gap:8,flexWrap:'wrap'}}>
+            {p.orcamento_url&&<button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button>}
             <button onClick={()=>handleDeletePedido(p.id,p.cliente)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444'}}>🗑 Deletar pedido</button>
           </div>
         </div>))}
       </DateGroup>))}
     </div>)}
+    {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
   </div>)
 }

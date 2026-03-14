@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, addHistorico, uploadPdf, createPedido, updatePedido } from './db.js'
+import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
+import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
 
 // ─── COMERCIAL VIEW ───
 export function ComercialView({ pedidos, refresh, user }) {
   const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
   const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('')
+  const [clientes,setClientes]=useState([]);const [extractingPedido,setExtractingPedido]=useState(null)
   const fileRef=useRef(null);const nfFileRefs=useRef({})
+  useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
   const handleSubmit=async()=>{
     if(!cliente.trim()){alert('Informe o nome do cliente');return}
@@ -34,6 +37,7 @@ export function ComercialView({ pedidos, refresh, user }) {
       <input type="file" accept=".pdf" ref={el=>nfFileRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleNf(p.id,e)}/>
       <button onClick={()=>nfFileRefs.current[p.id]?.click()} disabled={uploading} style={{...btnSmall,background:p.status==='CONFERIDO'?'#10B981':'#3B82F6',color:'#fff',border:'none'}}>{p.status==='CONFERIDO'?'✓ Anexar NF':'📎 Corrigir e Anexar NF'}</button>
     </div>)}
+    {p.orcamento_url&&<div style={{marginTop:8}}><button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:11,padding:'5px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button></div>}
     <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
   </div>)
   return(<div>
@@ -42,7 +46,7 @@ export function ComercialView({ pedidos, refresh, user }) {
       <h3 style={{margin:'0 0 16px',fontSize:16,fontWeight:700,color:'#0A1628'}}>Novo Pedido</h3>
       <div style={{display:'grid',gridTemplateColumns:'90px 1fr',gap:12,marginBottom:10}}>
         <input value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Nº" style={inputStyle}/>
-        <input value={cliente} onChange={e=>setCliente(e.target.value)} placeholder="Nome do Cliente / Unidade" style={inputStyle}/>
+        <ClienteCombobox clientes={clientes} value={cliente} onChange={setCliente}/>
       </div>
       <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
         <option value="">Selecione a cidade...</option>{CIDADES.map(c=><option key={c} value={c}>{c}</option>)}
@@ -55,6 +59,7 @@ export function ComercialView({ pedidos, refresh, user }) {
     </div>
     {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>{g.items.map(renderCard)}</DateGroup>)}
     {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
+    {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
   </div>)
 }
 

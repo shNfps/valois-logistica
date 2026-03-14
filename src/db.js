@@ -78,3 +78,19 @@ export async function createProduto(p){const{data,error}=await supabase.from('pr
 export async function updateProduto(id,updates){const{error}=await supabase.from('produtos').update(updates).eq('id',id);if(error)console.error(error)}
 export async function deleteProduto(id){const{error}=await supabase.from('produtos').delete().eq('id',id);if(error)console.error(error)}
 export function hasSetor(user,setor){if(!user.setores)return user.setor===setor;return user.setores.includes(setor)}
+
+// Clientes
+export async function fetchClientes(){const{data,error}=await supabase.from('clientes').select('*').order('nome');if(error){console.error(error);return[]};return data||[]}
+export async function createCliente(c){const{data,error}=await supabase.from('clientes').insert(c).select().single();if(error){console.error(error);return null};return data}
+export async function deleteCliente(id){const{error}=await supabase.from('clientes').delete().eq('id',id);if(error)console.error(error)}
+
+// Pedido Itens
+export async function fetchPedidoItens(pedidoId){const{data,error}=await supabase.from('pedido_itens').select('*').eq('pedido_id',pedidoId).order('criado_em');if(error){console.error(error);return[]};return data||[]}
+export async function savePedidoItens(pedidoId,itens){
+  await supabase.from('pedido_itens').delete().eq('pedido_id',pedidoId)
+  const rows=itens.map(i=>({pedido_id:pedidoId,nome_produto:i.nome_produto,quantidade:Number(i.quantidade)||0,unidade:i.unidade||'un',preco_unitario:Number(i.preco_unitario)||0,preco_total:Number(i.preco_total)||0}))
+  if(rows.length>0){const{error}=await supabase.from('pedido_itens').insert(rows);if(error){console.error(error);return false}}
+  const total=rows.reduce((s,r)=>s+r.preco_total,0)
+  await supabase.from('pedidos').update({valor_total:total,atualizado_em:new Date().toISOString()}).eq('id',pedidoId)
+  return true
+}
