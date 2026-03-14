@@ -31,7 +31,10 @@ export function ComercialView({ pedidos, refresh, user }) {
         {p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}
       </div><Badge status={p.status}/>
     </div>
-    <div style={{fontSize:12,color:'#94A3B8',marginBottom:4}}>{p.criado_por&&<span>Por: {p.criado_por} · </span>}{fmt(p.criado_em)}</div>
+    <div style={{fontSize:12,color:'#94A3B8',marginBottom:4,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <span>{p.criado_por&&<span>Por: {p.criado_por} · </span>}{fmt(p.criado_em)}</span>
+      {p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669'}}>💰 {fmtMoney(p.valor_total)}</span>}
+    </div>
     {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:6}}>📋 Obs: {p.obs}</div>}
     {(p.status==='CONFERIDO'||p.status==='INCOMPLETO')&&(<div style={{marginTop:8}}>
       <input type="file" accept=".pdf" ref={el=>nfFileRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleNf(p.id,e)}/>

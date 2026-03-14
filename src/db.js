@@ -12,6 +12,7 @@ export const getRef = (p) => {
 export const CIDADES = ['Araruama','Saquarema','Cabo Frio','São Pedro','Búzios','Macaé','Rio das Ostras','Nova Friburgo','Campos']
 export const ROTA_ORDEM = {'Saquarema':0,'Araruama':1,'São Pedro':2,'Cabo Frio':3,'Búzios':4,'Rio das Ostras':5,'Macaé':6,'Campos':7,'Nova Friburgo':8}
 export const CATEGORIAS_PRODUTO = ['Descartáveis','Químicos','Higiene Pessoal','Limpeza Geral','Equipamentos','Papel','Outros']
+export const FABRICANTES = ['Sevengel','Tork','Ipel','Maranso','Renko','Stork','Riosampa','Nobre','Frilca']
 
 export function groupByDate(pedidos) {
   const now=new Date(); const today=new Date(now.getFullYear(),now.getMonth(),now.getDate())
@@ -88,7 +89,7 @@ export async function deleteCliente(id){const{error}=await supabase.from('client
 export async function fetchPedidoItens(pedidoId){const{data,error}=await supabase.from('pedido_itens').select('*').eq('pedido_id',pedidoId).order('criado_em');if(error){console.error(error);return[]};return data||[]}
 export async function savePedidoItens(pedidoId,itens){
   await supabase.from('pedido_itens').delete().eq('pedido_id',pedidoId)
-  const rows=itens.map(i=>({pedido_id:pedidoId,nome_produto:i.nome_produto,quantidade:Number(i.quantidade)||0,unidade:i.unidade||'un',preco_unitario:Number(i.preco_unitario)||0,preco_total:Number(i.preco_total)||0}))
+  const rows=itens.map(i=>{const qtd=Number(i.quantidade)||0;const unit=Number(i.preco_unitario)||0;const total=Number(i.preco_total)||qtd*unit;return{pedido_id:pedidoId,nome_produto:i.nome_produto,quantidade:qtd,unidade:i.unidade||'un',preco_unitario:unit,preco_total:total}})
   if(rows.length>0){const{error}=await supabase.from('pedido_itens').insert(rows);if(error){console.error(error);return false}}
   const total=rows.reduce((s,r)=>s+r.preco_total,0)
   await supabase.from('pedidos').update({valor_total:total,atualizado_em:new Date().toISOString()}).eq('id',pedidoId)

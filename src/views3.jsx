@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { extractItemsFromPdf } from './ai.js'
-import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, deleteCliente, createProduto, savePedidoItens } from './db.js'
+import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, CIDADES, FABRICANTES, CATEGORIAS_PRODUTO, fetchClientes, createCliente, deleteCliente, createProduto, savePedidoItens, uploadImage, updateProduto } from './db.js'
 
 // ─── EXTRACTOR PANEL ───
 export function ExtractorPanel({ pedido, onClose, onSaved }) {
@@ -170,6 +170,54 @@ export function AdminVendasSection({ pedidos }) {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── EDIT PRODUTO MODAL ───
+export function EditProdutoModal({ prod, onClose, onSaved }) {
+  const [ePreco, setEPreco] = useState(String(prod.preco))
+  const [eCat, setECat] = useState(prod.categoria)
+  const [eFab, setEFab] = useState(prod.fabricante || '')
+  const [eImg, setEImg] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const imgRef = useRef(null)
+
+  const salvar = async () => {
+    if (!ePreco) { alert('Informe o preço'); return }
+    setUploading(true)
+    let img_url = prod.img_url
+    if (eImg) img_url = await uploadImage(eImg)
+    await updateProduto(prod.id, { preco: parseFloat(ePreco), categoria: eCat, fabricante: eFab || null, img_url })
+    setUploading(false); onSaved(); onClose()
+  }
+
+  const preview = eImg ? URL.createObjectURL(eImg) : prod.img_url
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ ...card, width: '100%', maxWidth: 400, padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>✏️ Editar Produto</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#94A3B8' }}>✕</button>
+        </div>
+        <div style={{ fontWeight: 600, fontSize: 14, color: '#0A1628', marginBottom: 12 }}>{prod.nome}</div>
+        {preview && <img src={preview} style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 8, marginBottom: 10 }} />}
+        <input type="file" accept="image/*" ref={imgRef} onChange={e => setEImg(e.target.files[0])} style={{ display: 'none' }} />
+        <button onClick={() => imgRef.current.click()} style={{ ...btnSmall, width: '100%', justifyContent: 'center', marginBottom: 10 }}>
+          {eImg ? `📷 ${eImg.name}` : '📷 Trocar foto'}
+        </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <input value={ePreco} onChange={e => setEPreco(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Preço" inputMode="decimal" style={inputStyle} />
+          <select value={eCat} onChange={e => setECat(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+            {CATEGORIAS_PRODUTO.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <select value={eFab} onChange={e => setEFab(e.target.value)} style={{ ...inputStyle, marginBottom: 14, cursor: 'pointer', color: eFab ? '#0A1628' : '#94A3B8' }}>
+          <option value="">Fabricante...</option>{FABRICANTES.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+        <button onClick={salvar} disabled={uploading} style={{ ...btnPrimary, width: '100%', opacity: uploading ? 0.6 : 1 }}>{uploading ? 'Salvando...' : '✓ Salvar alterações'}</button>
       </div>
     </div>
   )

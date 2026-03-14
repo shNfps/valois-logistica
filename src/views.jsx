@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, updateProduto, deleteProduto } from './db.js'
+import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, updateProduto, deleteProduto } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
-import { ExtractorPanel, AdminClientesTab, AdminVendasSection } from './views3.jsx'
+import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
 
 // ─── ADMIN VIEW ───
 export function AdminView({ pedidos, refresh, user }) {
@@ -11,7 +11,7 @@ export function AdminView({ pedidos, refresh, user }) {
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
   const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
-  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false)
+  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
   useEffect(()=>{loadUsuarios();loadProdutos()},[loadUsuarios,loadProdutos])
@@ -26,10 +26,12 @@ export function AdminView({ pedidos, refresh, user }) {
   const handleDeletePedido=async(id,cliente)=>{if(!confirm(`Deletar pedido de ${cliente}? Essa ação não pode ser desfeita.`))return;await deletePedido(id);refresh()}
   const alterarSenha=async(id)=>{if(!editSenha.trim())return;await supabase.from('usuarios').update({senha:editSenha}).eq('id',id);setEditando(null);setEditSenha('');alert('Senha alterada!')}
   const criarProduto=async()=>{
-    if(!pNome.trim()||!pPreco){alert('Preencha nome e preço');return};setPUploading(true)
-    let img_url=null;if(pImg){img_url=await uploadImage(pImg)}
-    await createProduto({nome:pNome.trim(),preco:parseFloat(pPreco),categoria:pCat,img_url})
-    setPNome('');setPPreco('');setPImg(null);await loadProdutos();setPUploading(false)
+    if(!pNome.trim()||!pPreco){alert('Preencha nome e preço');return}
+    if(!pImg){alert('A foto do produto é obrigatória');return}
+    setPUploading(true)
+    const img_url=await uploadImage(pImg)
+    await createProduto({nome:pNome.trim(),preco:parseFloat(pPreco),categoria:pCat,fabricante:pFab||null,img_url})
+    setPNome('');setPPreco('');setPCat('Descartáveis');setPFab('');setPImg(null);await loadProdutos();setPUploading(false)
   }
   const handleDeleteProd=async(id,n)=>{if(!confirm(`Deletar ${n}?`))return;await deleteProduto(id);await loadProdutos()}
   const pedidosFiltrados=filterPedidos(pedidos,search);const pedidosAgrupados=groupByDate(pedidosFiltrados)
@@ -60,6 +62,7 @@ export function AdminView({ pedidos, refresh, user }) {
           </div><Badge status={p.status}/>
         </div>
         <div style={{fontSize:11,color:'#94A3B8'}}>{[p.criado_por&&`📋${p.criado_por}`,p.conferido_por&&`📦${p.conferido_por}`,p.entregue_por&&`🚛${p.entregue_por}`].filter(Boolean).join(' → ')} · {fmt(p.atualizado_em||p.criado_em)}</div>
+        {p.valor_total>0&&<div style={{fontSize:11,fontWeight:700,color:'#059669',marginTop:2}}>💰 {fmtMoney(p.valor_total)}</div>}
         <PedidoDetail pedido={p}/>
         <div style={{marginTop:6,display:'flex',gap:6,flexWrap:'wrap'}}>
           {p.orcamento_url&&<button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#7C3AED'}}>🤖 Extrair itens</button>}
@@ -108,8 +111,11 @@ export function AdminView({ pedidos, refresh, user }) {
           <input value={pPreco} onChange={e=>setPPreco(e.target.value.replace(/[^0-9.]/g,''))} placeholder="Preço (ex: 12.50)" inputMode="decimal" style={inputStyle}/>
           <select value={pCat} onChange={e=>setPCat(e.target.value)} style={{...inputStyle,cursor:'pointer'}}>{CATEGORIAS_PRODUTO.map(c=><option key={c} value={c}>{c}</option>)}</select>
         </div>
+        <select value={pFab} onChange={e=>setPFab(e.target.value)} style={{...inputStyle,marginBottom:10,cursor:'pointer',color:pFab?'#0A1628':'#94A3B8'}}>
+          <option value="">Fabricante...</option>{FABRICANTES.map(f=><option key={f} value={f}>{f}</option>)}
+        </select>
         <input type="file" accept="image/*" ref={imgRef} onChange={e=>setPImg(e.target.files[0])} style={{display:'none'}}/>
-        <button onClick={()=>imgRef.current.click()} style={{...btnSmall,marginBottom:14,width:'100%',justifyContent:'center'}}>{pImg?`📷 ${pImg.name}`:'📷 Adicionar foto (opcional)'}</button>
+        <button onClick={()=>imgRef.current.click()} style={{...btnSmall,marginBottom:14,width:'100%',justifyContent:'center',borderColor:pImg?'#10B981':'#CBD5E1',color:pImg?'#10B981':'#64748B'}}>{pImg?`✓ ${pImg.name}`:'📷 Foto do produto *'}</button>
         <button onClick={criarProduto} disabled={pUploading} style={{...btnPrimary,width:'100%',opacity:pUploading?0.6:1}}>{pUploading?'Salvando...':'+ Adicionar Produto'}</button>
       </div>
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Produtos ({produtos.length})</h3>
@@ -117,8 +123,9 @@ export function AdminView({ pedidos, refresh, user }) {
         <div style={{fontSize:12,fontWeight:700,color:'#64748B',padding:'8px 0',borderBottom:'1px solid #E2E8F0',marginBottom:8}}>{cat} ({prods.length})</div>
         {prods.map(p=>(<div key={p.id} style={{...card,display:'flex',gap:12,alignItems:'center'}}>
           {p.img_url?<img src={p.img_url} style={{width:48,height:48,borderRadius:8,objectFit:'cover'}}/>:<div style={{width:48,height:48,borderRadius:8,background:'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>📦</div>}
-          <div style={{flex:1}}><div style={{fontWeight:700,color:'#0A1628',fontSize:14}}>{p.nome}</div><div style={{fontSize:12,color:'#64748B'}}>{p.categoria}</div></div>
+          <div style={{flex:1}}><div style={{fontWeight:700,color:'#0A1628',fontSize:14}}>{p.nome}</div><div style={{fontSize:11,color:'#64748B'}}>{p.categoria}{p.fabricante&&<span style={{marginLeft:6,color:'#94A3B8'}}>· {p.fabricante}</span>}</div></div>
           <div style={{fontWeight:800,color:'#059669',fontSize:15}}>{fmtMoney(p.preco)}</div>
+          <button onClick={()=>setEditProd(p)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#3B82F6'}}>✏️</button>
           <button onClick={()=>handleDeleteProd(p.id,p.nome)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#EF4444'}}>✗</button>
         </div>))}
       </div>)})}
@@ -140,6 +147,7 @@ export function AdminView({ pedidos, refresh, user }) {
             {p.criado_por&&<span>📋 <b>{p.criado_por}</b></span>}{p.conferido_por&&<span>📦 <b>{p.conferido_por}</b></span>}{p.entregue_por&&<span>🚛 <b>{p.entregue_por}</b></span>}
           </div>
           {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginTop:6}}>Obs: {p.obs}</div>}
+          {p.valor_total>0&&<div style={{fontSize:12,fontWeight:700,color:'#059669',marginTop:4}}>💰 {fmtMoney(p.valor_total)}</div>}
           <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
           <div style={{marginTop:8,borderTop:'1px solid #F1F5F9',paddingTop:8,display:'flex',gap:8,flexWrap:'wrap'}}>
             {p.orcamento_url&&<button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button>}
@@ -149,5 +157,6 @@ export function AdminView({ pedidos, refresh, user }) {
       </DateGroup>))}
     </div>)}
     {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
+    {editProd&&<EditProdutoModal prod={editProd} onClose={()=>setEditProd(null)} onSaved={()=>{loadProdutos();setEditProd(null)}}/>}
   </div>)
 }
