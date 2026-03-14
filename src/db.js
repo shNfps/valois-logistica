@@ -82,7 +82,7 @@ export function hasSetor(user,setor){if(!user.setores)return user.setor===setor;
 
 // Clientes
 export async function fetchClientes(){const{data,error}=await supabase.from('clientes').select('*').order('nome');if(error){console.error(error);return[]};return data||[]}
-export async function createCliente(c){const{data,error}=await supabase.from('clientes').insert(c).select().single();if(error){console.error(error);return null};return data}
+export async function createCliente(c){const{data,error}=await supabase.from('clientes').insert(c).select().single();if(error)console.error(error);return{data:data||null,error:error||null}}
 export async function deleteCliente(id){const{error}=await supabase.from('clientes').delete().eq('id',id);if(error)console.error(error)}
 
 // Pedido Itens

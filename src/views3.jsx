@@ -88,10 +88,12 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
 }
 
 // ─── ADMIN CLIENTES TAB ───
+const fmtDoc = v => { const n=v.replace(/\D/g,'').slice(0,14); if(n.length<=3)return n; if(n.length<=6)return n.slice(0,3)+'.'+n.slice(3); if(n.length<=9)return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6); if(n.length<=11)return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6,9)+'-'+n.slice(9); if(n.length<=12)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8); return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8,12)+'-'+n.slice(12) }
+
 export function AdminClientesTab() {
   const [clientes, setClientes] = useState([])
   const [nome, setNome] = useState(''); const [cidade, setCidade] = useState('')
-  const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState('')
+  const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState(''); const [documento, setDocumento] = useState('')
   const [saving, setSaving] = useState(false)
   const load = useCallback(async () => setClientes(await fetchClientes()), [])
   useEffect(() => { load() }, [load])
@@ -99,8 +101,13 @@ export function AdminClientesTab() {
   const criar = async () => {
     if (!nome.trim()) { alert('Informe o nome'); return }
     setSaving(true)
-    await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null })
-    setNome(''); setCidade(''); setTelefone(''); setEmail('')
+    const docLimpo = documento.replace(/\D/g, '') || null
+    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, documento: docLimpo })
+    if (error) {
+      alert(error.code === '23505' || error.message?.includes('unique') ? 'Já existe um cliente com este CPF/CNPJ cadastrado' : 'Erro: ' + error.message)
+      setSaving(false); return
+    }
+    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setDocumento('')
     await load(); setSaving(false)
   }
 
@@ -113,6 +120,7 @@ export function AdminClientesTab() {
           <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
+      <input value={documento} onChange={e => setDocumento(fmtDoc(e.target.value))} placeholder="CPF ou CNPJ" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
         <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={inputStyle} />
         <input value={email} onChange={e => setEmail(e.target.value)} placeholder="E-mail" style={inputStyle} />
@@ -126,7 +134,7 @@ export function AdminClientesTab() {
         <div>
           <div style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</div>
           <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
-            {c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}
+            {c.documento && <span style={{ fontWeight: 600 }}>{fmtDoc(c.documento)} &nbsp;</span>}{c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}
           </div>
         </div>
         <button onClick={async () => { if (!confirm(`Deletar ${c.nome}?`)) return; await deleteCliente(c.id); load() }} style={{ ...btnSmall, fontSize: 11, padding: '4px 10px', color: '#EF4444' }}>Deletar</button>
