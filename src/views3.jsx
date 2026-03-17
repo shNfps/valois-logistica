@@ -238,14 +238,15 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
 }
 
 // ─── CLIENTE COMBOBOX ───
-export function ClienteCombobox({ clientes, value, onChange, onSelect }) {
+export function ClienteCombobox({ clientes, value, onChange, onSelect, onCreateNew }) {
   const [open, setOpen] = useState(false)
   const filtered = clientes.filter(c => !value || c.nome.toLowerCase().includes(value.toLowerCase())).slice(0, 8)
+  const showCreate = onCreateNew && value.trim() && filtered.length === 0
   return (
     <div style={{ position: 'relative' }}>
       <input value={value} onChange={e => { onChange(e.target.value); onSelect?.(null); setOpen(true) }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder="Nome do Cliente / Unidade" style={inputStyle} />
-      {open && filtered.length > 0 && (
+      {open && (filtered.length > 0 || showCreate) && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '2px solid #E2E8F0', borderTop: 'none', borderRadius: '0 0 10px 10px', zIndex: 50, maxHeight: 200, overflowY: 'auto', boxShadow: '0 8px 16px rgba(0,0,0,0.08)' }}>
           {filtered.map(c => (
             <div key={c.id} onMouseDown={() => { onChange(c.nome); onSelect?.(c); setOpen(false) }}
@@ -257,6 +258,14 @@ export function ClienteCombobox({ clientes, value, onChange, onSelect }) {
               {c.documento && <span style={{ fontSize: 10, color: '#94A3B8', marginLeft: 6 }}>{fmtDoc(c.documento)}</span>}
             </div>
           ))}
+          {showCreate && (
+            <div onMouseDown={() => { onCreateNew(value.trim()); setOpen(false) }}
+              style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, color: '#3B82F6', fontWeight: 600 }}
+              onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}>
+              ➕ Cadastrar "{value.trim()}" como novo cliente
+            </div>
+          )}
         </div>
       )}
     </div>

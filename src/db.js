@@ -10,6 +10,7 @@ export const getRef = (p) => {
 }
 
 export const CIDADES = ['Araruama','Saquarema','Cabo Frio','São Pedro','Búzios','Macaé','Rio das Ostras','Nova Friburgo','Campos']
+export const VEICULOS = [{key:'van',label:'Van',icon:'🚐'},{key:'kombi',label:'Kombi',icon:'🚌'},{key:'carro',label:'Carro',icon:'🚗'},{key:'moto',label:'Moto',icon:'🏍️'}]
 export const ROTA_ORDEM = {'Saquarema':0,'Araruama':1,'São Pedro':2,'Cabo Frio':3,'Búzios':4,'Rio das Ostras':5,'Macaé':6,'Campos':7,'Nova Friburgo':8}
 export const CATEGORIAS_PRODUTO = ['Descartáveis','Químicos','Higiene Pessoal','Limpeza Geral','Equipamentos','Papel','Outros']
 export const FABRICANTES = ['Sevengel','Tork','Ipel','Maranso','Renko','Stork','Riosampa','Nobre','Frilca']
@@ -52,7 +53,8 @@ export async function addHistorico(pedidoId,usuarioNome,acao){await supabase.fro
 export async function fetchProdutos(){const{data,error}=await supabase.from('produtos').select('*').order('categoria').order('nome');if(error){console.error(error);return[]};return data||[]}
 
 export async function uploadPdf(file,folder){
-  const filename=`${folder}/${Date.now()}_${file.name}`
+  const cleanName=file.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_')
+  const filename=`${folder}/${Date.now()}_${cleanName}`
   const{error}=await supabase.storage.from('documentos').upload(filename,file,{contentType:'application/pdf'})
   if(error){console.error('Upload error:',error);return null}
   const{data:urlData}=supabase.storage.from('documentos').getPublicUrl(filename);return urlData.publicUrl
@@ -84,6 +86,14 @@ export function hasSetor(user,setor){if(!user.setores)return user.setor===setor;
 export async function fetchClientes(){const{data,error}=await supabase.from('clientes').select('*').order('nome');if(error){console.error(error);return[]};return data||[]}
 export async function createCliente(c){const{data,error}=await supabase.from('clientes').insert(c).select().single();if(error)console.error(error);return{data:data||null,error:error||null}}
 export async function deleteCliente(id){const{error}=await supabase.from('clientes').delete().eq('id',id);if(error)console.error(error)}
+
+// Rotas
+export async function createRota(motoristaNome,cidade,veiculo){const{data,error}=await supabase.from('rotas').insert({motorista_nome:motoristaNome,cidade,veiculo,status:'ativa'}).select().single();if(error){console.error(error);return null};return data}
+export async function addRotaPedidos(rotaId,pedidoIds){const rows=pedidoIds.map(pid=>({rota_id:rotaId,pedido_id:pid}));const{error}=await supabase.from('rota_pedidos').insert(rows);if(error)console.error(error)}
+export async function fetchRotaAtiva(motoristaNome){const{data,error}=await supabase.from('rotas').select('*').eq('motorista_nome',motoristaNome).eq('status','ativa').order('criado_em',{ascending:false}).limit(1).maybeSingle();if(error){console.error(error);return null};return data||null}
+export async function fetchRotaPedidoIds(rotaId){const{data,error}=await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id',rotaId);if(error){console.error(error);return[]};return(data||[]).map(r=>r.pedido_id)}
+export async function finalizarRota(rotaId){const{error}=await supabase.from('rotas').update({status:'finalizada'}).eq('id',rotaId);if(error)console.error(error)}
+export async function fetchRotasAtivas(){const{data,error}=await supabase.from('rotas').select('*').eq('status','ativa').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}
 
 // Pedido Itens
 export async function fetchPedidoItens(pedidoId){const{data,error}=await supabase.from('pedido_itens').select('*').eq('pedido_id',pedidoId).order('criado_em');if(error){console.error(error);return[]};return data||[]}

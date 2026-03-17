@@ -2,12 +2,17 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
+import { ClientesTab, NovoClienteRapidoModal } from './views4.jsx'
+
+const tabBtn=(active)=>({padding:'8px 16px',borderRadius:'8px 8px 0 0',border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:13,background:active?'#0A1628':'transparent',color:active?'#fff':'#64748B'})
 
 // ─── COMERCIAL VIEW ───
 export function ComercialView({ pedidos, refresh, user }) {
+  const [tab,setTab]=useState('pedidos')
   const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
   const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('')
   const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
+  const [novoClienteNome,setNovoClienteNome]=useState(null)
   const fileRef=useRef(null);const nfFileRefs=useRef({})
   useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
@@ -44,25 +49,33 @@ export function ComercialView({ pedidos, refresh, user }) {
     <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
   </div>)
   return(<div>
-    <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
-    <div style={{...card,padding:24,marginBottom:20}}>
-      <h3 style={{margin:'0 0 16px',fontSize:16,fontWeight:700,color:'#0A1628'}}>Novo Pedido</h3>
-      <div style={{display:'grid',gridTemplateColumns:'90px 1fr',gap:12,marginBottom:10}}>
-        <input value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Nº" style={inputStyle}/>
-        <ClienteCombobox clientes={clientes} value={cliente} onChange={v=>{setCliente(v);setClienteId(null)}} onSelect={c=>{if(c){setCliente(c.nome);setClienteId(c.id)}}}/>
-      </div>
-      <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
-        <option value="">Selecione a cidade...</option>{CIDADES.map(c=><option key={c} value={c}>{c}</option>)}
-      </select>
-      <input type="file" accept=".pdf" ref={fileRef} onChange={handleFileSelect} style={{display:'none'}}/>
-      <button onClick={()=>fileRef.current.click()} style={{...btnSmall,width:'100%',justifyContent:'center',marginBottom:12,borderColor:arquivo?'#10B981':'#CBD5E1',color:arquivo?'#10B981':'#64748B'}}>
-        {arquivo?`✓ ${arquivo.name}`:'📎 Selecionar PDF do Orçamento *'}
-      </button>
-      <button onClick={handleSubmit} disabled={uploading} style={{...btnPrimary,width:'100%',opacity:uploading?0.6:1}}>{uploading?'Enviando...':'+ Criar Pedido'}</button>
+    <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
+      <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
+      <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
     </div>
-    {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>{g.items.map(renderCard)}</DateGroup>)}
-    {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
-    {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
+    {tab==='clientes'&&<ClientesTab/>}
+    {tab==='pedidos'&&<>
+      <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
+      <div style={{...card,padding:24,marginBottom:20}}>
+        <h3 style={{margin:'0 0 16px',fontSize:16,fontWeight:700,color:'#0A1628'}}>Novo Pedido</h3>
+        <div style={{display:'grid',gridTemplateColumns:'90px 1fr',gap:12,marginBottom:10}}>
+          <input value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Nº" style={inputStyle}/>
+          <ClienteCombobox clientes={clientes} value={cliente} onChange={v=>{setCliente(v);setClienteId(null)}} onSelect={c=>{if(c){setCliente(c.nome);setClienteId(c.id)}}} onCreateNew={nome=>setNovoClienteNome(nome)}/>
+        </div>
+        <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
+          <option value="">Selecione a cidade...</option>{CIDADES.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <input type="file" accept=".pdf" ref={fileRef} onChange={handleFileSelect} style={{display:'none'}}/>
+        <button onClick={()=>fileRef.current.click()} style={{...btnSmall,width:'100%',justifyContent:'center',marginBottom:12,borderColor:arquivo?'#10B981':'#CBD5E1',color:arquivo?'#10B981':'#64748B'}}>
+          {arquivo?`✓ ${arquivo.name}`:'📎 Selecionar PDF do Orçamento *'}
+        </button>
+        <button onClick={handleSubmit} disabled={uploading} style={{...btnPrimary,width:'100%',opacity:uploading?0.6:1}}>{uploading?'Enviando...':'+ Criar Pedido'}</button>
+      </div>
+      {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>{g.items.map(renderCard)}</DateGroup>)}
+      {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
+      {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
+    </>}
+    {novoClienteNome&&<NovoClienteRapidoModal nomeInicial={novoClienteNome} onClose={()=>setNovoClienteNome(null)} onCriado={c=>{if(c){setCliente(c.nome);setClienteId(c.id);setClientes(prev=>[...prev,c])}}}/>}
   </div>)
 }
 
@@ -104,50 +117,10 @@ export function GalpaoView({ pedidos, refresh, user }) {
   </div>)
 }
 
-// ─── MOTORISTA VIEW ───
-export function MotoristaView({ pedidos, refresh, user }) {
-  const [viewing,setViewing]=useState(null);const [signing,setSigning]=useState(false);const [saving,setSaving]=useState(false)
-  const pendentes=pedidos.filter(p=>['NF_EMITIDA','EM_ROTA'].includes(p.status));const entregues=pedidos.filter(p=>p.status==='ENTREGUE')
-  const porCidade=groupByCidade(pendentes)
-  const iniciarRota=async(id)=>{setSaving(true);await updatePedido(id,{status:'EM_ROTA',entregue_por:user.nome});await addHistorico(id,user.nome,'Iniciou rota');refresh();setSaving(false)}
-  const confirmarEntrega=async(id,{assinatura,cpf})=>{setSaving(true);await updatePedido(id,{status:'ENTREGUE',entrega_assinatura:assinatura,entrega_cpf:cpf,entrega_data:new Date().toISOString(),entregue_por:user.nome});await addHistorico(id,user.nome,'Entregou — CPF: '+cpf);refresh();setSigning(false);setViewing(null);setSaving(false)}
-  if(viewing){const p=pedidos.find(x=>x.id===viewing);if(!p){setViewing(null);return null}
-    if(signing)return<SignaturePad onSave={data=>confirmarEntrega(p.id,data)} onCancel={()=>setSigning(false)}/>
-    return(<div>
-      <button onClick={()=>setViewing(null)} style={{...btnSmall,marginBottom:16}}>← Voltar</button>
-      <div style={{...card,padding:20,marginBottom:16}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><h3 style={{margin:0,fontSize:17,color:'#0A1628'}}>{p.cliente}</h3><Badge status={p.status}/></div>
-        {p.cidade&&<div style={{fontSize:13,color:'#64748B',marginBottom:10}}>📍 {p.cidade}</div>}
-        {p.nf_url&&<PdfViewer url={p.nf_url} title="Nota Fiscal"/>}
-      </div>
-      <div style={{display:'flex',gap:10}}>
-        {p.status==='NF_EMITIDA'&&<button onClick={()=>iniciarRota(p.id)} disabled={saving} style={{...btnPrimary,flex:1,background:'#8B5CF6'}}>🚛 Iniciar Rota</button>}
-        {p.status==='EM_ROTA'&&<button onClick={()=>setSigning(true)} style={{...btnPrimary,flex:1,background:'#059669'}}>✍ Coletar Assinatura</button>}
-      </div>
-    </div>)}
-  return(<div>
-    <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Entregas por Rota ({pendentes.length})</h3>
-    {pendentes.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhuma entrega pendente</div>}
-    {porCidade.map(g=>(<CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}>
-      {g.items.map(p=>(<div key={p.id} onClick={()=>setViewing(p.id)} style={{...card,cursor:'pointer',border:'2px solid transparent'}} onMouseEnter={e=>e.currentTarget.style.borderColor='#CBD5E1'} onMouseLeave={e=>e.currentTarget.style.borderColor='transparent'}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{background:'#F1F5F9',color:'#64748B',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:6,fontFamily:'monospace'}}>{getRef(p)}</span><span style={{fontWeight:700,color:'#0A1628'}}>{p.cliente}</span></div><Badge status={p.status}/>
-        </div><div style={{fontSize:12,color:'#94A3B8',marginTop:6}}>{p.motorista&&'🚛 '+p.motorista+' · '}{fmt(p.atualizado_em)}</div>
-      </div>))}
-    </CidadeGroup>))}
-    {entregues.length>0&&(<>
-      <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'28px 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Entregues ({entregues.length})</h3>
-      {entregues.slice(0,20).map(p=>(<div key={p.id} style={{...card,background:'#F0FDF4',opacity:0.85}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{background:'#D1FAE5',color:'#059669',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:6,fontFamily:'monospace'}}>{getRef(p)}</span><span style={{fontWeight:700,color:'#0A1628'}}>{p.cliente}</span>{p.cidade&&<span style={{fontSize:10,color:'#94A3B8'}}>📍{p.cidade}</span>}</div><Badge status={p.status}/>
-        </div>{p.entrega_cpf&&<div style={{fontSize:12,color:'#059669',marginTop:6}}>CPF: {p.entrega_cpf} · {fmt(p.entrega_data)}</div>}
-      </div>))}
-    </>)}
-  </div>)
-}
 
 // ─── VENDEDOR VIEW ───
 export function VendedorView({ user }) {
+  const [tab,setTab]=useState('catalogo')
   const [produtos,setProdutos]=useState([]);const [search,setSearch]=useState('');const [catFilter,setCatFilter]=useState('')
   const [carrinho,setCarrinho]=useState([]);const [clienteOrc,setClienteOrc]=useState('')
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
@@ -171,6 +144,12 @@ export function VendedorView({ user }) {
   const cats=[...new Set(produtos.map(p=>p.categoria))].sort()
 
   return(<div>
+    <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
+      <button onClick={()=>setTab('catalogo')} style={tabBtn(tab==='catalogo')}>🛍 Catálogo</button>
+      <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
+    </div>
+    {tab==='clientes'&&<ClientesTab/>}
+    {tab==='catalogo'&&<>
     <SearchBar value={search} onChange={setSearch} placeholder="Buscar produto..."/>
     <div style={{display:'flex',gap:4,marginBottom:16,flexWrap:'wrap'}}>
       <button onClick={()=>setCatFilter('')} style={{padding:'5px 12px',borderRadius:8,border:'none',cursor:'pointer',background:!catFilter?'#0A1628':'#E2E8F0',color:!catFilter?'#fff':'#64748B',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>Todos</button>
@@ -211,5 +190,6 @@ export function VendedorView({ user }) {
       </div>
       <button onClick={gerarOrcamento} style={{...btnPrimary,width:'100%',marginTop:12,background:'#EC4899'}}>📄 Gerar Orçamento</button>
     </div>)}
+    </>}
   </div>)
 }

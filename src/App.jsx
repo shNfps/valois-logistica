@@ -3,7 +3,8 @@ import { supabase } from './supabase.js'
 import { SETOR_MAP, fetchPedidos } from './db.js'
 import { Loader, LoginScreen } from './components.jsx'
 import { AdminView } from './views.jsx'
-import { ComercialView, GalpaoView, MotoristaView, VendedorView } from './views2.jsx'
+import { ComercialView, GalpaoView, VendedorView } from './views2.jsx'
+import { MotoristaView } from './views5.jsx'
 
 export default function App() {
   const [user, setUser] = useState(() => {

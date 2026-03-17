@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, updateProduto, deleteProduto } from './db.js'
+import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
 
@@ -12,9 +12,12 @@ export function AdminView({ pedidos, refresh, user }) {
   const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
   const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null)
+  const [rotasAtivas,setRotasAtivas]=useState([])
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
+  const loadRotas=useCallback(async()=>{setRotasAtivas(await fetchRotasAtivas())},[])
   useEffect(()=>{loadUsuarios();loadProdutos()},[loadUsuarios,loadProdutos])
+  useEffect(()=>{if(tab==='dashboard')loadRotas()},[tab,loadRotas])
   const toggleSetor=(s)=>{setSetoresNovo(prev=>prev.includes(s)?prev.filter(x=>x!==s):[...prev,s])}
   const criarUsuario=async()=>{
     if(!nome.trim()||!usuarioNovo.trim()||!senhaNova.trim()||setoresNovo.length===0){alert('Preencha tudo e selecione ao menos 1 setor');return}
@@ -45,6 +48,23 @@ export function AdminView({ pedidos, refresh, user }) {
 
     {tab==='dashboard'&&(<div>
       <AdminVendasSection pedidos={pedidos}/>
+      {rotasAtivas.length>0&&(<div style={{marginBottom:20}}>
+        <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 12px',textTransform:'uppercase',letterSpacing:1.5}}>Rotas Ao Vivo ({rotasAtivas.length})</h3>
+        <style>{`@keyframes blink-red{0%,100%{opacity:1}50%{opacity:0.15}}`}</style>
+        {rotasAtivas.map(r=>{const vi=VEICULOS.find(v=>v.key===r.veiculo)?.icon||'🚐';const emRota=pedidos.filter(p=>p.status==='EM_ROTA'&&p.entregue_por===r.motorista_nome).length;return(<div key={r.id} style={{...card,borderLeft:'3px solid #EF4444',padding:'12px 16px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <span style={{fontWeight:700,color:'#0A1628',fontSize:14}}>{vi} {r.motorista_nome}</span>
+              <span style={{fontSize:12,color:'#64748B',marginLeft:8}}>📍 {r.cidade} · {r.veiculo}</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:4}}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:'#EF4444',display:'inline-block',animation:'blink-red 1s infinite'}}/>
+              <span style={{fontSize:11,fontWeight:700,color:'#EF4444',letterSpacing:1}}>AO VIVO</span>
+            </div>
+          </div>
+          {emRota>0&&<div style={{fontSize:11,color:'#94A3B8',marginTop:4}}>{emRota} pedido{emRota!==1?'s':''} em trânsito</div>}
+        </div>)})}
+      </div>)}
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Pipeline</h3>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:20}}>
         {Object.entries(STATUS_MAP).map(([key,s])=>(<div key={key} style={{background:'#fff',borderRadius:12,padding:14,textAlign:'center',borderLeft:`4px solid ${s.color}`,boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
