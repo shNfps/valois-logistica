@@ -56,7 +56,7 @@ export function AdminView({ pedidos, refresh, user }) {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div>
               <span style={{fontWeight:700,color:'#0A1628',fontSize:14}}>{vi} {r.motorista_nome}</span>
-              <span style={{fontSize:12,color:'#64748B',marginLeft:8}}>📍 {r.cidade} · {r.veiculo}</span>
+              <span style={{fontSize:12,color:'#64748B',marginLeft:8}}>📍 {r.cidades?.length > 0 ? r.cidades.join(', ') : r.cidade} · {r.veiculo}</span>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6}}>
               <button onClick={e=>{e.stopPropagation();setEditRota(r)}} style={{...btnSmall,fontSize:11,padding:'3px 8px',color:'#3B82F6'}}>✏️ Editar</button>

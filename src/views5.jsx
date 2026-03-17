@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fmt, getRef, groupByCidade, CIDADES, VEICULOS, inputStyle, btnPrimary, btnSmall, card, updatePedido, addHistorico, createRota, addRotaPedidos, fetchRotaAtiva, fetchRotaPedidoIds, finalizarRota } from './db.js'
+import { fmt, getRef, groupByCidade, CIDADES, VEICULOS, ROTA_ORDEM, inputStyle, btnPrimary, btnSmall, card, updatePedido, addHistorico, createRota, addRotaPedidos, fetchRotaAtiva, fetchRotaPedidoIds, finalizarRota } from './db.js'
 import { Badge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
@@ -16,7 +16,7 @@ export function RotaAtivaBanner({ rota, total, entregues, onFechar }) {
             <span style={{ fontSize: 26 }}>✅</span>
             <div>
               <div style={{ fontWeight: 800, fontSize: 15 }}>ROTA FINALIZADA</div>
-              <div style={{ fontSize: 12, opacity: 0.7 }}>{rota.cidade} · {vIcon(rota.veiculo)} · {total} entrega{total !== 1 ? 's' : ''}</div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>{rota.cidades?.length > 0 ? rota.cidades.join(', ') : rota.cidade} · {vIcon(rota.veiculo)} · {total} entrega{total !== 1 ? 's' : ''}</div>
             </div>
           </div>
           {onFechar && <button onClick={onFechar} style={{ ...btnSmall, background: '#10B981', color: '#fff', border: 'none', fontSize: 12 }}>Fechar</button>}
@@ -27,7 +27,7 @@ export function RotaAtivaBanner({ rota, total, entregues, onFechar }) {
             <span style={{ fontSize: 28, display: 'inline-block', animation: 'truck-move 1.2s ease-in-out infinite' }}>{vIcon(rota.veiculo)}</span>
             <div>
               <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: 1 }}>ROTA ATIVA</div>
-              <div style={{ fontSize: 12, color: '#94A3B8' }}>{rota.cidade} · {rota.veiculo}</div>
+              <div style={{ fontSize: 12, color: '#94A3B8' }}>{rota.cidades?.length > 0 ? rota.cidades.join(', ') : rota.cidade} · {rota.veiculo}</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -46,32 +46,57 @@ export function RotaAtivaBanner({ rota, total, entregues, onFechar }) {
 
 // ─── MONTAR ROTA SCREEN ───
 function MontarRotaScreen({ pedidos, user, onRotaCriada, onCancel }) {
-  const [cidade, setCidade] = useState(''); const [veiculo, setVeiculo] = useState('')
-  const [selecionados, setSelecionados] = useState(new Set()); const [saving, setSaving] = useState(false)
-  const disponiveis = pedidos.filter(p => p.cidade === cidade && p.status === 'NF_EMITIDA')
+  const [cidades, setCidades] = useState(new Set())
+  const [veiculo, setVeiculo] = useState('')
+  const [selecionados, setSelecionados] = useState(new Set())
+  const [saving, setSaving] = useState(false)
+
+  const toggleCidade = (c) => {
+    const next = new Set(cidades)
+    if (next.has(c)) {
+      next.delete(c)
+      setSelecionados(prev => { const s = new Set(prev); pedidos.filter(p => p.cidade === c).forEach(p => s.delete(p.id)); return s })
+    } else { next.add(c) }
+    setCidades(next)
+  }
   const toggle = id => setSelecionados(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+
   const iniciar = async () => {
-    if (!cidade) { alert('Selecione a cidade'); return }
+    if (cidades.size === 0) { alert('Selecione ao menos 1 cidade'); return }
     if (!veiculo) { alert('Selecione o veículo'); return }
     if (selecionados.size === 0) { alert('Selecione ao menos 1 pedido'); return }
     setSaving(true)
-    const rota = await createRota(user.nome, cidade, veiculo); if (!rota) { setSaving(false); return }
+    const cidadesArr = [...cidades].sort((a, b) => (ROTA_ORDEM[a] ?? 99) - (ROTA_ORDEM[b] ?? 99))
+    const rota = await createRota(user.nome, cidadesArr[0], veiculo, cidadesArr)
+    if (!rota) { setSaving(false); return }
     await addRotaPedidos(rota.id, [...selecionados])
     for (const id of selecionados) {
+      const p = pedidos.find(x => x.id === id)
       await updatePedido(id, { status: 'EM_ROTA', entregue_por: user.nome })
-      await addHistorico(id, user.nome, 'Iniciou rota — ' + cidade)
+      await addHistorico(id, user.nome, 'Iniciou rota — ' + (p?.cidade || cidadesArr.join(', ')))
     }
     setSaving(false); onRotaCriada(rota, [...selecionados])
   }
+
+  const cidadesOrdenadas = [...cidades].sort((a, b) => (ROTA_ORDEM[a] ?? 99) - (ROTA_ORDEM[b] ?? 99))
+
   return (
     <div>
       <button onClick={onCancel} style={{ ...btnSmall, marginBottom: 16 }}>← Voltar</button>
       <div style={{ ...card, padding: 20 }}>
         <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0A1628' }}>🗺️ Montar Rota</h3>
-        <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Cidade</label>
-        <select value={cidade} onChange={e => { setCidade(e.target.value); setSelecionados(new Set()) }} style={{ ...inputStyle, marginBottom: 16, cursor: 'pointer', color: cidade ? '#0A1628' : '#94A3B8' }}>
-          <option value="">Selecione a cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 8 }}>Cidades</label>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 18, flexWrap: 'wrap' }}>
+          {CIDADES.map(c => {
+            const active = cidades.has(c)
+            const count = pedidos.filter(p => p.cidade === c && p.status === 'NF_EMITIDA').length
+            return (
+              <button key={c} onClick={() => toggleCidade(c)} style={{ padding: '7px 12px', borderRadius: 10, border: `2px solid ${active ? '#3B82F6' : '#E2E8F0'}`, background: active ? '#EFF6FF' : '#fff', color: active ? '#1D4ED8' : count > 0 ? '#334155' : '#94A3B8', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                {c}{count > 0 && <span style={{ marginLeft: 4, fontSize: 11, opacity: 0.8 }}>({count})</span>}
+              </button>
+            )
+          })}
+        </div>
         <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 8 }}>Veículo</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
           {VEICULOS.map(v => (
@@ -80,20 +105,26 @@ function MontarRotaScreen({ pedidos, user, onRotaCriada, onCancel }) {
             </button>
           ))}
         </div>
-        {cidade && (<>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 8 }}>
-            Pedidos com NF em {cidade} ({disponiveis.length})
-          </label>
-          {disponiveis.length === 0 && <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', padding: '16px 0' }}>Nenhum pedido com NF emitida nessa cidade</div>}
-          {disponiveis.map(p => (
-            <div key={p.id} onClick={() => toggle(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #F1F5F9', cursor: 'pointer' }}>
-              <input type="checkbox" checked={selecionados.has(p.id)} onChange={() => toggle(p.id)} onClick={e => e.stopPropagation()} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: 4 }}>{getRef(p)}</span>
-              <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', fontSize: 14 }}>{p.cliente}</span>
+        {cidadesOrdenadas.map(cidade => {
+          const disponiveis = pedidos.filter(p => p.cidade === cidade && p.status === 'NF_EMITIDA')
+          return (
+            <div key={cidade} style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#334155', background: '#F1F5F9', padding: '7px 12px', borderRadius: 8, marginBottom: 6 }}>
+                📍 {cidade} · {disponiveis.length} pedido{disponiveis.length !== 1 ? 's' : ''} disponível{disponiveis.length !== 1 ? 'is' : ''}
+              </div>
+              {disponiveis.length === 0
+                ? <div style={{ fontSize: 12, color: '#94A3B8', padding: '6px 12px' }}>Nenhum pedido com NF emitida nessa cidade</div>
+                : disponiveis.map(p => (
+                  <div key={p.id} onClick={() => toggle(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F1F5F9', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={selecionados.has(p.id)} onChange={() => toggle(p.id)} onClick={e => e.stopPropagation()} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                    <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: 4 }}>{getRef(p)}</span>
+                    <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', fontSize: 14 }}>{p.cliente}</span>
+                  </div>
+                ))}
             </div>
-          ))}
-        </>)}
-        <button onClick={iniciar} disabled={saving || selecionados.size === 0} style={{ ...btnPrimary, width: '100%', marginTop: 18, opacity: saving || selecionados.size === 0 ? 0.5 : 1 }}>
+          )
+        })}
+        <button onClick={iniciar} disabled={saving || selecionados.size === 0} style={{ ...btnPrimary, width: '100%', marginTop: 10, opacity: saving || selecionados.size === 0 ? 0.5 : 1 }}>
           {saving ? 'Iniciando...' : `🚀 Iniciar Rota (${selecionados.size} pedido${selecionados.size !== 1 ? 's' : ''})`}
         </button>
       </div>

@@ -41,7 +41,7 @@ export function VendedorRotasTab() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 14 }}>{vIcon(r.veiculo)} {r.motorista_nome}</span>
-                <span style={{ fontSize: 12, color: '#64748B', marginLeft: 8 }}>📍 {r.cidade}</span>
+                <span style={{ fontSize: 12, color: '#64748B', marginLeft: 8 }}>📍 {r.cidades?.length > 0 ? r.cidades.join(', ') : r.cidade}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#EF4444', display: 'inline-block', animation: 'blink-red 1s infinite' }} />
@@ -83,8 +83,9 @@ export function AdminEditRotaScreen({ rota, pedidos, onClose, onSaved }) {
   }, [rota.id])
   useEffect(() => { load() }, [load])
 
+  const rotaCidades = rota.cidades?.length > 0 ? rota.cidades : [rota.cidade]
   const pedidosNaRota = pedidos.filter(p => rotaPedidoIds.includes(p.id))
-  const pedidosDisponiveis = pedidos.filter(p => p.cidade === rota.cidade && p.status === 'NF_EMITIDA')
+  const pedidosDisponiveis = pedidos.filter(p => rotaCidades.includes(p.cidade) && p.status === 'NF_EMITIDA')
 
   const remover = async (pedidoId) => {
     if (!confirm('Remover este pedido da rota?')) return
@@ -110,7 +111,7 @@ export function AdminEditRotaScreen({ rota, pedidos, onClose, onSaved }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>✏️ Editar Rota</h3>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>{vIcon(rota.veiculo)} {rota.cidade} · {rota.motorista_nome}</div>
+            <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>{vIcon(rota.veiculo)} {rota.cidades?.length > 0 ? rota.cidades.join(', ') : rota.cidade} · {rota.motorista_nome}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#94A3B8' }}>✕</button>
         </div>
@@ -131,7 +132,7 @@ export function AdminEditRotaScreen({ rota, pedidos, onClose, onSaved }) {
         {pedidosDisponiveis.length > 0 && (
           <div style={{ marginTop: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10 }}>
-              Adicionar à Rota · NF Emitidas em {rota.cidade}
+              Adicionar à Rota · NF Emitidas em {rotaCidades.join(', ')}
             </div>
             {pedidosDisponiveis.map(p => (
               <div key={p.id} onClick={() => toggle(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F1F5F9', cursor: 'pointer' }}>
@@ -145,7 +146,7 @@ export function AdminEditRotaScreen({ rota, pedidos, onClose, onSaved }) {
             </button>
           </div>
         )}
-        {pedidosDisponiveis.length === 0 && <div style={{ marginTop: 16, fontSize: 12, color: '#94A3B8', textAlign: 'center' }}>Nenhum pedido com NF emitida disponível em {rota.cidade}</div>}
+        {pedidosDisponiveis.length === 0 && <div style={{ marginTop: 16, fontSize: 12, color: '#94A3B8', textAlign: 'center' }}>Nenhum pedido com NF emitida disponível em {rotaCidades.join(', ')}</div>}
       </div>
     </div>
   )
