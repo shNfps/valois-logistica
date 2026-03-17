@@ -1,36 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente } from './db.js'
-
-// ─── CLIENTE DETAIL ───
-function ClienteDetail({ cliente, onBack }) {
-  return (
-    <div>
-      <button onClick={onBack} style={{ ...btnSmall, marginBottom: 16 }}>← Voltar</button>
-      <div style={{ ...card, padding: 20, marginBottom: 12 }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 700, color: '#0A1628' }}>{cliente.nome}</h3>
-        <div style={{ fontSize: 13, color: '#64748B', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {cliente.cidade && <span>📍 {cliente.cidade}</span>}
-          {cliente.telefone && <span>📞 {cliente.telefone}</span>}
-          {cliente.email && <span>✉ {cliente.email}</span>}
-        </div>
-      </div>
-      <div style={{ ...card, padding: 16, marginBottom: 10 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 6 }}>Últimos Pedidos</div>
-        <div style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic' }}>Em breve...</div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div style={{ ...card, padding: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1 }}>Produto mais comprado</div>
-          <div style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic', marginTop: 6 }}>Em breve...</div>
-        </div>
-        <div style={{ ...card, padding: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1 }}>Valor total gasto</div>
-          <div style={{ fontSize: 13, color: '#CBD5E1', fontStyle: 'italic', marginTop: 6 }}>Em breve...</div>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { ClienteDetalhe } from './views6.jsx'
 
 // ─── CLIENTES TAB (COMERCIAL / VENDEDOR) ───
 export function ClientesTab() {
@@ -55,7 +25,7 @@ export function ClientesTab() {
   if (selecionado) {
     const c = clientes.find(x => x.id === selecionado)
     if (!c) { setSelecionado(null); return null }
-    return <ClienteDetail cliente={c} onBack={() => setSelecionado(null)} />
+    return <ClienteDetalhe cliente={c} onBack={() => setSelecionado(null)} />
   }
 
   return (

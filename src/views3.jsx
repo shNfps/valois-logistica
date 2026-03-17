@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { extractItemsFromPdf } from './ai.js'
 import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, CIDADES, FABRICANTES, CATEGORIAS_PRODUTO, fetchClientes, createCliente, deleteCliente, createProduto, savePedidoItens, uploadImage, updateProduto } from './db.js'
+import { ClienteDetalhe } from './views6.jsx'
 
 // ─── EXTRACTOR PANEL ───
 export function ExtractorPanel({ pedido, onClose, onSaved }) {
@@ -92,11 +93,18 @@ const fmtDoc = v => { const n=v.replace(/\D/g,'').slice(0,14); if(n.length<=3)re
 
 export function AdminClientesTab({ pedidos = [] }) {
   const [clientes, setClientes] = useState([])
+  const [selecionado, setSelecionado] = useState(null)
   const [nome, setNome] = useState(''); const [cidade, setCidade] = useState('')
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState(''); const [documento, setDocumento] = useState('')
   const [saving, setSaving] = useState(false)
   const load = useCallback(async () => setClientes(await fetchClientes()), [])
   useEffect(() => { load() }, [load])
+
+  if (selecionado) {
+    const c = clientes.find(x => x.id === selecionado)
+    if (!c) { setSelecionado(null); return null }
+    return <ClienteDetalhe cliente={c} onBack={() => setSelecionado(null)} />
+  }
 
   const criar = async () => {
     if (!nome.trim()) { alert('Informe o nome'); return }
@@ -131,7 +139,7 @@ export function AdminClientesTab({ pedidos = [] }) {
     {clientes.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>Nenhum cliente cadastrado</div>}
     {clientes.map(c => {
       const nPedidos = pedidos.filter(p => p.cliente_id === c.id).length
-      return (<div key={c.id} style={card}>
+      return (<div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -142,7 +150,7 @@ export function AdminClientesTab({ pedidos = [] }) {
               {c.documento && <span style={{ fontWeight: 600 }}>{fmtDoc(c.documento)} &nbsp;</span>}{c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}
             </div>
           </div>
-          <button onClick={async () => { if (!confirm(`Deletar ${c.nome}?`)) return; await deleteCliente(c.id); load() }} style={{ ...btnSmall, fontSize: 11, padding: '4px 10px', color: '#EF4444' }}>Deletar</button>
+          <button onClick={async (e) => { e.stopPropagation(); if (!confirm(`Deletar ${c.nome}?`)) return; await deleteCliente(c.id); load() }} style={{ ...btnSmall, fontSize: 11, padding: '4px 10px', color: '#EF4444' }}>Deletar</button>
         </div>
       </div>)
     })}

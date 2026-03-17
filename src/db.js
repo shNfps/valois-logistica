@@ -83,6 +83,8 @@ export async function deleteProduto(id){const{error}=await supabase.from('produt
 export function hasSetor(user,setor){if(!user.setores)return user.setor===setor;return user.setores.includes(setor)}
 
 // Clientes
+export async function fetchPedidosByCliente(nome){const{data,error}=await supabase.from('pedidos').select('*').ilike('cliente','%'+nome+'%').order('criado_em',{ascending:false}).limit(20);if(error){console.error(error);return[]};return data||[]}
+export async function fetchItensByPedidoIds(ids){if(!ids||ids.length===0)return[];const{data,error}=await supabase.from('pedido_itens').select('*').in('pedido_id',ids);if(error){console.error(error);return[]};return data||[]}
 export async function fetchClientes(){const{data,error}=await supabase.from('clientes').select('*').order('nome');if(error){console.error(error);return[]};return data||[]}
 export async function createCliente(c){const{data,error}=await supabase.from('clientes').insert(c).select().single();if(error)console.error(error);return{data:data||null,error:error||null}}
 export async function deleteCliente(id){const{error}=await supabase.from('clientes').delete().eq('id',id);if(error)console.error(error)}
