@@ -38,7 +38,9 @@ export function filterPedidos(pedidos, search) {
 
 export const STATUS_MAP={PENDENTE:{label:'Pendente',color:'#F59E0B',bg:'#FEF3C7'},CONFERIDO:{label:'Conferido',color:'#10B981',bg:'#D1FAE5'},INCOMPLETO:{label:'Incompleto',color:'#EF4444',bg:'#FEE2E2'},NF_EMITIDA:{label:'NF Emitida',color:'#3B82F6',bg:'#DBEAFE'},EM_ROTA:{label:'Em Rota',color:'#8B5CF6',bg:'#EDE9FE'},ENTREGUE:{label:'Entregue',color:'#059669',bg:'#A7F3D0'}}
 
-export const SETOR_MAP={admin:{label:'Admin',icon:'👑',color:'#F59E0B'},comercial:{label:'Comercial',icon:'📋',color:'#3B82F6'},galpao:{label:'Galpão',icon:'📦',color:'#10B981'},motorista:{label:'Motorista',icon:'🚛',color:'#8B5CF6'},vendedor:{label:'Vendedor',icon:'💰',color:'#EC4899'}}
+export const SETOR_MAP={admin:{label:'Admin',icon:'👑',color:'#F59E0B'},comercial:{label:'Comercial',icon:'📋',color:'#3B82F6'},galpao:{label:'Galpão',icon:'📦',color:'#10B981'},motorista:{label:'Motorista',icon:'🚛',color:'#8B5CF6'},vendedor:{label:'Vendedor',icon:'💰',color:'#0EA5E9'}}
+
+export const fmtCnpj = v => { if(!v)return''; const n=String(v).replace(/\D/g,'').slice(0,14); if(n.length<=2)return n; if(n.length<=5)return n.slice(0,2)+'.'+n.slice(2); if(n.length<=8)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5); if(n.length<=12)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8); return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8,12)+'-'+n.slice(12) }
 
 export const inputStyle={padding:'10px 14px',border:'2px solid #E2E8F0',borderRadius:10,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:'inherit',background:'#F8FAFC',width:'100%'}
 export const btnPrimary={display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'13px 20px',borderRadius:12,border:'none',background:'#0A1628',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}
@@ -96,6 +98,40 @@ export async function fetchRotaAtiva(motoristaNome){const{data,error}=await supa
 export async function fetchRotaPedidoIds(rotaId){const{data,error}=await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id',rotaId);if(error){console.error(error);return[]};return(data||[]).map(r=>r.pedido_id)}
 export async function finalizarRota(rotaId){const{error}=await supabase.from('rotas').update({status:'finalizada'}).eq('id',rotaId);if(error)console.error(error)}
 export async function fetchRotasAtivas(){const{data,error}=await supabase.from('rotas').select('*').eq('status','ativa').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}
+
+// Busca pedidos por IDs (para rotas)
+export async function fetchPedidosByIds(ids){if(!ids||!ids.length)return[];const{data,error}=await supabase.from('pedidos').select('id,cliente,status,numero_ref,criado_em,cidade').in('id',ids);if(error){console.error(error);return[]};return data||[]}
+export async function removeRotaPedido(rotaId,pedidoId){const{error}=await supabase.from('rota_pedidos').delete().eq('rota_id',rotaId).eq('pedido_id',pedidoId);if(error)console.error(error)}
+
+// Agrupamento por dia para a view comercial
+export function groupByDateDetalhado(pedidos){
+  const now=new Date();const today=new Date(now.getFullYear(),now.getMonth(),now.getDate())
+  const yesterday=new Date(today);yesterday.setDate(today.getDate()-1)
+  const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay())
+  const lastWeekStart=new Date(weekStart);lastWeekStart.setDate(weekStart.getDate()-7)
+  const monthStart=new Date(now.getFullYear(),now.getMonth(),1)
+  const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+  const lbl=d=>DIAS[d.getDay()]+', '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')
+  const key=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
+  const hoje=[],ontem=[],weekMap={},lwMap={},mes=[],ant=[]
+  pedidos.forEach(p=>{
+    const d=new Date(p.criado_em);const day=new Date(d.getFullYear(),d.getMonth(),d.getDate())
+    if(day>=today){hoje.push(p);return}
+    if(day>=yesterday){ontem.push(p);return}
+    if(day>=weekStart){const k=key(day);if(!weekMap[k])weekMap[k]={day,items:[]};weekMap[k].items.push(p);return}
+    if(day>=lastWeekStart){const k=key(day);if(!lwMap[k])lwMap[k]={day,items:[]};lwMap[k].items.push(p);return}
+    if(day>=monthStart){mes.push(p);return}
+    ant.push(p)
+  })
+  const groups=[]
+  if(hoje.length)groups.push({label:'Hoje',items:hoje})
+  if(ontem.length)groups.push({label:'Ontem',items:ontem})
+  Object.entries(weekMap).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([,{day,items}])=>groups.push({label:lbl(day),items}))
+  Object.entries(lwMap).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([,{day,items}])=>groups.push({label:lbl(day),items}))
+  if(mes.length)groups.push({label:'Este Mês',items:mes})
+  if(ant.length)groups.push({label:'Anteriores',items:ant})
+  return groups
+}
 
 // Pedido Itens
 export async function fetchPedidoItens(pedidoId){const{data,error}=await supabase.from('pedido_itens').select('*').eq('pedido_id',pedidoId).order('criado_em');if(error){console.error(error);return[]};return data||[]}

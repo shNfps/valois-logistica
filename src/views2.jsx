@@ -1,10 +1,32 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido } from './db.js'
+import { fmt, fmtMoney, getRef, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
 import { ClientesTab, NovoClienteRapidoModal } from './views4.jsx'
+import { VendedorRotasTab } from './views7.jsx'
 
 const tabBtn=(active)=>({padding:'8px 16px',borderRadius:'8px 8px 0 0',border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:13,background:active?'#0A1628':'transparent',color:active?'#fff':'#64748B'})
+
+function ProdutoPopup({prod,onClose,onAdd}){
+  return(
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+      <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:360,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+        {prod.img_url?<img src={prod.img_url} style={{width:'100%',height:300,objectFit:'cover'}}/>:<div style={{width:'100%',height:300,background:'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',fontSize:64}}>📦</div>}
+        <div style={{padding:20}}>
+          {prod.codigo&&<span style={{background:'#F1F5F9',color:'#64748B',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:6,fontFamily:'monospace',display:'inline-block',marginBottom:8}}>{prod.codigo}</span>}
+          <div style={{fontWeight:800,fontSize:18,color:'#0A1628',marginBottom:4}}>{prod.nome}</div>
+          <div style={{fontSize:13,color:'#94A3B8',marginBottom:4}}>{prod.categoria}</div>
+          {prod.categoria==='Químicos'&&prod.diluicao&&<div style={{fontSize:13,color:'#0EA5E9',marginBottom:8}}>💧 Diluição: {prod.diluicao}</div>}
+          <div style={{fontSize:24,fontWeight:800,color:'#059669',marginBottom:16}}>{fmtMoney(prod.preco)}</div>
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={onClose} style={{flex:1,...btnSmall,justifyContent:'center'}}>Fechar</button>
+            <button onClick={onAdd} style={{flex:2,background:'#0EA5E9',border:'none',borderRadius:10,color:'#fff',fontSize:13,fontWeight:700,padding:'11px',cursor:'pointer',fontFamily:'inherit'}}>+ Adicionar ao orçamento</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ─── COMERCIAL VIEW ───
 export function ComercialView({ pedidos, refresh, user }) {
@@ -27,7 +49,7 @@ export function ComercialView({ pedidos, refresh, user }) {
     const file=e.target.files[0];if(!file)return;setUploading(true)
     try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA'});await addHistorico(pedidoId,user.nome,'Anexou NF');refresh()}}finally{setUploading(false);e.target.value=''}
   }
-  const filtrados=filterPedidos(pedidos,search);const agrupados=groupByDate(filtrados)
+  const filtrados=filterPedidos(pedidos,search);const agrupados=groupByDateDetalhado(filtrados)
   const renderCard=(p)=>(<div key={p.id} style={card}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -71,7 +93,7 @@ export function ComercialView({ pedidos, refresh, user }) {
         </button>
         <button onClick={handleSubmit} disabled={uploading} style={{...btnPrimary,width:'100%',opacity:uploading?0.6:1}}>{uploading?'Enviando...':'+ Criar Pedido'}</button>
       </div>
-      {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>{g.items.map(renderCard)}</DateGroup>)}
+      {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'}>{g.items.map(renderCard)}</DateGroup>)}
       {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
       {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
     </>}
@@ -122,11 +144,11 @@ export function GalpaoView({ pedidos, refresh, user }) {
 export function VendedorView({ user }) {
   const [tab,setTab]=useState('catalogo')
   const [produtos,setProdutos]=useState([]);const [search,setSearch]=useState('');const [catFilter,setCatFilter]=useState('')
-  const [carrinho,setCarrinho]=useState([]);const [clienteOrc,setClienteOrc]=useState('')
+  const [carrinho,setCarrinho]=useState([]);const [clienteOrc,setClienteOrc]=useState('');const [prodPopup,setProdPopup]=useState(null)
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
   useEffect(()=>{loadProdutos()},[loadProdutos])
   const filtrados=produtos.filter(p=>{
-    const matchSearch=!search||p.nome.toLowerCase().includes(search.toLowerCase())||p.categoria.toLowerCase().includes(search.toLowerCase())
+    const matchSearch=!search||p.nome.toLowerCase().includes(search.toLowerCase())||p.categoria.toLowerCase().includes(search.toLowerCase())||(p.codigo&&p.codigo.toLowerCase().includes(search.toLowerCase()))
     const matchCat=!catFilter||p.categoria===catFilter;return matchSearch&&matchCat
   })
   const addCarrinho=(prod)=>{setCarrinho(prev=>{const ex=prev.find(x=>x.id===prod.id);if(ex)return prev.map(x=>x.id===prod.id?{...x,qtd:x.qtd+1}:x);return[...prev,{...prod,qtd:1}]})}
@@ -147,34 +169,37 @@ export function VendedorView({ user }) {
     <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
       <button onClick={()=>setTab('catalogo')} style={tabBtn(tab==='catalogo')}>🛍 Catálogo</button>
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
+      <button onClick={()=>setTab('rotas')} style={tabBtn(tab==='rotas')}>🗺️ Rotas</button>
     </div>
     {tab==='clientes'&&<ClientesTab/>}
+    {tab==='rotas'&&<VendedorRotasTab/>}
     {tab==='catalogo'&&<>
     <SearchBar value={search} onChange={setSearch} placeholder="Buscar produto..."/>
     <div style={{display:'flex',gap:4,marginBottom:16,flexWrap:'wrap'}}>
       <button onClick={()=>setCatFilter('')} style={{padding:'5px 12px',borderRadius:8,border:'none',cursor:'pointer',background:!catFilter?'#0A1628':'#E2E8F0',color:!catFilter?'#fff':'#64748B',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>Todos</button>
-      {cats.map(c=>(<button key={c} onClick={()=>setCatFilter(catFilter===c?'':c)} style={{padding:'5px 12px',borderRadius:8,border:'none',cursor:'pointer',background:catFilter===c?'#EC4899':'#E2E8F0',color:catFilter===c?'#fff':'#64748B',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>{c}</button>))}
+      {cats.map(c=>(<button key={c} onClick={()=>setCatFilter(catFilter===c?'':c)} style={{padding:'5px 12px',borderRadius:8,border:'none',cursor:'pointer',background:catFilter===c?'#0EA5E9':'#E2E8F0',color:catFilter===c?'#fff':'#64748B',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>{c}</button>))}
     </div>
 
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:20}}>
-      {filtrados.map(p=>(<div key={p.id} style={{background:'#fff',borderRadius:12,overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+      {filtrados.map(p=>(<div key={p.id} onClick={()=>setProdPopup(p)} style={{background:'#fff',borderRadius:12,overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,0.05)',cursor:'pointer'}}>
         {p.img_url?<img src={p.img_url} style={{width:'100%',height:120,objectFit:'cover'}}/>:<div style={{width:'100%',height:120,background:'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',fontSize:32}}>📦</div>}
         <div style={{padding:10}}>
+          {p.codigo&&<span style={{background:'#F1F5F9',color:'#64748B',fontSize:10,fontWeight:700,padding:'2px 5px',borderRadius:4,fontFamily:'monospace',display:'block',marginBottom:3}}>{p.codigo}</span>}
           <div style={{fontWeight:700,fontSize:13,color:'#0A1628',marginBottom:2}}>{p.nome}</div>
           <div style={{fontSize:11,color:'#94A3B8',marginBottom:6}}>{p.categoria}</div>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span style={{fontWeight:800,color:'#059669',fontSize:15}}>{fmtMoney(p.preco)}</span>
-            <button onClick={()=>addCarrinho(p)} style={{background:'#EC4899',border:'none',borderRadius:8,color:'#fff',fontSize:11,fontWeight:700,padding:'5px 10px',cursor:'pointer'}}>+ Add</button>
+            <button onClick={e=>{e.stopPropagation();addCarrinho(p)}} style={{background:'#0EA5E9',border:'none',borderRadius:8,color:'#fff',fontSize:11,fontWeight:700,padding:'5px 10px',cursor:'pointer'}}>+ Add</button>
           </div>
         </div>
       </div>))}
     </div>
     {filtrados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum produto encontrado</div>}
 
-    {carrinho.length>0&&(<div style={{...card,padding:20,background:'#FDF2F8',border:'2px solid #EC4899',position:'sticky',bottom:16}}>
+    {carrinho.length>0&&(<div style={{...card,padding:20,background:'#F0F9FF',border:'2px solid #0EA5E9',position:'sticky',bottom:16}}>
       <h3 style={{margin:'0 0 12px',fontSize:15,fontWeight:700,color:'#0A1628'}}>🛒 Orçamento ({carrinho.length} itens)</h3>
       <input value={clienteOrc} onChange={e=>setClienteOrc(e.target.value)} placeholder="Nome do cliente" style={{...inputStyle,marginBottom:10}}/>
-      {carrinho.map(i=>(<div key={i.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #F9A8D4'}}>
+      {carrinho.map(i=>(<div key={i.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #BAE6FD'}}>
         <span style={{flex:1,fontSize:13,fontWeight:600,color:'#0A1628'}}>{i.nome}</span>
         <div style={{display:'flex',alignItems:'center',gap:4}}>
           <button onClick={()=>alterarQtd(i.id,i.qtd-1)} style={{width:24,height:24,borderRadius:6,border:'1px solid #CBD5E1',background:'#fff',cursor:'pointer',fontWeight:700}}>-</button>
@@ -184,12 +209,13 @@ export function VendedorView({ user }) {
         <span style={{fontSize:13,fontWeight:700,color:'#059669',width:70,textAlign:'right'}}>{fmtMoney(i.preco*i.qtd)}</span>
         <button onClick={()=>removerItem(i.id)} style={{background:'none',border:'none',color:'#EF4444',cursor:'pointer',fontSize:14}}>✕</button>
       </div>))}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:12,borderTop:'2px solid #EC4899'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:12,borderTop:'2px solid #0EA5E9'}}>
         <span style={{fontSize:16,fontWeight:800,color:'#0A1628'}}>Total</span>
         <span style={{fontSize:18,fontWeight:800,color:'#059669'}}>{fmtMoney(total)}</span>
       </div>
-      <button onClick={gerarOrcamento} style={{...btnPrimary,width:'100%',marginTop:12,background:'#EC4899'}}>📄 Gerar Orçamento</button>
+      <button onClick={gerarOrcamento} style={{...btnPrimary,width:'100%',marginTop:12,background:'#0EA5E9'}}>📄 Gerar Orçamento</button>
     </div>)}
     </>}
+    {prodPopup&&<ProdutoPopup prod={prodPopup} onClose={()=>setProdPopup(null)} onAdd={()=>{addCarrinho(prodPopup);setProdPopup(null)}}/>}
   </div>)
 }

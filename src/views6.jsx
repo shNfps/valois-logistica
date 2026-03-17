@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fmt, fmtMoney, getRef, btnSmall, card, fetchPedidosByCliente, fetchItensByPedidoIds } from './db.js'
+import { fmt, fmtMoney, getRef, btnSmall, card, fetchPedidosByCliente, fetchItensByPedidoIds, fmtCnpj } from './db.js'
 import { Badge } from './components.jsx'
 
 // ─── CLIENTE DETALHE ───
@@ -47,6 +47,8 @@ export function ClienteDetalhe({ cliente, onBack }) {
           {cliente.telefone && <span>📞 {cliente.telefone}</span>}
           {cliente.email && <span>✉ {cliente.email}</span>}
         </div>
+        {cliente.cnpj && <div style={{ fontSize: 13, color: '#64748B', marginTop: 6 }}>🏢 CNPJ: <span style={{ fontWeight: 600 }}>{fmtCnpj(cliente.cnpj)}</span></div>}
+        {cliente.endereco && <div style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>🏠 {cliente.endereco}</div>}
       </div>
 
       {loading ? (

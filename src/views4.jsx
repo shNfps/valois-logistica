@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente } from './db.js'
+import { inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, fmtCnpj } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
 
 // ─── CLIENTES TAB (COMERCIAL / VENDEDOR) ───
@@ -9,16 +9,19 @@ export function ClientesTab() {
   const [showForm, setShowForm] = useState(false)
   const [nome, setNome] = useState(''); const [cidade, setCidade] = useState('')
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState('')
+  const [endereco, setEndereco] = useState(''); const [cnpj, setCnpj] = useState('')
   const [saving, setSaving] = useState(false)
   const load = useCallback(async () => setClientes(await fetchClientes()), [])
   useEffect(() => { load() }, [load])
 
   const criar = async () => {
     if (!nome.trim()) { alert('Informe o nome'); return }
+    if (!endereco.trim()) { alert('Informe o endereço'); return }
+    if (cnpj.replace(/\D/g, '').length !== 14) { alert('CNPJ deve ter 14 dígitos'); return }
     setSaving(true)
-    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null })
+    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, '') })
     if (error) { alert('Erro: ' + error.message); setSaving(false); return }
-    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setShowForm(false)
+    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setEndereco(''); setCnpj(''); setShowForm(false)
     await load(); setSaving(false)
   }
 
@@ -42,6 +45,8 @@ export function ClientesTab() {
               <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+          <input value={cnpj} onChange={e => setCnpj(fmtCnpj(e.target.value))} placeholder="CNPJ *" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
+          <input value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Endereço completo *" style={{ ...inputStyle, marginBottom: 10 }} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
             <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={inputStyle} />
             <input value={email} onChange={e => setEmail(e.target.value)} placeholder="E-mail" style={inputStyle} />
@@ -78,12 +83,16 @@ export function NovoClienteRapidoModal({ nomeInicial, onClose, onCriado }) {
   const [nome, setNome] = useState(nomeInicial || '')
   const [cidade, setCidade] = useState('')
   const [telefone, setTelefone] = useState('')
+  const [endereco, setEndereco] = useState('')
+  const [cnpj, setCnpj] = useState('')
   const [saving, setSaving] = useState(false)
 
   const criar = async () => {
     if (!nome.trim()) { alert('Informe o nome'); return }
+    if (!endereco.trim()) { alert('Informe o endereço'); return }
+    if (cnpj.replace(/\D/g, '').length !== 14) { alert('CNPJ deve ter 14 dígitos'); return }
     setSaving(true)
-    const { data, error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null })
+    const { data, error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, '') })
     if (error) { alert('Erro: ' + error.message); setSaving(false); return }
     onCriado?.(data); onClose()
   }
@@ -99,6 +108,8 @@ export function NovoClienteRapidoModal({ nomeInicial, onClose, onCriado }) {
         <select value={cidade} onChange={e => setCidade(e.target.value)} style={{ ...inputStyle, marginBottom: 10, cursor: 'pointer', color: cidade ? '#0A1628' : '#94A3B8' }}>
           <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        <input value={cnpj} onChange={e => setCnpj(fmtCnpj(e.target.value))} placeholder="CNPJ *" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
+        <input value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Endereço completo *" style={{ ...inputStyle, marginBottom: 10 }} />
         <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={{ ...inputStyle, marginBottom: 14 }} />
         <button onClick={criar} disabled={saving} style={{ ...btnPrimary, width: '100%', opacity: saving ? 0.6 : 1 }}>
           {saving ? 'Salvando...' : '+ Cadastrar Cliente'}

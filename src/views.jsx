@@ -3,6 +3,7 @@ import { supabase } from './supabase.js'
 import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
+import { AdminEditRotaScreen } from './views7.jsx'
 
 // ─── ADMIN VIEW ───
 export function AdminView({ pedidos, refresh, user }) {
@@ -11,8 +12,8 @@ export function AdminView({ pedidos, refresh, user }) {
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
   const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
-  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null)
-  const [rotasAtivas,setRotasAtivas]=useState([])
+  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('')
+  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
   const loadRotas=useCallback(async()=>{setRotasAtivas(await fetchRotasAtivas())},[])
@@ -33,8 +34,8 @@ export function AdminView({ pedidos, refresh, user }) {
     if(!pImg){alert('A foto do produto é obrigatória');return}
     setPUploading(true)
     const img_url=await uploadImage(pImg)
-    await createProduto({nome:pNome.trim(),preco:parseFloat(pPreco),categoria:pCat,fabricante:pFab||null,img_url})
-    setPNome('');setPPreco('');setPCat('Descartáveis');setPFab('');setPImg(null);await loadProdutos();setPUploading(false)
+    await createProduto({nome:pNome.trim(),preco:parseFloat(pPreco),categoria:pCat,fabricante:pFab||null,img_url,codigo:pCodigo.trim()||null,diluicao:pCat==='Químicos'?pDiluicao.trim()||null:null})
+    setPNome('');setPPreco('');setPCat('Descartáveis');setPFab('');setPImg(null);setPCodigo('');setPDiluicao('');await loadProdutos();setPUploading(false)
   }
   const handleDeleteProd=async(id,n)=>{if(!confirm(`Deletar ${n}?`))return;await deleteProduto(id);await loadProdutos()}
   const pedidosFiltrados=filterPedidos(pedidos,search);const pedidosAgrupados=groupByDate(pedidosFiltrados)
@@ -57,7 +58,8 @@ export function AdminView({ pedidos, refresh, user }) {
               <span style={{fontWeight:700,color:'#0A1628',fontSize:14}}>{vi} {r.motorista_nome}</span>
               <span style={{fontSize:12,color:'#64748B',marginLeft:8}}>📍 {r.cidade} · {r.veiculo}</span>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <button onClick={e=>{e.stopPropagation();setEditRota(r)}} style={{...btnSmall,fontSize:11,padding:'3px 8px',color:'#3B82F6'}}>✏️ Editar</button>
               <span style={{width:7,height:7,borderRadius:'50%',background:'#EF4444',display:'inline-block',animation:'blink-red 1s infinite'}}/>
               <span style={{fontSize:11,fontWeight:700,color:'#EF4444',letterSpacing:1}}>AO VIVO</span>
             </div>
@@ -126,11 +128,15 @@ export function AdminView({ pedidos, refresh, user }) {
     {tab==='produtos'&&(<div>
       <div style={{...card,padding:24,marginBottom:20}}>
         <h3 style={{margin:'0 0 16px',fontSize:16,fontWeight:700,color:'#0A1628'}}>Novo Produto</h3>
-        <input value={pNome} onChange={e=>setPNome(e.target.value)} placeholder="Nome do produto" style={{...inputStyle,marginBottom:10}}/>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+          <input value={pCodigo} onChange={e=>setPCodigo(e.target.value)} placeholder="Código (ex: VAL001)" style={inputStyle}/>
+          <input value={pNome} onChange={e=>setPNome(e.target.value)} placeholder="Nome do produto *" style={inputStyle}/>
+        </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
           <input value={pPreco} onChange={e=>setPPreco(e.target.value.replace(/[^0-9.]/g,''))} placeholder="Preço (ex: 12.50)" inputMode="decimal" style={inputStyle}/>
           <select value={pCat} onChange={e=>setPCat(e.target.value)} style={{...inputStyle,cursor:'pointer'}}>{CATEGORIAS_PRODUTO.map(c=><option key={c} value={c}>{c}</option>)}</select>
         </div>
+        {pCat==='Químicos'&&<input value={pDiluicao} onChange={e=>setPDiluicao(e.target.value)} placeholder="Diluição (ex: 1:10, Puro)" style={{...inputStyle,marginBottom:10}}/>}
         <select value={pFab} onChange={e=>setPFab(e.target.value)} style={{...inputStyle,marginBottom:10,cursor:'pointer',color:pFab?'#0A1628':'#94A3B8'}}>
           <option value="">Fabricante...</option>{FABRICANTES.map(f=><option key={f} value={f}>{f}</option>)}
         </select>
@@ -143,7 +149,13 @@ export function AdminView({ pedidos, refresh, user }) {
         <div style={{fontSize:12,fontWeight:700,color:'#64748B',padding:'8px 0',borderBottom:'1px solid #E2E8F0',marginBottom:8}}>{cat} ({prods.length})</div>
         {prods.map(p=>(<div key={p.id} style={{...card,display:'flex',gap:12,alignItems:'center'}}>
           {p.img_url?<img src={p.img_url} style={{width:48,height:48,borderRadius:8,objectFit:'cover'}}/>:<div style={{width:48,height:48,borderRadius:8,background:'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>📦</div>}
-          <div style={{flex:1}}><div style={{fontWeight:700,color:'#0A1628',fontSize:14}}>{p.nome}</div><div style={{fontSize:11,color:'#64748B'}}>{p.categoria}{p.fabricante&&<span style={{marginLeft:6,color:'#94A3B8'}}>· {p.fabricante}</span>}</div></div>
+          <div style={{flex:1}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+              {p.codigo&&<span style={{background:'#F1F5F9',color:'#64748B',fontSize:10,fontWeight:700,padding:'2px 5px',borderRadius:4,fontFamily:'monospace'}}>{p.codigo}</span>}
+              <span style={{fontWeight:700,color:'#0A1628',fontSize:14}}>{p.nome}</span>
+            </div>
+            <div style={{fontSize:11,color:'#64748B'}}>{p.categoria}{p.fabricante&&<span style={{marginLeft:6,color:'#94A3B8'}}>· {p.fabricante}</span>}{p.diluicao&&<span style={{marginLeft:6,color:'#0EA5E9'}}>💧 {p.diluicao}</span>}</div>
+          </div>
           <div style={{fontWeight:800,color:'#059669',fontSize:15}}>{fmtMoney(p.preco)}</div>
           <button onClick={()=>setEditProd(p)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#3B82F6'}}>✏️</button>
           <button onClick={()=>handleDeleteProd(p.id,p.nome)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#EF4444'}}>✗</button>
@@ -178,5 +190,6 @@ export function AdminView({ pedidos, refresh, user }) {
     </div>)}
     {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
     {editProd&&<EditProdutoModal prod={editProd} onClose={()=>setEditProd(null)} onSaved={()=>{loadProdutos();setEditProd(null)}}/>}
+    {editRota&&<AdminEditRotaScreen rota={editRota} pedidos={pedidos} onClose={()=>setEditRota(null)} onSaved={()=>{loadRotas();refresh()}}/>}
   </div>)
 }
