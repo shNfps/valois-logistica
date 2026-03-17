@@ -28,7 +28,7 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
   const salvarCatalogo = async () => {
     setSalvando(true)
     const sel = itens.filter(i => i._sel)
-    for (const it of sel) await createProduto({ nome: it.nome_produto, preco: Number(it.preco_unitario) || 0, categoria: 'Outros' })
+    for (const it of sel) await createProduto({ nome: it.nome_produto, preco: Number(it.preco_unitario) || 0, categoria: 'Outros', codigo: it.codigo || null })
     setSalvando(false); alert(`${sel.length} produto(s) adicionados ao catálogo`)
   }
 
@@ -58,6 +58,7 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
               <thead><tr>
                 <th style={{ ...th, width: 28 }}></th>
+                <th style={{ ...th, width: 68 }}>Cód.</th>
                 <th style={th}>Produto</th>
                 <th style={{ ...th, width: 52, textAlign: 'center' }}>Qtd</th>
                 <th style={{ ...th, width: 44, textAlign: 'center' }}>Un</th>
@@ -68,6 +69,7 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
                 {itens.map((it, i) => (
                   <tr key={i} style={{ borderTop: '1px solid #F1F5F9', opacity: it._sel ? 1 : 0.4 }}>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}><input type="checkbox" checked={it._sel} onChange={e => upd(i, '_sel', e.target.checked)} /></td>
+                    <td style={{ padding: 4 }}><input value={it.codigo || ''} onChange={e => upd(i, 'codigo', e.target.value)} style={{ ...ci, fontFamily: 'monospace', width: 60 }} placeholder="—" /></td>
                     <td style={{ padding: 4 }}><input value={it.nome_produto} onChange={e => upd(i, 'nome_produto', e.target.value)} style={ci} /></td>
                     <td style={{ padding: 4 }}><input value={it.quantidade} onChange={e => upd(i, 'quantidade', e.target.value)} style={{ ...ci, textAlign: 'center' }} /></td>
                     <td style={{ padding: 4 }}><input value={it.unidade} onChange={e => upd(i, 'unidade', e.target.value)} style={{ ...ci, textAlign: 'center' }} /></td>

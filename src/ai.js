@@ -30,7 +30,7 @@ export async function extractItemsFromPdf(pdfUrl) {
         role: 'user',
         content: [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-          { type: 'text', text: 'Extraia todos os itens/produtos deste orçamento. Retorne APENAS um JSON array com os campos: nome_produto (string), quantidade (número), unidade (string, ex: "un","cx","kg","L"), preco_unitario (número), preco_total (número). Sem texto adicional.' }
+          { type: 'text', text: 'Extraia todos os itens/produtos deste orçamento. Retorne APENAS um JSON array com os campos: codigo (string, código do produto como "1.842" ou "3.036" — null se não encontrado), nome_produto (string), quantidade (número), unidade (string, ex: "un","cx","kg","L"), preco_unitario (número), preco_total (número). Sem texto adicional.' }
         ]
       }]
     })

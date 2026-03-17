@@ -109,6 +109,7 @@ export function ClienteDetalhe({ cliente, onBack }) {
                         : pItens.map((it, idx) => (
                           <div key={idx} style={{ fontSize: 11, color: '#334155', display: 'flex', gap: 8, padding: '3px 0' }}>
                             <span style={{ color: '#94A3B8', flexShrink: 0 }}>{it.quantidade}×</span>
+                            {it.codigo && <span style={{ background: '#F1F5F9', color: '#64748B', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 4, fontFamily: 'monospace', flexShrink: 0 }}>{it.codigo}</span>}
                             <span style={{ flex: 1 }}>{it.nome_produto}</span>
                             <span style={{ color: '#059669', flexShrink: 0 }}>{fmtMoney(it.preco_total)}</span>
                           </div>
