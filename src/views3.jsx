@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { extractItemsFromPdf } from './ai.js'
 import { fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, FABRICANTES, CATEGORIAS_PRODUTO, fetchClientes, createCliente, deleteCliente, createProduto, savePedidoItens, uploadImage, updateProduto } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
+import { ClienteBadges } from './cliente-badges.jsx'
 
 // ─── EXTRACTOR PANEL ───
 export function ExtractorPanel({ pedido, onClose, onSaved }) {
@@ -146,12 +147,14 @@ export function AdminClientesTab({ pedidos = [] }) {
     {clientes.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>Nenhum cliente cadastrado</div>}
     {clientes.map(c => {
       const nPedidos = pedidos.filter(p => p.cliente_id === c.id).length
+      const cPedidos = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase())
       return (<div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</span>
               {nPedidos > 0 && <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{nPedidos} pedido{nPedidos > 1 ? 's' : ''}</span>}
+              <ClienteBadges pedidos={cPedidos} />
             </div>
             <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
               {c.documento && <span style={{ fontWeight: 600 }}>{fmtDoc(c.documento)} &nbsp;</span>}{c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}

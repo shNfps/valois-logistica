@@ -129,7 +129,7 @@ export function LoginScreen({onLogin}){
       <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:0,backgroundImage:'url(/login-bg.jpg)',backgroundSize:'cover',backgroundPosition:'center',filter:'brightness(0.3) saturate(0.7)'}}/>
       <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:1,background:'linear-gradient(135deg,rgba(10,22,40,0.85) 0%,rgba(30,58,95,0.75) 50%,rgba(10,22,40,0.9) 100%)'}}/>
       <div style={{position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center'}}>
-        <div style={{width:56,height:56,borderRadius:14,background:'linear-gradient(135deg,#1E3A5F,#3B82F6)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:26,marginBottom:12,boxShadow:'0 4px 20px rgba(59,130,246,0.4)'}}>V</div>
+        <img src="/logo_2025.png" style={{height:80,width:'auto',objectFit:'contain',marginBottom:12,filter:'drop-shadow(0 4px 12px rgba(59,130,246,0.35))'}} alt="Valois" onError={e=>{e.target.style.display='none'}}/>
         <div style={{color:'#fff',fontWeight:800,fontSize:22,marginBottom:4}}>VALOIS</div>
         <div style={{color:'#94A3B8',fontSize:11,fontWeight:600,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Descartáveis e Limpeza</div>
         <div style={{color:'#64748B',fontSize:10,fontWeight:600,letterSpacing:3,textTransform:'uppercase',marginBottom:40}}>Sistema de Logística</div>

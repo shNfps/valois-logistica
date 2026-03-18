@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fmt, fmtMoney, getRef, btnSmall, card, fetchPedidosByCliente, fetchItensByPedidoIds, fmtCnpj } from './db.js'
 import { Badge } from './components.jsx'
+import { ClienteBadges } from './cliente-badges.jsx'
 
 // ─── CLIENTE DETALHE ───
 export function ClienteDetalhe({ cliente, onBack }) {
@@ -41,7 +42,10 @@ export function ClienteDetalhe({ cliente, onBack }) {
       <button onClick={onBack} style={{ ...btnSmall, marginBottom: 16 }}>← Voltar</button>
 
       <div style={{ ...card, padding: 18, marginBottom: 12 }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: '#0A1628' }}>{cliente.nome}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0A1628' }}>{cliente.nome}</h3>
+          <ClienteBadges pedidos={pedidos} />
+        </div>
         <div style={{ fontSize: 13, color: '#64748B', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           {cliente.cidade && <span>📍 {cliente.cidade}</span>}
           {cliente.telefone && <span>📞 {cliente.telefone}</span>}

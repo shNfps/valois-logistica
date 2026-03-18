@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { fmt, fmtMoney, getRef, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
+import { gerarOrcamentoPdf } from './orcamento-pdf.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
 import { ClientesTab, NovoClienteRapidoModal } from './views4.jsx'
@@ -84,7 +85,7 @@ export function ComercialView({ pedidos, refresh, user }) {
       <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
     </div>
-    {tab==='clientes'&&<ClientesTab/>}
+    {tab==='clientes'&&<ClientesTab pedidos={pedidos}/>}
     {tab==='pedidos'&&<>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
       <div style={{...card,padding:24,marginBottom:20}}>
@@ -150,12 +151,13 @@ export function GalpaoView({ pedidos, refresh, user }) {
 
 
 // ─── VENDEDOR VIEW ───
-export function VendedorView({ user }) {
+export function VendedorView({ user, pedidos=[] }) {
   const [tab,setTab]=useState('catalogo')
   const [produtos,setProdutos]=useState([]);const [search,setSearch]=useState('');const [catFilter,setCatFilter]=useState('')
   const [carrinho,setCarrinho]=useState([]);const [clienteOrc,setClienteOrc]=useState('');const [prodPopup,setProdPopup]=useState(null)
+  const [clientes,setClientes]=useState([])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
-  useEffect(()=>{loadProdutos()},[loadProdutos])
+  useEffect(()=>{loadProdutos();fetchClientes().then(setClientes)},[loadProdutos])
   const filtrados=produtos.filter(p=>{
     const matchSearch=!search||p.nome.toLowerCase().includes(search.toLowerCase())||p.categoria.toLowerCase().includes(search.toLowerCase())||(p.codigo&&p.codigo.toLowerCase().includes(search.toLowerCase()))
     const matchCat=!catFilter||p.categoria===catFilter;return matchSearch&&matchCat
@@ -166,11 +168,8 @@ export function VendedorView({ user }) {
   const total=carrinho.reduce((s,i)=>s+i.preco*i.qtd,0)
   const gerarOrcamento=()=>{
     if(!clienteOrc.trim()){alert('Informe o cliente');return}
-    let txt=`ORÇAMENTO - VALOIS DESCARTÁVEIS\nCliente: ${clienteOrc}\nVendedor: ${user.nome}\nData: ${new Date().toLocaleDateString('pt-BR')}\n${'─'.repeat(40)}\n`
-    carrinho.forEach(i=>{txt+=`\n${i.nome}\n  ${i.qtd}x ${fmtMoney(i.preco)} = ${fmtMoney(i.preco*i.qtd)}\n`})
-    txt+=`\n${'─'.repeat(40)}\nTOTAL: ${fmtMoney(total)}\n`
-    const blob=new Blob([txt],{type:'text/plain'});const url=URL.createObjectURL(blob)
-    const a=document.createElement('a');a.href=url;a.download=`orcamento_${clienteOrc.replace(/\s/g,'_')}.txt`;a.click();URL.revokeObjectURL(url)
+    const clienteObj=clientes.find(c=>c.nome.toLowerCase()===clienteOrc.toLowerCase())
+    gerarOrcamentoPdf({cliente:clienteOrc,vendedor:user.nome,carrinho,total,clienteObj})
   }
   const cats=[...new Set(produtos.map(p=>p.categoria))].sort()
 
@@ -180,7 +179,7 @@ export function VendedorView({ user }) {
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
       <button onClick={()=>setTab('rotas')} style={tabBtn(tab==='rotas')}>🗺️ Rotas</button>
     </div>
-    {tab==='clientes'&&<ClientesTab/>}
+    {tab==='clientes'&&<ClientesTab pedidos={pedidos}/>}
     {tab==='rotas'&&<VendedorRotasTab/>}
     {tab==='catalogo'&&<>
     <SearchBar value={search} onChange={setSearch} placeholder="Buscar produto..."/>

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, fmtCnpj } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
+import { ClienteBadges } from './cliente-badges.jsx'
 
 // ─── CLIENTES TAB (COMERCIAL / VENDEDOR) ───
-export function ClientesTab() {
+export function ClientesTab({ pedidos = [] }) {
   const [clientes, setClientes] = useState([])
   const [selecionado, setSelecionado] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -62,18 +63,24 @@ export function ClientesTab() {
         Clientes ({clientes.length})
       </div>
       {clientes.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>Nenhum cliente cadastrado</div>}
-      {clientes.map(c => (
-        <div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
-          <div style={{ fontWeight: 700, color: '#0A1628', fontSize: 15, marginBottom: 4 }}>{c.nome}</div>
-          <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {c.cidade && <span>📍 {c.cidade}</span>}
-            {c.telefone && <span>📞 {c.telefone}</span>}
-            {c.email && <span>✉ {c.email}</span>}
+      {clientes.map(c => {
+        const cPedidos = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase())
+        return (
+          <div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</span>
+              <ClienteBadges pedidos={cPedidos} />
+            </div>
+            <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {c.cidade && <span>📍 {c.cidade}</span>}
+              {c.telefone && <span>📞 {c.telefone}</span>}
+              {c.email && <span>✉ {c.email}</span>}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

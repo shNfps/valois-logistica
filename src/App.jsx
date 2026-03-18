@@ -60,7 +60,7 @@ export default function App() {
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: userSetores.length > 1 ? 10 : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #1E3A5F, #3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 15 }}>V</div>
+              <img src="/logo_2025.png" style={{ height: 32, width: 'auto', objectFit: 'contain' }} alt="V" onError={e => { e.target.outerHTML = '<div style="width:32px;height:32px;borderRadius:8px;background:linear-gradient(135deg,#1E3A5F,#3B82F6);display:flex;alignItems:center;justifyContent:center;fontWeight:800;color:#fff;fontSize:15px">V</div>' }} />
               <div>
                 <div style={{ color: '#fff', fontWeight: 800, fontSize: 14, lineHeight: 1.1 }}>VALOIS</div>
                 <div style={{ color: '#64748B', fontSize: 9, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase' }}>Logística</div>
@@ -99,7 +99,7 @@ export default function App() {
             {activeTab === 'comercial' && <ComercialView pedidos={pedidos} refresh={loadData} user={user} />}
             {activeTab === 'galpao' && <GalpaoView pedidos={pedidos} refresh={loadData} user={user} />}
             {activeTab === 'motorista' && <MotoristaView pedidos={pedidos} refresh={loadData} user={user} />}
-            {activeTab === 'vendedor' && <VendedorView user={user} />}
+            {activeTab === 'vendedor' && <VendedorView user={user} pedidos={pedidos} />}
           </>
         )}
       </div>
