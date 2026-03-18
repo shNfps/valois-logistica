@@ -35,7 +35,7 @@ export function ComercialView({ pedidos, refresh, user }) {
   const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('')
   const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
   const [novoClienteNome,setNovoClienteNome]=useState(null)
-  const fileRef=useRef(null);const nfFileRefs=useRef({})
+  const fileRef=useRef(null);const nfFileRefs=useRef({});const orcCorrigidoRefs=useRef({})
   useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
   const handleSubmit=async()=>{
@@ -48,6 +48,10 @@ export function ComercialView({ pedidos, refresh, user }) {
   const handleNf=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return;setUploading(true)
     try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA'});await addHistorico(pedidoId,user.nome,'Anexou NF');refresh()}}finally{setUploading(false);e.target.value=''}
+  }
+  const handleOrcamentoCorrigido=async(pedidoId,e)=>{
+    const file=e.target.files[0];if(!file)return;setUploading(true)
+    try{const url=await uploadPdf(file,'orcamentos');if(url){await updatePedido(pedidoId,{orcamento_url:url,status:'PENDENTE'});await addHistorico(pedidoId,user.nome,'Enviou orçamento corrigido');refresh()}}finally{setUploading(false);e.target.value=''}
   }
   const filtrados=filterPedidos(pedidos,search);const agrupados=groupByDateDetalhado(filtrados)
   const renderCard=(p)=>(<div key={p.id} style={card}>
@@ -62,10 +66,15 @@ export function ComercialView({ pedidos, refresh, user }) {
       <span>{p.criado_por&&<span>Por: {p.criado_por} · </span>}{fmt(p.criado_em)}</span>
       {p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669'}}>💰 {fmtMoney(p.valor_total)}</span>}
     </div>
-    {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:6}}>📋 Obs: {p.obs}</div>}
-    {(p.status==='CONFERIDO'||p.status==='INCOMPLETO')&&(<div style={{marginTop:8}}>
+    {p.obs&&p.status==='INCOMPLETO'&&<div style={{background:'#FEE2E2',padding:'8px 12px',borderRadius:8,fontSize:13,color:'#991B1B',marginBottom:6,fontWeight:600,border:'1px solid #FECACA'}}>⚠️ Galpão: {p.obs}</div>}
+    {p.obs&&p.status!=='INCOMPLETO'&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:6}}>📋 Obs: {p.obs}</div>}
+    {p.status==='INCOMPLETO'&&(<div style={{marginTop:8}}>
+      <input type="file" accept=".pdf" ref={el=>orcCorrigidoRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleOrcamentoCorrigido(p.id,e)}/>
+      <button onClick={()=>orcCorrigidoRefs.current[p.id]?.click()} disabled={uploading} style={{...btnSmall,background:'#F59E0B',color:'#fff',border:'none'}}>📄 Enviar orçamento corrigido</button>
+    </div>)}
+    {p.status==='CONFERIDO'&&(<div style={{marginTop:8}}>
       <input type="file" accept=".pdf" ref={el=>nfFileRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleNf(p.id,e)}/>
-      <button onClick={()=>nfFileRefs.current[p.id]?.click()} disabled={uploading} style={{...btnSmall,background:p.status==='CONFERIDO'?'#10B981':'#3B82F6',color:'#fff',border:'none'}}>{p.status==='CONFERIDO'?'✓ Anexar NF':'📎 Corrigir e Anexar NF'}</button>
+      <button onClick={()=>nfFileRefs.current[p.id]?.click()} disabled={uploading} style={{...btnSmall,background:'#10B981',color:'#fff',border:'none'}}>✓ Anexar NF</button>
     </div>)}
     {p.orcamento_url&&<div style={{marginTop:8}}><button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:11,padding:'5px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button></div>}
     <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
