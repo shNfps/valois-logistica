@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { fmt, fmtMoney, getRef, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
-import { gerarOrcamentoPdf } from './orcamento-pdf.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
+import { CarrinhoFlutuante } from './carrinho-panel.jsx'
 import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
 import { ClientesTab, NovoClienteRapidoModal } from './views4.jsx'
 import { VendedorRotasTab } from './views7.jsx'
@@ -154,10 +154,9 @@ export function GalpaoView({ pedidos, refresh, user }) {
 export function VendedorView({ user, pedidos=[] }) {
   const [tab,setTab]=useState('catalogo')
   const [produtos,setProdutos]=useState([]);const [search,setSearch]=useState('');const [catFilter,setCatFilter]=useState('')
-  const [carrinho,setCarrinho]=useState([]);const [clienteOrc,setClienteOrc]=useState('');const [prodPopup,setProdPopup]=useState(null)
-  const [clientes,setClientes]=useState([])
+  const [carrinho,setCarrinho]=useState([]);const [prodPopup,setProdPopup]=useState(null)
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
-  useEffect(()=>{loadProdutos();fetchClientes().then(setClientes)},[loadProdutos])
+  useEffect(()=>{loadProdutos()},[loadProdutos])
   const filtrados=produtos.filter(p=>{
     const matchSearch=!search||p.nome.toLowerCase().includes(search.toLowerCase())||p.categoria.toLowerCase().includes(search.toLowerCase())||(p.codigo&&p.codigo.toLowerCase().includes(search.toLowerCase()))
     const matchCat=!catFilter||p.categoria===catFilter;return matchSearch&&matchCat
@@ -166,11 +165,6 @@ export function VendedorView({ user, pedidos=[] }) {
   const removerItem=(id)=>{setCarrinho(prev=>prev.filter(x=>x.id!==id))}
   const alterarQtd=(id,qtd)=>{if(qtd<1)return removerItem(id);setCarrinho(prev=>prev.map(x=>x.id===id?{...x,qtd}:x))}
   const total=carrinho.reduce((s,i)=>s+i.preco*i.qtd,0)
-  const gerarOrcamento=()=>{
-    if(!clienteOrc.trim()){alert('Informe o cliente');return}
-    const clienteObj=clientes.find(c=>c.nome.toLowerCase()===clienteOrc.toLowerCase())
-    gerarOrcamentoPdf({cliente:clienteOrc,vendedor:user.nome,carrinho,total,clienteObj})
-  }
   const cats=[...new Set(produtos.map(p=>p.categoria))].sort()
 
   return(<div>
@@ -203,27 +197,9 @@ export function VendedorView({ user, pedidos=[] }) {
       </div>))}
     </div>
     {filtrados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum produto encontrado</div>}
-
-    {carrinho.length>0&&(<div style={{...card,padding:20,background:'#F0F9FF',border:'2px solid #0EA5E9',position:'sticky',bottom:16}}>
-      <h3 style={{margin:'0 0 12px',fontSize:15,fontWeight:700,color:'#0A1628'}}>🛒 Orçamento ({carrinho.length} itens)</h3>
-      <input value={clienteOrc} onChange={e=>setClienteOrc(e.target.value)} placeholder="Nome do cliente" style={{...inputStyle,marginBottom:10}}/>
-      {carrinho.map(i=>(<div key={i.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #BAE6FD'}}>
-        <span style={{flex:1,fontSize:13,fontWeight:600,color:'#0A1628'}}>{i.nome}</span>
-        <div style={{display:'flex',alignItems:'center',gap:4}}>
-          <button onClick={()=>alterarQtd(i.id,i.qtd-1)} style={{width:24,height:24,borderRadius:6,border:'1px solid #CBD5E1',background:'#fff',cursor:'pointer',fontWeight:700}}>-</button>
-          <span style={{fontSize:13,fontWeight:700,width:24,textAlign:'center'}}>{i.qtd}</span>
-          <button onClick={()=>alterarQtd(i.id,i.qtd+1)} style={{width:24,height:24,borderRadius:6,border:'1px solid #CBD5E1',background:'#fff',cursor:'pointer',fontWeight:700}}>+</button>
-        </div>
-        <span style={{fontSize:13,fontWeight:700,color:'#059669',width:70,textAlign:'right'}}>{fmtMoney(i.preco*i.qtd)}</span>
-        <button onClick={()=>removerItem(i.id)} style={{background:'none',border:'none',color:'#EF4444',cursor:'pointer',fontSize:14}}>✕</button>
-      </div>))}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:12,borderTop:'2px solid #0EA5E9'}}>
-        <span style={{fontSize:16,fontWeight:800,color:'#0A1628'}}>Total</span>
-        <span style={{fontSize:18,fontWeight:800,color:'#059669'}}>{fmtMoney(total)}</span>
-      </div>
-      <button onClick={gerarOrcamento} style={{...btnPrimary,width:'100%',marginTop:12,background:'#0EA5E9'}}>📄 Gerar Orçamento</button>
-    </div>)}
+    <div style={{height:90}}/>
     </>}
+    <CarrinhoFlutuante carrinho={carrinho} total={total} alterarQtd={alterarQtd} removerItem={removerItem} vendedor={user.nome}/>
     {prodPopup&&<ProdutoPopup prod={prodPopup} onClose={()=>setProdPopup(null)} onAdd={()=>{addCarrinho(prodPopup);setProdPopup(null)}}/>}
   </div>)
 }

@@ -8,6 +8,7 @@ export function ClientesTab({ pedidos = [] }) {
   const [clientes, setClientes] = useState([])
   const [selecionado, setSelecionado] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [busca, setBusca] = useState('')
   const [nome, setNome] = useState(''); const [cidade, setCidade] = useState('')
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState('')
   const [endereco, setEndereco] = useState(''); const [cnpj, setCnpj] = useState('')
@@ -59,11 +60,16 @@ export function ClientesTab({ pedidos = [] }) {
       ) : (
         <button onClick={() => setShowForm(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 16 }}>+ Novo Cliente</button>
       )}
+      <div style={{ position: 'relative', marginBottom: 12 }}>
+        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, color: '#94A3B8' }}>🔍</span>
+        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cliente..." style={{ ...inputStyle, paddingLeft: 36 }} />
+        {busca && <button onClick={() => setBusca('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 15, color: '#94A3B8', cursor: 'pointer' }}>✕</button>}
+      </div>
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.2 }}>
-        Clientes ({clientes.length})
+        Clientes ({clientes.filter(c => !busca || c.nome.toLowerCase().includes(busca.toLowerCase())).length})
       </div>
       {clientes.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>Nenhum cliente cadastrado</div>}
-      {clientes.map(c => {
+      {clientes.filter(c => !busca || c.nome.toLowerCase().includes(busca.toLowerCase())).map(c => {
         const cPedidos = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase())
         return (
           <div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }}
