@@ -54,7 +54,7 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
         if (preco > Number(it._catalogProd.preco)) { await updateProduto(it._catalogProd.id, { preco }); atualizados++ }
         else ignorados++
       } else if (cod) {
-        await createProduto({ nome: it.nome_produto, preco, categoria: 'Outros', codigo: cod }); criados++
+        await createProduto({ nome: it.nome_produto, preco, categoria: 'Outros', codigo: cod, img_url: it._img_url?.trim() || null }); criados++
       }
     }
     setSalvando(false)
@@ -135,6 +135,20 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
               </tbody>
             </table>
           </div>
+
+          {itens.some(it => it._sel && it._status === 'novo' && it.tem_imagem) && (
+            <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', marginBottom: 8 }}>📷 Fotos dos novos produtos (opcional)</div>
+              {itens.map((it, i) => it._sel && it._status === 'novo' && it.tem_imagem ? (
+                <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ flex: 1, fontSize: 12, color: '#0A1628', fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.nome_produto}</span>
+                  <a href={`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(it.nome_produto)}`} target="_blank" rel="noreferrer" style={{ ...btnSmall, fontSize: 11, padding: '3px 8px', color: '#1D4ED8', textDecoration: 'none', flexShrink: 0 }}>🔍 Google</a>
+                  <input value={it._img_url || ''} onChange={e => upd(i, '_img_url', e.target.value)} placeholder="Colar URL da imagem..." style={{ ...ci, width: 160, flexShrink: 0 }} />
+                  {it._img_url?.trim() && <img src={it._img_url} alt="" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none' }} />}
+                </div>
+              ) : null)}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={salvarCatalogo} disabled={salvando || hasNovosemCodigo}

@@ -130,6 +130,7 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
   const [eDiluicao, setEDiluicao] = useState(prod.diluicao || '')
   const [eFab, setEFab] = useState(prod.fabricante || '')
   const [eImg, setEImg] = useState(null)
+  const [eImgUrl, setEImgUrl] = useState('')
   const [uploading, setUploading] = useState(false)
   const imgRef = useRef(null)
 
@@ -139,11 +140,12 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
     setUploading(true)
     let img_url = prod.img_url
     if (eImg) img_url = await uploadImage(eImg)
+    else if (eImgUrl.trim()) img_url = eImgUrl.trim()
     await updateProduto(prod.id, { nome: eNome.trim(), codigo: eCodigo.trim().replace(/\./g, '') || null, preco: parseFloat(ePreco), categoria: eCat, fabricante: eFab || null, img_url, diluicao: eCat === 'Químicos' ? eDiluicao.trim() || null : null })
     setUploading(false); onSaved(); onClose()
   }
 
-  const preview = eImg ? URL.createObjectURL(eImg) : prod.img_url
+  const preview = eImg ? URL.createObjectURL(eImg) : (eImgUrl.trim() || prod.img_url)
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -154,9 +156,13 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
         </div>
         {preview && <img src={preview} style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 8, marginBottom: 10 }} />}
         <input type="file" accept="image/*" ref={imgRef} onChange={e => setEImg(e.target.files[0])} style={{ display: 'none' }} />
-        <button onClick={() => imgRef.current.click()} style={{ ...btnSmall, width: '100%', justifyContent: 'center', marginBottom: 10 }}>
-          {eImg ? `📷 ${eImg.name}` : '📷 Trocar foto'}
+        <button onClick={() => imgRef.current.click()} style={{ ...btnSmall, width: '100%', justifyContent: 'center', marginBottom: 6 }}>
+          {eImg ? `📷 ${eImg.name}` : '📷 Upload de foto'}
         </button>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          <a href={`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(eNome + (eFab ? ' ' + eFab : ''))}`} target="_blank" rel="noreferrer" style={{ ...btnSmall, fontSize: 11, padding: '6px 10px', color: '#1D4ED8', textDecoration: 'none', flexShrink: 0 }}>🔍 Google</a>
+          <input value={eImgUrl} onChange={e => setEImgUrl(e.target.value)} placeholder="Ou colar URL da imagem..." style={{ ...inputStyle, fontSize: 12 }} />
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           <input value={eCodigo} onChange={e => setECodigo(e.target.value)} placeholder="Código" style={inputStyle} />
           <input value={eNome} onChange={e => setENome(e.target.value)} placeholder="Nome *" style={inputStyle} />

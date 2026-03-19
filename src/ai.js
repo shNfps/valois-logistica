@@ -31,7 +31,7 @@ async function callClaude(pdfUrl, prompt, model = 'claude-sonnet-4-20250514', ma
 export function extractItemsFromPdf(pdfUrl) {
   return callClaude(
     pdfUrl,
-    'Extraia todos os itens/produtos deste orçamento. Retorne APENAS um JSON array com os campos: codigo (string, código do produto como "1.842" ou "3.036" — null se não encontrado), nome_produto (string), quantidade (número), unidade (string, ex: "un","cx","kg","L"), preco_unitario (número), preco_total (número). Sem texto adicional.',
+    'Extraia todos os itens/produtos deste orçamento. Retorne APENAS um JSON array com os campos: codigo (string, código do produto como "1.842" ou "3.036" — null se não encontrado), nome_produto (string), quantidade (número), unidade (string, ex: "un","cx","kg","L"), preco_unitario (número), preco_total (número), tem_imagem (boolean, true se houver foto ou imagem do produto visível no PDF próxima a este item). Sem texto adicional.',
     'claude-sonnet-4-20250514',
     2048
   )
