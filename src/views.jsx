@@ -3,6 +3,7 @@ import { supabase } from './supabase.js'
 import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
+import { ReprocessarCodigosModal } from './reprocessar-codigos.jsx'
 import { AdminEditRotaScreen } from './views7.jsx'
 
 // ─── ADMIN VIEW ───
@@ -12,7 +13,7 @@ export function AdminView({ pedidos, refresh, user }) {
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
   const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
-  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false)
+  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false)
   const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
@@ -148,9 +149,12 @@ export function AdminView({ pedidos, refresh, user }) {
       </div>
       {(()=>{const sem=produtos.filter(p=>!p.codigo);if(!sem.length)return null;return(
         <div style={{background:'#FEF3C7',border:'1px solid #F59E0B',borderRadius:10,padding:'12px 16px',marginBottom:16}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,flexWrap:'wrap'}}>
             <span style={{fontSize:13,fontWeight:600,color:'#92400E'}}>⚠️ {sem.length} produto(s) sem código</span>
-            <button onClick={()=>setShowSemCodigo(v=>!v)} style={{...btnSmall,fontSize:11,padding:'4px 10px'}}>{showSemCodigo?'Ocultar':'Ver lista'}</button>
+            <div style={{display:'flex',gap:6}}>
+              <button onClick={()=>setShowReprocessar(true)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#7C3AED',borderColor:'#DDD6FE'}}>🔄 Reprocessar</button>
+              <button onClick={()=>setShowSemCodigo(v=>!v)} style={{...btnSmall,fontSize:11,padding:'4px 10px'}}>{showSemCodigo?'Ocultar':'Ver lista'}</button>
+            </div>
           </div>
           {showSemCodigo&&<div style={{marginTop:10}}>
             {sem.map(p=>(<div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #FDE68A'}}>
@@ -209,5 +213,6 @@ export function AdminView({ pedidos, refresh, user }) {
     {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
     {editProd&&<EditProdutoModal prod={editProd} onClose={()=>setEditProd(null)} onSaved={()=>{loadProdutos();setEditProd(null)}}/>}
     {editRota&&<AdminEditRotaScreen rota={editRota} pedidos={pedidos} onClose={()=>setEditRota(null)} onSaved={()=>{loadRotas();refresh()}}/>}
+    {showReprocessar&&<ReprocessarCodigosModal pedidos={pedidos} onClose={()=>setShowReprocessar(false)} onDone={loadProdutos}/>}
   </div>)
 }
