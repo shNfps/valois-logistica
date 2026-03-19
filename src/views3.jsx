@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { extractItemsFromPdf } from './ai.js'
-import { fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, FABRICANTES, CATEGORIAS_PRODUTO, fetchClientes, createCliente, deleteCliente, createProduto, savePedidoItens, uploadImage, updateProduto } from './db.js'
+import { fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, FABRICANTES, CATEGORIAS_PRODUTO, fetchClientes, createCliente, deleteCliente, createProduto, upsertProduto, savePedidoItens, uploadImage, updateProduto } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
 import { ClienteBadges } from './cliente-badges.jsx'
 
@@ -29,8 +29,15 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
   const salvarCatalogo = async () => {
     setSalvando(true)
     const sel = itens.filter(i => i._sel)
-    for (const it of sel) await createProduto({ nome: it.nome_produto, preco: Number(it.preco_unitario) || 0, categoria: 'Outros', codigo: it.codigo || null })
-    setSalvando(false); alert(`${sel.length} produto(s) adicionados ao catálogo`)
+    let criados = 0, atualizados = 0, ignorados = 0
+    for (const it of sel) {
+      const r = await upsertProduto({ nome: it.nome_produto, preco: Number(it.preco_unitario) || 0, categoria: 'Outros', codigo: it.codigo || null })
+      if (r?._action === 'created') criados++
+      else if (r?._action === 'updated') atualizados++
+      else ignorados++
+    }
+    setSalvando(false)
+    alert(`Catálogo atualizado: ${criados} criado(s), ${atualizados} preço(s) atualizado(s), ${ignorados} ignorado(s) (já existe com preço igual ou maior)`)
   }
 
   const th = { padding: '6px 4px', fontWeight: 700, fontSize: 11, color: '#334155', background: '#F1F5F9', textAlign: 'left' }
@@ -225,7 +232,7 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
     setUploading(true)
     let img_url = prod.img_url
     if (eImg) img_url = await uploadImage(eImg)
-    await updateProduto(prod.id, { nome: eNome.trim(), codigo: eCodigo.trim() || null, preco: parseFloat(ePreco), categoria: eCat, fabricante: eFab || null, img_url, diluicao: eCat === 'Químicos' ? eDiluicao.trim() || null : null })
+    await updateProduto(prod.id, { nome: eNome.trim(), codigo: eCodigo.trim().replace(/\./g, '') || null, preco: parseFloat(ePreco), categoria: eCat, fabricante: eFab || null, img_url, diluicao: eCat === 'Químicos' ? eDiluicao.trim() || null : null })
     setUploading(false); onSaved(); onClose()
   }
 

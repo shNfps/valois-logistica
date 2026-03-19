@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
+import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
 import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
 import { AdminEditRotaScreen } from './views7.jsx'
@@ -34,7 +34,9 @@ export function AdminView({ pedidos, refresh, user }) {
     if(!pImg){alert('A foto do produto é obrigatória');return}
     setPUploading(true)
     const img_url=await uploadImage(pImg)
-    await createProduto({nome:pNome.trim(),preco:parseFloat(pPreco),categoria:pCat,fabricante:pFab||null,img_url,codigo:pCodigo.trim()||null,diluicao:pCat==='Químicos'?pDiluicao.trim()||null:null})
+    const r=await upsertProduto({nome:pNome.trim(),preco:parseFloat(pPreco),categoria:pCat,fabricante:pFab||null,img_url,codigo:pCodigo.trim().replace(/\./g,'')||null,diluicao:pCat==='Químicos'?pDiluicao.trim()||null:null})
+    if(r?._action==='skipped')alert('Produto já existe com preço igual ou maior. Nenhuma alteração feita.')
+    else if(r?._action==='updated')alert('Preço atualizado pois o novo valor é maior.')
     setPNome('');setPPreco('');setPCat('Descartáveis');setPFab('');setPImg(null);setPCodigo('');setPDiluicao('');await loadProdutos();setPUploading(false)
   }
   const handleDeleteProd=async(id,n)=>{if(!confirm(`Deletar ${n}?`))return;await deleteProduto(id);await loadProdutos()}

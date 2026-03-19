@@ -81,6 +81,20 @@ export async function deletePedido(id){const{error}=await supabase.from('pedidos
 export async function deleteUsuario(id){const{error}=await supabase.from('usuarios').delete().eq('id',id);if(error)console.error(error)}
 export async function createProduto(p){const{data,error}=await supabase.from('produtos').insert(p).select().single();if(error){console.error(error);return null};return data}
 export async function updateProduto(id,updates){const{error}=await supabase.from('produtos').update(updates).eq('id',id);if(error)console.error(error)}
+// Upsert: evita duplicatas por nome (case insensitive).
+// Se já existe produto com mesmo nome:
+//   - preço novo > preço atual → atualiza o preço
+//   - caso contrário → não altera (retorna _action:'skipped')
+// Se não existe → cria novo. Sempre remove pontos do código.
+export async function upsertProduto(p){
+  if(p.codigo)p={...p,codigo:String(p.codigo).replace(/\./g,'')}
+  const{data:existing}=await supabase.from('produtos').select('id,preco').ilike('nome',p.nome).maybeSingle()
+  if(existing){
+    if(Number(p.preco)>Number(existing.preco)){await updateProduto(existing.id,{preco:p.preco});return{...existing,preco:p.preco,_action:'updated'}}
+    return{...existing,_action:'skipped'}
+  }
+  const result=await createProduto(p);return result?{...result,_action:'created'}:null
+}
 export async function deleteProduto(id){const{error}=await supabase.from('produtos').delete().eq('id',id);if(error)console.error(error)}
 export function hasSetor(user,setor){if(!user.setores)return user.setor===setor;return user.setores.includes(setor)}
 
@@ -137,7 +151,7 @@ export function groupByDateDetalhado(pedidos){
 export async function fetchPedidoItens(pedidoId){const{data,error}=await supabase.from('pedido_itens').select('*').eq('pedido_id',pedidoId).order('criado_em');if(error){console.error(error);return[]};return data||[]}
 export async function savePedidoItens(pedidoId,itens){
   await supabase.from('pedido_itens').delete().eq('pedido_id',pedidoId)
-  const rows=itens.map(i=>{const qtd=Number(i.quantidade)||0;const unit=Number(i.preco_unitario)||0;const total=Number(i.preco_total)||qtd*unit;return{pedido_id:pedidoId,codigo:i.codigo||null,nome_produto:i.nome_produto,quantidade:qtd,unidade:i.unidade||'un',preco_unitario:unit,preco_total:total}})
+  const rows=itens.map(i=>{const qtd=Number(i.quantidade)||0;const unit=Number(i.preco_unitario)||0;const total=Number(i.preco_total)||qtd*unit;const cod=i.codigo?String(i.codigo).replace(/\./g,''):null;return{pedido_id:pedidoId,codigo:cod,nome_produto:i.nome_produto,quantidade:qtd,unidade:i.unidade||'un',preco_unitario:unit,preco_total:total}})
   if(rows.length>0){const{error}=await supabase.from('pedido_itens').insert(rows);if(error){console.error(error);return false}}
   const total=rows.reduce((s,r)=>s+r.preco_total,0)
   await supabase.from('pedidos').update({valor_total:total,atualizado_em:new Date().toISOString()}).eq('id',pedidoId)
