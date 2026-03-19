@@ -28,3 +28,13 @@ UPDATE pedido_itens
 SET codigo = REPLACE(codigo, '.', '')
 WHERE codigo IS NOT NULL
   AND codigo LIKE '%.%';
+
+-- ────────────────────────────────────────────────────────────
+-- 3. LISTAR PRODUTOS SEM CÓDIGO (somente consulta — não deleta)
+--    Execute para ver quais produtos precisam de código
+-- ────────────────────────────────────────────────────────────
+
+SELECT id, nome, categoria, preco
+FROM produtos
+WHERE codigo IS NULL OR codigo = ''
+ORDER BY categoria, nome;

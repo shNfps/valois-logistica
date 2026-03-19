@@ -12,7 +12,7 @@ export function AdminView({ pedidos, refresh, user }) {
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
   const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
-  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('')
+  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false)
   const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
@@ -146,6 +146,22 @@ export function AdminView({ pedidos, refresh, user }) {
         <button onClick={()=>imgRef.current.click()} style={{...btnSmall,marginBottom:14,width:'100%',justifyContent:'center',borderColor:pImg?'#10B981':'#CBD5E1',color:pImg?'#10B981':'#64748B'}}>{pImg?`✓ ${pImg.name}`:'📷 Foto do produto *'}</button>
         <button onClick={criarProduto} disabled={pUploading} style={{...btnPrimary,width:'100%',opacity:pUploading?0.6:1}}>{pUploading?'Salvando...':'+ Adicionar Produto'}</button>
       </div>
+      {(()=>{const sem=produtos.filter(p=>!p.codigo);if(!sem.length)return null;return(
+        <div style={{background:'#FEF3C7',border:'1px solid #F59E0B',borderRadius:10,padding:'12px 16px',marginBottom:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:13,fontWeight:600,color:'#92400E'}}>⚠️ {sem.length} produto(s) sem código</span>
+            <button onClick={()=>setShowSemCodigo(v=>!v)} style={{...btnSmall,fontSize:11,padding:'4px 10px'}}>{showSemCodigo?'Ocultar':'Ver lista'}</button>
+          </div>
+          {showSemCodigo&&<div style={{marginTop:10}}>
+            {sem.map(p=>(<div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #FDE68A'}}>
+              <span style={{flex:1,fontSize:13,color:'#78350F',fontWeight:600}}>{p.nome}</span>
+              <span style={{fontSize:11,color:'#92400E'}}>{p.categoria}</span>
+              <button onClick={()=>setEditProd(p)} style={{...btnSmall,fontSize:10,padding:'2px 8px',color:'#3B82F6'}}>✏️ Editar</button>
+              <button onClick={()=>handleDeleteProd(p.id,p.nome)} style={{...btnSmall,fontSize:10,padding:'2px 8px',color:'#EF4444'}}>✗</button>
+            </div>))}
+          </div>}
+        </div>
+      )})()}
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Produtos ({produtos.length})</h3>
       {CATEGORIAS_PRODUTO.map(cat=>{const prods=produtos.filter(p=>p.categoria===cat);if(prods.length===0)return null;return(<div key={cat}>
         <div style={{fontSize:12,fontWeight:700,color:'#64748B',padding:'8px 0',borderBottom:'1px solid #E2E8F0',marginBottom:8}}>{cat} ({prods.length})</div>
