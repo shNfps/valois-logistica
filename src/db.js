@@ -108,12 +108,7 @@ export async function deleteCliente(id){const{error}=await supabase.from('client
 // Rotas
 export async function createRota(motoristaNome,cidade,veiculo,cidades){const{data,error}=await supabase.from('rotas').insert({motorista_nome:motoristaNome,cidade,veiculo,status:'ativa',cidades:cidades||[cidade]}).select().single();if(error){console.error(error);return null};return data}
 export async function addRotaPedidos(rotaId,pedidoIds){const rows=pedidoIds.map(pid=>({rota_id:rotaId,pedido_id:pid}));const{error}=await supabase.from('rota_pedidos').insert(rows);if(error)console.error(error)}
-export async function fetchRotaAtiva(motoristaNome){
-  console.log('[fetchRotaAtiva] buscando por motorista_nome:', JSON.stringify(motoristaNome))
-  const{data,error}=await supabase.from('rotas').select('*').eq('motorista_nome',motoristaNome).eq('status','ativa').order('criado_em',{ascending:false}).limit(1).maybeSingle()
-  console.log('[fetchRotaAtiva] resultado:', data, '| erro:', error)
-  if(error){console.error(error);return null};return data||null
-}
+export async function fetchRotaAtiva(motoristaNome){const{data,error}=await supabase.from('rotas').select('*').eq('motorista_nome',motoristaNome).eq('status','ativa').order('criado_em',{ascending:false}).limit(1).maybeSingle();if(error){console.error(error);return null};return data||null}
 export async function fetchRotaPedidoIds(rotaId){const{data,error}=await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id',rotaId);if(error){console.error(error);return[]};return(data||[]).map(r=>r.pedido_id)}
 export async function finalizarRota(rotaId){const{error}=await supabase.from('rotas').update({status:'finalizada'}).eq('id',rotaId);if(error)console.error(error)}
 export async function fetchRotasAtivas(){const{data,error}=await supabase.from('rotas').select('*').eq('status','ativa').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}

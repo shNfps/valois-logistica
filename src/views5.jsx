@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fmt, getRef, groupByCidade, CIDADES, VEICULOS, ROTA_ORDEM, inputStyle, btnPrimary, btnSmall, card, updatePedido, addHistorico, createRota, addRotaPedidos, fetchRotaAtiva, fetchRotaPedidoIds, finalizarRota } from './db.js'
+import { supabase } from './supabase.js'
+import { fmt, getRef, groupByCidade, CIDADES, VEICULOS, ROTA_ORDEM, inputStyle, btnPrimary, btnSmall, card, updatePedido, addHistorico, createRota, addRotaPedidos, fetchRotasAtivas, fetchRotaPedidoIds, finalizarRota } from './db.js'
 import { Badge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
@@ -136,33 +137,34 @@ function MontarRotaScreen({ pedidos, user, onRotaCriada, onCancel }) {
 export function MotoristaView({ pedidos, refresh, user }) {
   const [viewing, setViewing] = useState(null); const [signing, setSigning] = useState(false); const [saving, setSaving] = useState(false)
   const [montarRota, setMontarRota] = useState(false)
-  const [rotaAtiva, setRotaAtiva] = useState(null); const [rotaPedidoIds, setRotaPedidoIds] = useState([])
+  const [rotasAtivas, setRotasAtivas] = useState([]); const [rotasPedidos, setRotasPedidos] = useState({})
 
-  const loadRota = useCallback(async () => {
-    console.log('[MotoristaView] user.nome:', JSON.stringify(user.nome))
-    const r = await fetchRotaAtiva(user.nome)
-    console.log('[MotoristaView] rotaAtiva recebida:', r)
-    setRotaAtiva(r)
-    if (r) {
-      const ids = await fetchRotaPedidoIds(r.id)
-      console.log('[MotoristaView] pedido IDs da rota:', ids)
-      setRotaPedidoIds(ids)
-    } else { setRotaPedidoIds([]) }
-  }, [user.nome])
-  useEffect(() => { loadRota() }, [loadRota])
+  const loadRotas = useCallback(async () => {
+    const rs = await fetchRotasAtivas()
+    setRotasAtivas(rs || [])
+    const map = {}
+    for (const r of rs || []) { map[r.id] = await fetchRotaPedidoIds(r.id) }
+    setRotasPedidos(map)
+  }, [])
+  useEffect(() => { loadRotas() }, [loadRotas])
+  useEffect(() => {
+    const sub = supabase.channel('rotas-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'rotas' }, loadRotas).subscribe()
+    return () => { supabase.removeChannel(sub) }
+  }, [loadRotas])
 
-  const onRotaCriada = (rota, ids) => { setRotaAtiva(rota); setRotaPedidoIds(ids); setMontarRota(false); refresh() }
+  const onRotaCriada = async () => { await loadRotas(); setMontarRota(false); refresh() }
 
   const confirmarEntrega = async (id, { assinatura, cpf }) => {
     setSaving(true)
     await updatePedido(id, { status: 'ENTREGUE', entrega_assinatura: assinatura, entrega_cpf: cpf, entrega_data: new Date().toISOString(), entregue_por: user.nome })
     await addHistorico(id, user.nome, 'Entregou — CPF: ' + cpf)
-    if (rotaAtiva) {
-      const outros = rotaPedidoIds.filter(pid => pid !== id)
+    const rotaId = Object.entries(rotasPedidos).find(([, ids]) => ids.includes(id))?.[0]
+    if (rotaId) {
+      const outros = rotasPedidos[rotaId].filter(pid => pid !== id)
       const todosEntregues = outros.every(pid => pedidos.find(x => x.id === pid)?.status === 'ENTREGUE')
-      if (todosEntregues) { await finalizarRota(rotaAtiva.id); setRotaAtiva(prev => prev ? { ...prev, status: 'finalizada' } : null) }
+      if (todosEntregues) await finalizarRota(rotaId)
     }
-    refresh(); setSigning(false); setViewing(null); setSaving(false)
+    await loadRotas(); refresh(); setSigning(false); setViewing(null); setSaving(false)
   }
 
   if (montarRota) return <MontarRotaScreen pedidos={pedidos.filter(p => p.status === 'NF_EMITIDA')} user={user} onRotaCriada={onRotaCriada} onCancel={() => setMontarRota(false)} />
@@ -185,11 +187,11 @@ export function MotoristaView({ pedidos, refresh, user }) {
     </div>)
   }
 
-  const hasRota = rotaAtiva && rotaAtiva.status === 'ativa'
+  const allIds = Object.values(rotasPedidos).flat()
+  const hasRota = rotasAtivas.some(r => r.status === 'ativa')
   const nfEmitida = pedidos.filter(p => p.status === 'NF_EMITIDA')
-  const emRota = pedidos.filter(p => rotaPedidoIds.includes(p.id) && p.status === 'EM_ROTA')
-  const entregues = hasRota ? pedidos.filter(p => rotaPedidoIds.includes(p.id) && p.status === 'ENTREGUE') : pedidos.filter(p => p.status === 'ENTREGUE')
-  const entreguesCount = pedidos.filter(p => rotaPedidoIds.includes(p.id) && p.status === 'ENTREGUE').length
+  const emRota = pedidos.filter(p => allIds.includes(p.id) && p.status === 'EM_ROTA')
+  const entregues = allIds.length > 0 ? pedidos.filter(p => allIds.includes(p.id) && p.status === 'ENTREGUE') : pedidos.filter(p => p.status === 'ENTREGUE')
   const nfPorCidade = groupByCidade(nfEmitida)
 
   const secH = (icon, title, count) => <h3 style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1.5 }}>{icon} {title}{count !== undefined ? ` (${count})` : ''}</h3>
@@ -221,14 +223,15 @@ export function MotoristaView({ pedidos, refresh, user }) {
       : nfPorCidade.map(g => <CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}>{g.items.map(renderCard)}</CidadeGroup>)}
     {divider}
     {secH('🚛', 'Rota Ativa')}
-    {!rotaAtiva
+    {rotasAtivas.length === 0
       ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12 }}>Nenhuma rota ativa — monte uma rota acima</div>
-      : (<>
-        <RotaAtivaBanner rota={rotaAtiva} total={rotaPedidoIds.length} entregues={entreguesCount} onFechar={rotaAtiva.status === 'finalizada' ? () => { setRotaAtiva(null); setRotaPedidoIds([]) } : null} />
-        {emRota.length === 0
-          ? <div style={{ textAlign: 'center', padding: 20, color: '#059669', fontWeight: 600 }}>Todos os pedidos desta rota foram entregues ✅</div>
-          : emRota.map(renderCardRota)}
-      </>)}
+      : rotasAtivas.map(rota => {
+          const ids = rotasPedidos[rota.id] || []
+          const ec = pedidos.filter(p => ids.includes(p.id) && p.status === 'ENTREGUE').length
+          return <RotaAtivaBanner key={rota.id} rota={rota} total={ids.length} entregues={ec} onFechar={rota.status === 'finalizada' ? () => setRotasAtivas(prev => prev.filter(r => r.id !== rota.id)) : null} />
+        })}
+    {emRota.length > 0 && emRota.map(renderCardRota)}
+    {emRota.length === 0 && rotasAtivas.length > 0 && <div style={{ textAlign: 'center', padding: 20, color: '#059669', fontWeight: 600 }}>Todos os pedidos desta rota foram entregues ✅</div>}
     {entregues.length > 0 && (<>
       {divider}
       {secH('✅', 'Entregues hoje', entregues.length)}
