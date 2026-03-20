@@ -158,13 +158,13 @@ export function MotoristaView({ pedidos, refresh, user }) {
     refresh(); setSigning(false); setViewing(null); setSaving(false)
   }
 
-  if (montarRota) return <MontarRotaScreen pedidos={pedidos} user={user} onRotaCriada={onRotaCriada} onCancel={() => setMontarRota(false)} />
+  if (montarRota) return <MontarRotaScreen pedidos={pedidos.filter(p => p.status === 'NF_EMITIDA')} user={user} onRotaCriada={onRotaCriada} onCancel={() => setMontarRota(false)} />
 
   if (viewing) {
     const p = pedidos.find(x => x.id === viewing); if (!p) { setViewing(null); return null }
     if (signing) return <SignaturePad onSave={data => confirmarEntrega(p.id, data)} onCancel={() => setSigning(false)} />
     return (<div>
-      <button onClick={() => setViewing(null)} style={{ ...btnSmall, marginBottom: 16 }}>← Voltar</button>
+      <button onClick={() => { setViewing(null); setSigning(false) }} style={{ ...btnSmall, marginBottom: 16 }}>← Voltar</button>
       <div style={{ ...card, padding: 20, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}><h3 style={{ margin: 0, fontSize: 17, color: '#0A1628' }}>{p.cliente}</h3><Badge status={p.status} /></div>
         {p.cidade && <div style={{ fontSize: 13, color: '#64748B', marginBottom: 10 }}>📍 {p.cidade}</div>}
@@ -179,14 +179,14 @@ export function MotoristaView({ pedidos, refresh, user }) {
   }
 
   const hasRota = rotaAtiva && rotaAtiva.status === 'ativa'
-  const pendentes = hasRota
-    ? pedidos.filter(p => rotaPedidoIds.includes(p.id) && ['NF_EMITIDA', 'EM_ROTA'].includes(p.status))
-    : pedidos.filter(p => ['NF_EMITIDA', 'EM_ROTA'].includes(p.status))
-  const entregues = hasRota
-    ? pedidos.filter(p => rotaPedidoIds.includes(p.id) && p.status === 'ENTREGUE')
-    : pedidos.filter(p => p.status === 'ENTREGUE')
-  const entreguesCount = rotaAtiva ? pedidos.filter(p => rotaPedidoIds.includes(p.id) && p.status === 'ENTREGUE').length : 0
-  const porCidade = groupByCidade(pendentes)
+  const nfEmitida = pedidos.filter(p => p.status === 'NF_EMITIDA')
+  const emRota = pedidos.filter(p => rotaPedidoIds.includes(p.id) && p.status === 'EM_ROTA')
+  const entregues = hasRota ? pedidos.filter(p => rotaPedidoIds.includes(p.id) && p.status === 'ENTREGUE') : pedidos.filter(p => p.status === 'ENTREGUE')
+  const entreguesCount = pedidos.filter(p => rotaPedidoIds.includes(p.id) && p.status === 'ENTREGUE').length
+  const nfPorCidade = groupByCidade(nfEmitida)
+
+  const secH = (icon, title, count) => <h3 style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1.5 }}>{icon} {title}{count !== undefined ? ` (${count})` : ''}</h3>
+  const divider = <div style={{ borderTop: '2px solid #E2E8F0', margin: '24px 0 18px' }} />
 
   const renderCard = p => (<div key={p.id} onClick={() => setViewing(p.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -195,15 +195,36 @@ export function MotoristaView({ pedidos, refresh, user }) {
     <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 6 }}>{fmt(p.atualizado_em)}</div>
   </div>)
 
+  const renderCardRota = p => (
+    <div key={p.id} style={{ ...card, borderLeft: '3px solid #3B82F6', padding: '12px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }} onClick={() => setViewing(p.id)}>
+        <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace', flexShrink: 0 }}>{getRef(p)}</span>
+        <span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
+        {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
+      </div>
+      <button onClick={() => { setViewing(p.id); setSigning(true) }} style={{ ...btnPrimary, background: '#059669', padding: '9px 18px', fontSize: 13, width: '100%' }}>✍ Coletar Assinatura</button>
+    </div>
+  )
+
   return (<div>
-    {rotaAtiva
-      ? <RotaAtivaBanner rota={rotaAtiva} total={rotaPedidoIds.length} entregues={entreguesCount} onFechar={rotaAtiva.status === 'finalizada' ? () => { setRotaAtiva(null); setRotaPedidoIds([]) } : null} />
-      : <button onClick={() => setMontarRota(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 16, background: '#3B82F6' }}>🗺️ Montar Rota</button>}
-    {!hasRota && <h3 style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: 1.5 }}>Entregas ({pendentes.length})</h3>}
-    {pendentes.length === 0 && !hasRota && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>Nenhuma entrega pendente</div>}
-    {hasRota ? pendentes.map(renderCard) : porCidade.map(g => (<CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}>{g.items.map(renderCard)}</CidadeGroup>))}
+    {secH('📋', 'Pedidos para roteirizar', nfEmitida.length)}
+    {!hasRota && <button onClick={() => setMontarRota(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 14, background: '#3B82F6' }}>🗺️ Montar Rota</button>}
+    {nfEmitida.length === 0
+      ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12, marginBottom: 4 }}>Nenhum pedido aguardando roteirização ✓</div>
+      : nfPorCidade.map(g => <CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}>{g.items.map(renderCard)}</CidadeGroup>)}
+    {divider}
+    {secH('🚛', 'Rota Ativa')}
+    {!rotaAtiva
+      ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12 }}>Nenhuma rota ativa — monte uma rota acima</div>
+      : (<>
+        <RotaAtivaBanner rota={rotaAtiva} total={rotaPedidoIds.length} entregues={entreguesCount} onFechar={rotaAtiva.status === 'finalizada' ? () => { setRotaAtiva(null); setRotaPedidoIds([]) } : null} />
+        {emRota.length === 0
+          ? <div style={{ textAlign: 'center', padding: 20, color: '#059669', fontWeight: 600 }}>Todos os pedidos desta rota foram entregues ✅</div>
+          : emRota.map(renderCardRota)}
+      </>)}
     {entregues.length > 0 && (<>
-      <h3 style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', margin: '28px 0 14px', textTransform: 'uppercase', letterSpacing: 1.5 }}>Entregues ({entregues.length})</h3>
+      {divider}
+      {secH('✅', 'Entregues hoje', entregues.length)}
       {entregues.slice(0, 20).map(p => (<div key={p.id} style={{ ...card, background: '#F0FDF4', opacity: 0.85 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ background: '#D1FAE5', color: '#059669', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace' }}>{getRef(p)}</span><span style={{ fontWeight: 700, color: '#0A1628' }}>{p.cliente}</span>{p.cidade && <span style={{ fontSize: 10, color: '#94A3B8' }}>📍{p.cidade}</span>}</div><Badge status={p.status} />
