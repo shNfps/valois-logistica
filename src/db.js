@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js'
 
 export const fmt = (d) => d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
-export const fmtMoney = (v) => 'R$ ' + Number(v||0).toFixed(2).replace('.',',')
+export const fmtMoney = (v) => 'R$ ' + Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export const getRef = (p) => {
   if (p.numero_ref) return p.numero_ref

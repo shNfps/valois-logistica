@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, fmtCnpj } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
-import { ClienteBadges } from './cliente-badges.jsx'
+import { ClienteBadges, calcClienteBadges, ALL_BADGE_KEYS, BADGE_DEFS } from './cliente-badges.jsx'
 
 // ─── CLIENTES TAB (COMERCIAL / VENDEDOR) ───
 export function ClientesTab({ pedidos = [] }) {
@@ -13,8 +13,13 @@ export function ClientesTab({ pedidos = [] }) {
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState('')
   const [endereco, setEndereco] = useState(''); const [cnpj, setCnpj] = useState('')
   const [saving, setSaving] = useState(false)
+  const [activeFilters, setActiveFilters] = useState([])
   const load = useCallback(async () => setClientes(await fetchClientes()), [])
   useEffect(() => { load() }, [load])
+  const badgesMap = useMemo(() => {
+    const m = {}; clientes.forEach(c => { const cp = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase()); m[c.id] = calcClienteBadges(cp) }); return m
+  }, [clientes, pedidos])
+  const toggleFilter = k => setActiveFilters(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
 
   const criar = async () => {
     if (!nome.trim()) { alert('Informe o nome'); return }
@@ -60,17 +65,22 @@ export function ClientesTab({ pedidos = [] }) {
       ) : (
         <button onClick={() => setShowForm(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 16 }}>+ Novo Cliente</button>
       )}
-      <div style={{ position: 'relative', marginBottom: 12 }}>
+      <div style={{ position: 'relative', marginBottom: 8 }}>
         <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, color: '#94A3B8' }}>🔍</span>
         <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cliente..." style={{ ...inputStyle, paddingLeft: 36 }} />
         {busca && <button onClick={() => setBusca('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 15, color: '#94A3B8', cursor: 'pointer' }}>✕</button>}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.2 }}>
-        Clientes ({clientes.filter(c => !busca || c.nome.toLowerCase().includes(busca.toLowerCase())).length})
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
+        <button onClick={() => setActiveFilters([])} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: activeFilters.length === 0 ? '#0A1628' : '#E2E8F0', color: activeFilters.length === 0 ? '#fff' : '#64748B', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>Todos</button>
+        {ALL_BADGE_KEYS.map(k => { const cnt = Object.values(badgesMap).filter(b => b.includes(k)).length; if (!cnt) return null; const active = activeFilters.includes(k); return <button key={k} onClick={() => toggleFilter(k)} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: active ? '#0A1628' : '#E2E8F0', color: active ? '#fff' : '#64748B', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>{BADGE_DEFS[k].icon} {cnt}</button> })}
       </div>
-      {clientes.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>Nenhum cliente cadastrado</div>}
-      {clientes.filter(c => !busca || c.nome.toLowerCase().includes(busca.toLowerCase())).map(c => {
-        const cPedidos = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase())
+      {(() => {
+        const display = clientes.filter(c => (!busca || c.nome.toLowerCase().includes(busca.toLowerCase())) && (activeFilters.length === 0 || activeFilters.every(k => badgesMap[c.id]?.includes(k))))
+        return (<>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.2 }}>Clientes ({display.length})</div>
+          {display.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>{clientes.length === 0 ? 'Nenhum cliente cadastrado' : 'Nenhum cliente com este filtro'}</div>}
+          {display.map(c => {
+            const cPedidos = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase())
         return (
           <div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }}
             onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'}
@@ -87,6 +97,8 @@ export function ClientesTab({ pedidos = [] }) {
           </div>
         )
       })}
+        </>)
+      })()}
     </div>
   )
 }

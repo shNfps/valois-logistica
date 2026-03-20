@@ -15,7 +15,7 @@ export function AdminView({ pedidos, refresh, user }) {
   const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
   const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false)
-  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null)
+  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
   const loadRotas=useCallback(async()=>{setRotasAtivas(await fetchRotasAtivas())},[])
@@ -42,7 +42,8 @@ export function AdminView({ pedidos, refresh, user }) {
     setPNome('');setPPreco('');setPCat('Descartáveis');setPFab('');setPImg(null);setPCodigo('');setPDiluicao('');await loadProdutos();setPUploading(false)
   }
   const handleDeleteProd=async(id,n)=>{if(!confirm(`Deletar ${n}?`))return;await deleteProduto(id);await loadProdutos()}
-  const pedidosFiltrados=filterPedidos(pedidos,search);const pedidosAgrupados=groupByDate(pedidosFiltrados)
+  const pedBase=pipelineFilter?pedidos.filter(p=>p.status===pipelineFilter):pedidos
+  const pedidosFiltrados=filterPedidos(pedBase,search);const pedidosAgrupados=groupByDate(pedidosFiltrados)
   const counts={};Object.keys(STATUS_MAP).forEach(s=>{counts[s]=pedidos.filter(p=>p.status===s).length})
   const imgRef=useRef(null)
 
@@ -72,14 +73,17 @@ export function AdminView({ pedidos, refresh, user }) {
         </div>)})}
       </div>)}
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Pipeline</h3>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:20}}>
-        {Object.entries(STATUS_MAP).map(([key,s])=>(<div key={key} style={{background:'#fff',borderRadius:12,padding:14,textAlign:'center',borderLeft:`4px solid ${s.color}`,boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:12}}>
+        {Object.entries(STATUS_MAP).map(([key,s])=>{const active=pipelineFilter===key;return(<div key={key} onClick={()=>setPipelineFilter(f=>f===key?null:key)} style={{background:'#fff',borderRadius:12,padding:14,textAlign:'center',border:active?`2px solid ${s.color}`:`none`,borderLeft:active?`2px solid ${s.color}`:`4px solid ${s.color}`,boxShadow:active?`0 0 0 2px ${s.color}33`:'0 1px 3px rgba(0,0,0,0.05)',cursor:'pointer',transform:active?'scale(1.04)':'scale(1)',transition:'transform 0.15s'}}>
           <div style={{fontSize:24,fontWeight:800,color:s.color}}>{counts[key]}</div>
           <div style={{fontSize:10,fontWeight:700,color:'#64748B',textTransform:'uppercase'}}>{s.label}</div>
-        </div>))}
-      </div>
+        </div>)})}</div>
+      {pipelineFilter&&<div style={{background:'#F1F5F9',borderRadius:8,padding:'8px 12px',marginBottom:14,display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:12}}>
+        <span style={{fontWeight:700,color:'#334155'}}>Filtrado por: {STATUS_MAP[pipelineFilter].label} ({pedidos.filter(p=>p.status===pipelineFilter).length} pedidos)</span>
+        <button onClick={()=>setPipelineFilter(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#64748B',fontSize:13,fontFamily:'inherit'}}>✕ Limpar</button>
+      </div>}
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Atividade Recente</h3>
-      {pedidos.slice(0,15).map(p=>(<div key={p.id} style={{...card,padding:12}}>
+      {(pipelineFilter?pedidos.filter(p=>p.status===pipelineFilter):pedidos).slice(0,15).map(p=>(<div key={p.id} style={{...card,padding:12}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
           <div style={{display:'flex',alignItems:'center',gap:6}}>
             <span style={{background:'#F1F5F9',color:'#64748B',fontSize:10,fontWeight:700,padding:'2px 6px',borderRadius:4,fontFamily:'monospace'}}>{getRef(p)}</span>
@@ -195,6 +199,10 @@ export function AdminView({ pedidos, refresh, user }) {
     {tab==='clientes'&&<AdminClientesTab pedidos={pedidos}/>}
     {tab==='pedidos'&&(<div>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade, funcionário..."/>
+      {pipelineFilter&&<div style={{background:'#F1F5F9',borderRadius:8,padding:'8px 12px',marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:12}}>
+        <span style={{fontWeight:700,color:'#334155'}}>Filtrado por: {STATUS_MAP[pipelineFilter].label} ({pedidosFiltrados.length} pedidos)</span>
+        <button onClick={()=>setPipelineFilter(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#64748B',fontSize:13,fontFamily:'inherit'}}>✕ Limpar</button>
+      </div>}
       {pedidosAgrupados.map(g=>(<DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>
         {g.items.map(p=>(<div key={p.id} style={card}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
