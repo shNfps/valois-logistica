@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, fmtCnpj } from './db.js'
+import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, fmtCnpj } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
 import { ClienteBadges, calcClienteBadges, ALL_BADGE_KEYS, BADGE_DEFS } from './cliente-badges.jsx'
 
@@ -19,6 +19,9 @@ export function ClientesTab({ pedidos = [] }) {
   const badgesMap = useMemo(() => {
     const m = {}; clientes.forEach(c => { const cp = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase()); m[c.id] = calcClienteBadges(cp) }); return m
   }, [clientes, pedidos])
+  const valorMap = useMemo(() => {
+    const m = {}; pedidos.filter(p => ['NF_EMITIDA','EM_ROTA','ENTREGUE'].includes(p.status)).forEach(p => { const k = p.cliente?.toLowerCase(); if (k) m[k] = (m[k] || 0) + (Number(p.valor_total) || 0) }); return m
+  }, [pedidos])
   const toggleFilter = k => setActiveFilters(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
 
   const criar = async () => {
@@ -81,6 +84,7 @@ export function ClientesTab({ pedidos = [] }) {
           {display.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>{clientes.length === 0 ? 'Nenhum cliente cadastrado' : 'Nenhum cliente com este filtro'}</div>}
           {display.map(c => {
             const cPedidos = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase())
+            const valorTotal = valorMap[c.nome?.toLowerCase()] || 0
         return (
           <div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }}
             onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'}
@@ -88,6 +92,7 @@ export function ClientesTab({ pedidos = [] }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
               <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</span>
               <ClienteBadges pedidos={cPedidos} />
+              <span style={{ background: '#F0FDF4', color: valorTotal > 0 ? '#059669' : '#94A3B8', fontWeight: 700, padding: '4px 10px', borderRadius: 8, fontSize: 12 }}>{fmtMoney(valorTotal)}</span>
             </div>
             <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {c.cidade && <span>📍 {c.cidade}</span>}

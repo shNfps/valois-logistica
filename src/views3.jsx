@@ -17,8 +17,8 @@ export function AdminClientesTab({ pedidos = [] }) {
   const [saving, setSaving] = useState(false)
   const load = useCallback(async () => setClientes(await fetchClientes()), [])
   useEffect(() => { load() }, [load])
-  const badgesMap = useMemo(() => {
-    const m = {}; clientes.forEach(c => { const cp = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase()); m[c.id] = calcClienteBadges(cp) }); return m
+  const { badgesMap, valorMap } = useMemo(() => {
+    const bm = {}, vm = {}; clientes.forEach(c => { const cp = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase()); bm[c.id] = calcClienteBadges(cp) }); pedidos.filter(p => ['NF_EMITIDA','EM_ROTA','ENTREGUE'].includes(p.status)).forEach(p => { const k = p.cliente?.toLowerCase(); if (k) vm[k] = (vm[k] || 0) + (Number(p.valor_total) || 0) }); return { badgesMap: bm, valorMap: vm }
   }, [clientes, pedidos])
   const [activeFilters, setActiveFilters] = useState([])
   const toggleFilter = k => setActiveFilters(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
@@ -72,13 +72,15 @@ export function AdminClientesTab({ pedidos = [] }) {
     {displayClientes.map(c => {
       const nPedidos = pedidos.filter(p => p.cliente_id === c.id).length
       const cPedidos = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase())
+      const valorTotal = valorMap[c.nome?.toLowerCase()] || 0
       return (<div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</span>
               {nPedidos > 0 && <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{nPedidos} pedido{nPedidos > 1 ? 's' : ''}</span>}
               <ClienteBadges pedidos={cPedidos} />
+              <span style={{ background: '#F0FDF4', color: valorTotal > 0 ? '#059669' : '#94A3B8', fontWeight: 700, padding: '4px 10px', borderRadius: 8, fontSize: 12, flexShrink: 0 }}>{fmtMoney(valorTotal)}</span>
             </div>
             <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
               {c.documento && <span style={{ fontWeight: 600 }}>{fmtDoc(c.documento)} &nbsp;</span>}{c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}
