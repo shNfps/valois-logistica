@@ -139,8 +139,15 @@ export function MotoristaView({ pedidos, refresh, user }) {
   const [rotaAtiva, setRotaAtiva] = useState(null); const [rotaPedidoIds, setRotaPedidoIds] = useState([])
 
   const loadRota = useCallback(async () => {
-    const r = await fetchRotaAtiva(user.nome); setRotaAtiva(r)
-    if (r) setRotaPedidoIds(await fetchRotaPedidoIds(r.id)); else setRotaPedidoIds([])
+    console.log('[MotoristaView] user.nome:', JSON.stringify(user.nome))
+    const r = await fetchRotaAtiva(user.nome)
+    console.log('[MotoristaView] rotaAtiva recebida:', r)
+    setRotaAtiva(r)
+    if (r) {
+      const ids = await fetchRotaPedidoIds(r.id)
+      console.log('[MotoristaView] pedido IDs da rota:', ids)
+      setRotaPedidoIds(ids)
+    } else { setRotaPedidoIds([]) }
   }, [user.nome])
   useEffect(() => { loadRota() }, [loadRota])
 
