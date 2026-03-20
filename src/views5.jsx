@@ -5,42 +5,63 @@ import { Badge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePa
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
 
-// ─── ROTA ATIVA BANNER ───
-export function RotaAtivaBanner({ rota, total, entregues, onFechar }) {
+// ─── ROTA CARD (colapsável, pedidos dentro) ───
+function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
+  const [expanded, setExpanded] = useState(true)
   const fin = rota.status === 'finalizada'
+  const emRota = pedidosRota.filter(p => p.status === 'EM_ROTA')
+  const entregues = pedidosRota.filter(p => p.status === 'ENTREGUE')
+  const total = pedidosRota.length; const ec = entregues.length
   return (
-    <div style={{ borderRadius: 14, padding: '16px 18px', marginBottom: 16, background: fin ? '#D1FAE5' : '#0A1628', color: fin ? '#065F46' : '#fff' }}>
+    <div style={{ borderRadius: 14, marginBottom: 16, overflow: 'hidden', border: `1px solid ${fin ? '#A7F3D0' : '#1E293B'}` }}>
       <style>{`@keyframes truck-move{0%,100%{transform:translateX(0)}50%{transform:translateX(18px)}}@keyframes blink-red{0%,100%{opacity:1}50%{opacity:0.15}}`}</style>
-      {fin ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 26 }}>✅</span>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 15 }}>ROTA FINALIZADA</div>
-              <div style={{ fontSize: 12, opacity: 0.7 }}>{rota.cidades?.length > 0 ? rota.cidades.join(', ') : rota.cidade} · {vIcon(rota.veiculo)} · {total} entrega{total !== 1 ? 's' : ''}</div>
-            </div>
-          </div>
-          {onFechar && <button onClick={onFechar} style={{ ...btnSmall, background: '#10B981', color: '#fff', border: 'none', fontSize: 12 }}>Fechar</button>}
-        </div>
-      ) : (<>
+      <div onClick={() => setExpanded(e => !e)} style={{ padding: '14px 18px', background: fin ? '#D1FAE5' : '#0A1628', color: fin ? '#065F46' : '#fff', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 28, display: 'inline-block', animation: 'truck-move 1.2s ease-in-out infinite' }}>{vIcon(rota.veiculo)}</span>
+            <span style={{ fontSize: 24, display: 'inline-block', animation: fin ? 'none' : 'truck-move 1.2s ease-in-out infinite' }}>{fin ? '✅' : vIcon(rota.veiculo)}</span>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: 1 }}>ROTA ATIVA</div>
-              <div style={{ fontSize: 12, color: '#94A3B8' }}>{rota.cidades?.length > 0 ? rota.cidades.join(', ') : rota.cidade} · {rota.veiculo}</div>
+              <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: 0.5 }}>{fin ? 'ROTA FINALIZADA' : 'ROTA ATIVA'}</div>
+              <div style={{ fontSize: 12, color: fin ? '#059669' : '#94A3B8' }}>{rota.cidades?.length > 0 ? rota.cidades.join(', ') : rota.cidade} · {vIcon(rota.veiculo)} · {rota.motorista_nome}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', display: 'inline-block', animation: 'blink-red 1s infinite' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444', letterSpacing: 1 }}>AO VIVO</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!fin && <><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#EF4444', display: 'inline-block', animation: 'blink-red 1s infinite' }} /><span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', letterSpacing: 1 }}>AO VIVO</span></>}
+            {fin && onFechar && <button onClick={e => { e.stopPropagation(); onFechar() }} style={{ ...btnSmall, background: '#10B981', color: '#fff', border: 'none', fontSize: 11 }}>Fechar</button>}
+            <span style={{ fontSize: 13, opacity: 0.6, color: fin ? '#065F46' : '#fff' }}>{expanded ? '▲' : '▼'}</span>
           </div>
         </div>
-        <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: '#CBD5E1' }}>Entregas realizadas</span>
-          <span style={{ fontWeight: 800, fontSize: 18 }}>{entregues} <span style={{ fontWeight: 400, fontSize: 13, color: '#94A3B8' }}>de {total}</span></span>
+        <div style={{ background: fin ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '7px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: fin ? '#059669' : '#CBD5E1' }}>Entregas realizadas</span>
+          <span style={{ fontWeight: 800, fontSize: 16 }}>{ec} <span style={{ fontWeight: 400, fontSize: 12, color: fin ? '#059669' : '#94A3B8' }}>de {total}</span></span>
         </div>
-      </>)}
+      </div>
+      {expanded && (
+        <div style={{ padding: '12px 14px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {emRota.length === 0 && entregues.length === 0 && <div style={{ textAlign: 'center', padding: 16, color: '#94A3B8', fontSize: 13 }}>Nenhum pedido nesta rota</div>}
+          {emRota.length === 0 && entregues.length > 0 && <div style={{ textAlign: 'center', padding: 10, color: '#059669', fontWeight: 600, fontSize: 13 }}>Todos os pedidos foram entregues ✅</div>}
+          {emRota.map(p => (
+            <div key={p.id} style={{ borderLeft: '3px solid #3B82F6', borderRadius: 8, padding: '10px 12px', background: '#F8FAFC' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }} onClick={() => onVerPedido(p.id)}>
+                <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 5, fontFamily: 'monospace', flexShrink: 0 }}>{getRef(p)}</span>
+                <span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
+                {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
+              </div>
+              <button onClick={() => onAssinar(p.id)} style={{ ...btnPrimary, background: '#059669', padding: '8px 14px', fontSize: 13, width: '100%' }}>✍ Coletar Assinatura</button>
+            </div>
+          ))}
+          {entregues.map(p => (
+            <div key={p.id} style={{ borderLeft: '3px solid #10B981', borderRadius: 8, padding: '10px 12px', background: '#F0FDF4' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ background: '#D1FAE5', color: '#059669', fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 5, fontFamily: 'monospace', flexShrink: 0 }}>{getRef(p)}</span>
+                <span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
+                {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
+                <span>✅</span>
+              </div>
+              {p.entrega_cpf && <div style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>CPF: {p.entrega_cpf} · {fmt(p.entrega_data)}</div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -187,33 +208,17 @@ export function MotoristaView({ pedidos, refresh, user }) {
     </div>)
   }
 
-  const allIds = Object.values(rotasPedidos).flat()
   const hasRota = rotasAtivas.some(r => r.status === 'ativa')
   const nfEmitida = pedidos.filter(p => p.status === 'NF_EMITIDA')
-  const emRota = pedidos.filter(p => allIds.includes(p.id) && p.status === 'EM_ROTA')
-  const entregues = allIds.length > 0 ? pedidos.filter(p => allIds.includes(p.id) && p.status === 'ENTREGUE') : pedidos.filter(p => p.status === 'ENTREGUE')
   const nfPorCidade = groupByCidade(nfEmitida)
-
   const secH = (icon, title, count) => <h3 style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1.5 }}>{icon} {title}{count !== undefined ? ` (${count})` : ''}</h3>
   const divider = <div style={{ borderTop: '2px solid #E2E8F0', margin: '24px 0 18px' }} />
-
   const renderCard = p => (<div key={p.id} onClick={() => setViewing(p.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ background: '#F1F5F9', color: '#64748B', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace' }}>{getRef(p)}</span><span style={{ fontWeight: 700, color: '#0A1628' }}>{p.cliente}</span>{p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}</div><Badge status={p.status} />
     </div>
     <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 6 }}>{fmt(p.atualizado_em)}</div>
   </div>)
-
-  const renderCardRota = p => (
-    <div key={p.id} style={{ ...card, borderLeft: '3px solid #3B82F6', padding: '12px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }} onClick={() => setViewing(p.id)}>
-        <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace', flexShrink: 0 }}>{getRef(p)}</span>
-        <span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
-        {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
-      </div>
-      <button onClick={() => { setViewing(p.id); setSigning(true) }} style={{ ...btnPrimary, background: '#059669', padding: '9px 18px', fontSize: 13, width: '100%' }}>✍ Coletar Assinatura</button>
-    </div>
-  )
 
   return (<div>
     {secH('📋', 'Pedidos para roteirizar', nfEmitida.length)}
@@ -227,20 +232,11 @@ export function MotoristaView({ pedidos, refresh, user }) {
       ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12 }}>Nenhuma rota ativa — monte uma rota acima</div>
       : rotasAtivas.map(rota => {
           const ids = rotasPedidos[rota.id] || []
-          const ec = pedidos.filter(p => ids.includes(p.id) && p.status === 'ENTREGUE').length
-          return <RotaAtivaBanner key={rota.id} rota={rota} total={ids.length} entregues={ec} onFechar={rota.status === 'finalizada' ? () => setRotasAtivas(prev => prev.filter(r => r.id !== rota.id)) : null} />
+          const pedidosRota = pedidos.filter(p => ids.includes(p.id))
+          return <RotaCard key={rota.id} rota={rota} pedidosRota={pedidosRota}
+            onAssinar={id => { setViewing(id); setSigning(true) }}
+            onVerPedido={setViewing}
+            onFechar={rota.status === 'finalizada' ? () => setRotasAtivas(prev => prev.filter(r => r.id !== rota.id)) : null} />
         })}
-    {emRota.length > 0 && emRota.map(renderCardRota)}
-    {emRota.length === 0 && rotasAtivas.length > 0 && <div style={{ textAlign: 'center', padding: 20, color: '#059669', fontWeight: 600 }}>Todos os pedidos desta rota foram entregues ✅</div>}
-    {entregues.length > 0 && (<>
-      {divider}
-      {secH('✅', 'Entregues hoje', entregues.length)}
-      {entregues.slice(0, 20).map(p => (<div key={p.id} style={{ ...card, background: '#F0FDF4', opacity: 0.85 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ background: '#D1FAE5', color: '#059669', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace' }}>{getRef(p)}</span><span style={{ fontWeight: 700, color: '#0A1628' }}>{p.cliente}</span>{p.cidade && <span style={{ fontSize: 10, color: '#94A3B8' }}>📍{p.cidade}</span>}</div><Badge status={p.status} />
-        </div>
-        {p.entrega_cpf && <div style={{ fontSize: 12, color: '#059669', marginTop: 6 }}>CPF: {p.entrega_cpf} · {fmt(p.entrega_data)}</div>}
-      </div>))}
-    </>)}
   </div>)
 }
