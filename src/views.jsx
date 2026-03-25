@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, fmtMoney, getRef, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
-import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
+import { fmt, fmtMoney, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
+import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
 import { ReprocessarCodigosModal } from './reprocessar-codigos.jsx'
 import { FotosProdutosModal } from './fotos-produtos.jsx'
@@ -86,7 +86,7 @@ export function AdminView({ pedidos, refresh, user }) {
       {(pipelineFilter?pedidos.filter(p=>p.status===pipelineFilter):pedidos).slice(0,15).map(p=>(<div key={p.id} style={{...card,padding:12}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
           <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <span style={{background:'#F1F5F9',color:'#64748B',fontSize:10,fontWeight:700,padding:'2px 6px',borderRadius:4,fontFamily:'monospace'}}>{getRef(p)}</span>
+            <RefBadge pedido={p}/>
             <span style={{fontWeight:700,color:'#0A1628',fontSize:13}}>{p.cliente}</span>
             {p.cidade&&<span style={{fontSize:10,color:'#94A3B8'}}>📍{p.cidade}</span>}
           </div><Badge status={p.status}/>
@@ -207,7 +207,7 @@ export function AdminView({ pedidos, refresh, user }) {
         {g.items.map(p=>(<div key={p.id} style={card}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <span style={{background:'#F1F5F9',color:'#64748B',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:6,fontFamily:'monospace'}}>{getRef(p)}</span>
+              <RefBadge pedido={p}/>
               <span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{p.cliente}</span>
               {p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}
             </div><Badge status={p.status}/>

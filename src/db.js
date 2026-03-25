@@ -33,7 +33,7 @@ export function groupByCidade(pedidos) {
 
 export function filterPedidos(pedidos, search) {
   if(!search)return pedidos;const s=search.toLowerCase()
-  return pedidos.filter(p=>getRef(p).toLowerCase().includes(s)||p.numero_ref?.toLowerCase().includes(s)||p.cliente?.toLowerCase().includes(s)||p.motorista?.toLowerCase().includes(s)||p.criado_por?.toLowerCase().includes(s)||p.conferido_por?.toLowerCase().includes(s)||p.entregue_por?.toLowerCase().includes(s)||p.status?.toLowerCase().includes(s)||p.cidade?.toLowerCase().includes(s))
+  return pedidos.filter(p=>getRef(p).toLowerCase().includes(s)||p.numero_ref?.toLowerCase().includes(s)||p.cliente?.toLowerCase().includes(s)||p.motorista?.toLowerCase().includes(s)||p.criado_por?.toLowerCase().includes(s)||p.conferido_por?.toLowerCase().includes(s)||p.entregue_por?.toLowerCase().includes(s)||p.status?.toLowerCase().includes(s)||p.cidade?.toLowerCase().includes(s)||p.numero_nf?.toLowerCase().includes(s))
 }
 
 export const STATUS_MAP={PENDENTE:{label:'Pendente',color:'#F59E0B',bg:'#FEF3C7'},CONFERIDO:{label:'Conferido',color:'#10B981',bg:'#D1FAE5'},INCOMPLETO:{label:'Incompleto',color:'#EF4444',bg:'#FEE2E2'},NF_EMITIDA:{label:'NF Emitida',color:'#3B82F6',bg:'#DBEAFE'},EM_ROTA:{label:'Em Rota',color:'#8B5CF6',bg:'#EDE9FE'},ENTREGUE:{label:'Entregue',color:'#059669',bg:'#A7F3D0'}}
@@ -114,7 +114,7 @@ export async function finalizarRota(rotaId){const{error}=await supabase.from('ro
 export async function fetchRotasAtivas(){const{data,error}=await supabase.from('rotas').select('*').eq('status','ativa').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}
 
 // Busca pedidos por IDs (para rotas)
-export async function fetchPedidosByIds(ids){if(!ids||!ids.length)return[];const{data,error}=await supabase.from('pedidos').select('id,cliente,status,numero_ref,criado_em,cidade').in('id',ids);if(error){console.error(error);return[]};return data||[]}
+export async function fetchPedidosByIds(ids){if(!ids||!ids.length)return[];const{data,error}=await supabase.from('pedidos').select('id,cliente,status,numero_ref,criado_em,cidade,numero_nf').in('id',ids);if(error){console.error(error);return[]};return data||[]}
 export async function removeRotaPedido(rotaId,pedidoId){const{error}=await supabase.from('rota_pedidos').delete().eq('rota_id',rotaId).eq('pedido_id',pedidoId);if(error)console.error(error)}
 
 // Agrupamento por dia para a view comercial

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getRef, btnSmall, btnPrimary, card, VEICULOS, fetchRotasAtivas, fetchRotaPedidoIds, fetchPedidosByIds, removeRotaPedido, addRotaPedidos, updatePedido } from './db.js'
-import { Badge } from './components.jsx'
+import { Badge, RefBadge } from './components.jsx'
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
 
@@ -58,7 +58,7 @@ export function VendedorRotasTab() {
                     ? <div style={{ fontSize: 12, color: '#94A3B8' }}>Nenhum pedido nesta rota</div>
                     : peds.map(p => (
                       <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F8FAFC' }}>
-                        <span style={{ background: '#F1F5F9', color: '#64748B', fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, fontFamily: 'monospace', flexShrink: 0 }}>{p.numero_ref || p.id.slice(0, 4).toUpperCase()}</span>
+                        <RefBadge pedido={p}/>
                         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#0A1628' }}>{p.cliente}</span>
                         <Badge status={p.status} />
                       </div>
@@ -122,7 +122,7 @@ export function AdminEditRotaScreen({ rota, pedidos, onClose, onSaved }) {
         {pedidosNaRota.length === 0 && <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 16 }}>Nenhum pedido nessa rota</div>}
         {pedidosNaRota.map(p => (
           <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-            <span style={{ background: '#F1F5F9', color: '#64748B', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, fontFamily: 'monospace', flexShrink: 0 }}>{getRef(p)}</span>
+            <RefBadge pedido={p}/>
             <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', fontSize: 13 }}>{p.cliente}</span>
             <Badge status={p.status} />
             <button onClick={() => remover(p.id)} disabled={saving} style={{ ...btnSmall, fontSize: 11, padding: '3px 8px', color: '#EF4444' }}>✗ Remover</button>
@@ -137,7 +137,7 @@ export function AdminEditRotaScreen({ rota, pedidos, onClose, onSaved }) {
             {pedidosDisponiveis.map(p => (
               <div key={p.id} onClick={() => toggle(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F1F5F9', cursor: 'pointer' }}>
                 <input type="checkbox" checked={selecionados.has(p.id)} onChange={() => toggle(p.id)} onClick={e => e.stopPropagation()} style={{ width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 10, background: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>{getRef(p)}</span>
+                <RefBadge pedido={p}/>
                 <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', fontSize: 13 }}>{p.cliente}</span>
               </div>
             ))}

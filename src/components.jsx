@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { fmt, fetchHistorico, STATUS_MAP, inputStyle, btnPrimary, btnSmall } from './db.js'
+import { fmt, getRef, fetchHistorico, STATUS_MAP, inputStyle, btnPrimary, btnSmall } from './db.js'
 import { supabase } from './supabase.js'
 
 export function Badge({status}){const s=STATUS_MAP[status]||STATUS_MAP.PENDENTE;return <span style={{background:s.bg,color:s.color,fontWeight:700,fontSize:11,padding:'3px 10px',borderRadius:20,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap'}}>{s.label}</span>}
@@ -89,6 +89,14 @@ export function HistoricoView({pedidoId}){
       </div>))}
     </div>)}
   </div>)
+}
+
+const NF_STATUSES=['NF_EMITIDA','EM_ROTA','ENTREGUE']
+export function RefBadge({pedido}){
+  if(NF_STATUSES.includes(pedido.status)&&pedido.numero_nf){
+    return <span style={{background:'#DBEAFE',color:'#2563EB',fontWeight:700,fontSize:11,padding:'2px 8px',borderRadius:6,fontFamily:'monospace',whiteSpace:'nowrap'}}>NF {pedido.numero_nf}</span>
+  }
+  return <span style={{background:'#F1F5F9',color:'#64748B',fontWeight:700,fontSize:11,padding:'2px 8px',borderRadius:6,fontFamily:'monospace'}}>{getRef(pedido)}</span>
 }
 
 export function SignaturePad({onSave,onCancel}){

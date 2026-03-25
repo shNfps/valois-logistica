@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fmt, fmtMoney, getRef, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
-import { Badge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
+import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
+import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { CarrinhoFlutuante } from './carrinho-panel.jsx'
 import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
 import { ClientesTab, NovoClienteRapidoModal } from './views4.jsx'
@@ -33,7 +33,7 @@ function ProdutoPopup({prod,onClose,onAdd}){
 export function ComercialView({ pedidos, refresh, user }) {
   const [tab,setTab]=useState('pedidos')
   const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
-  const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('')
+  const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('');const [nfNumeros,setNfNumeros]=useState({})
   const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
   const [novoClienteNome,setNovoClienteNome]=useState(null)
   const fileRef=useRef(null);const nfFileRefs=useRef({});const orcCorrigidoRefs=useRef({})
@@ -47,8 +47,11 @@ export function ComercialView({ pedidos, refresh, user }) {
     try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId);if(pedido)await addHistorico(pedido.id,user.nome,'Criou o pedido');setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
   }
   const handleNf=async(pedidoId,e)=>{
-    const file=e.target.files[0];if(!file)return;setUploading(true)
-    try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA'});await addHistorico(pedidoId,user.nome,'Anexou NF');refresh()}}finally{setUploading(false);e.target.value=''}
+    const file=e.target.files[0];if(!file)return
+    const numero_nf=(nfNumeros[pedidoId]||'').trim()
+    if(!numero_nf){alert('Informe o número da NF');e.target.value='';return}
+    setUploading(true)
+    try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA',numero_nf});await addHistorico(pedidoId,user.nome,`Anexou NF nº ${numero_nf}`);setNfNumeros(prev=>{const n={...prev};delete n[pedidoId];return n});refresh()}}finally{setUploading(false);e.target.value=''}
   }
   const handleOrcamentoCorrigido=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return;setUploading(true)
@@ -58,7 +61,7 @@ export function ComercialView({ pedidos, refresh, user }) {
   const renderCard=(p)=>(<div key={p.id} style={card}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
-        <span style={{background:'#F1F5F9',color:'#64748B',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:6,fontFamily:'monospace'}}>{getRef(p)}</span>
+        <RefBadge pedido={p}/>
         <span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{p.cliente}</span>
         {p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}
       </div><Badge status={p.status}/>
@@ -75,7 +78,10 @@ export function ComercialView({ pedidos, refresh, user }) {
     </div>)}
     {p.status==='CONFERIDO'&&(<div style={{marginTop:8}}>
       <input type="file" accept=".pdf" ref={el=>nfFileRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleNf(p.id,e)}/>
-      <button onClick={()=>nfFileRefs.current[p.id]?.click()} disabled={uploading} style={{...btnSmall,background:'#10B981',color:'#fff',border:'none'}}>✓ Anexar NF</button>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <input type="text" inputMode="numeric" value={nfNumeros[p.id]||''} onChange={e=>setNfNumeros(prev=>({...prev,[p.id]:e.target.value.replace(/\D/g,'')}))} placeholder="Número da NF *" style={{...inputStyle,flex:1,padding:'7px 12px',fontSize:13}}/>
+        <button onClick={()=>{if(!(nfNumeros[p.id]||'').trim()){alert('Informe o número da NF');return};nfFileRefs.current[p.id]?.click()}} disabled={uploading} style={{...btnSmall,background:'#10B981',color:'#fff',border:'none',whiteSpace:'nowrap'}}>✓ Anexar NF</button>
+      </div>
     </div>)}
     {p.orcamento_url&&<div style={{marginTop:8}}><button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:11,padding:'5px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button></div>}
     <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
@@ -141,7 +147,7 @@ export function GalpaoView({ pedidos, refresh, user }) {
     {relevantes.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido para conferir 👍</div>}
     {relevantes.map(p=>(<div key={p.id} onClick={()=>setViewing(p.id)} style={{...card,cursor:'pointer',border:'2px solid transparent'}} onMouseEnter={e=>e.currentTarget.style.borderColor='#CBD5E1'} onMouseLeave={e=>e.currentTarget.style.borderColor='transparent'}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{background:'#F1F5F9',color:'#64748B',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:6,fontFamily:'monospace'}}>{getRef(p)}</span><span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{p.cliente}</span>{p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}</div><Badge status={p.status}/>
+        <div style={{display:'flex',alignItems:'center',gap:8}}><RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{p.cliente}</span>{p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}</div><Badge status={p.status}/>
       </div>
       <div style={{fontSize:12,color:'#94A3B8',marginTop:6}}>{p.criado_por&&'Por: '+p.criado_por+' · '}{fmt(p.criado_em)}</div>
       {p.obs&&<div style={{fontSize:12,color:'#EF4444',marginTop:4}}>⚠ {p.obs}</div>}

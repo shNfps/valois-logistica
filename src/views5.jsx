@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, getRef, groupByCidade, CIDADES, VEICULOS, ROTA_ORDEM, inputStyle, btnPrimary, btnSmall, card, updatePedido, addHistorico, createRota, addRotaPedidos, fetchRotasAtivas, fetchRotaPedidoIds, finalizarRota } from './db.js'
-import { Badge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
+import { fmt, groupByCidade, CIDADES, VEICULOS, ROTA_ORDEM, inputStyle, btnPrimary, btnSmall, card, updatePedido, addHistorico, createRota, addRotaPedidos, fetchRotasAtivas, fetchRotaPedidoIds, finalizarRota } from './db.js'
+import { Badge, RefBadge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
 
@@ -42,7 +42,7 @@ function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
           {emRota.map(p => (
             <div key={p.id} style={{ borderLeft: '3px solid #3B82F6', borderRadius: 8, padding: '10px 12px', background: '#F8FAFC' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }} onClick={() => onVerPedido(p.id)}>
-                <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 5, fontFamily: 'monospace', flexShrink: 0 }}>{getRef(p)}</span>
+                <RefBadge pedido={p}/>
                 <span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
                 {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
               </div>
@@ -52,7 +52,7 @@ function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
           {entregues.map(p => (
             <div key={p.id} style={{ borderLeft: '3px solid #10B981', borderRadius: 8, padding: '10px 12px', background: '#F0FDF4' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ background: '#D1FAE5', color: '#059669', fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 5, fontFamily: 'monospace', flexShrink: 0 }}>{getRef(p)}</span>
+                <RefBadge pedido={p}/>
                 <span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
                 {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
                 <span>✅</span>
@@ -139,7 +139,7 @@ function MontarRotaScreen({ pedidos, user, onRotaCriada, onCancel }) {
                 : disponiveis.map(p => (
                   <div key={p.id} onClick={() => toggle(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F1F5F9', cursor: 'pointer' }}>
                     <input type="checkbox" checked={selecionados.has(p.id)} onChange={() => toggle(p.id)} onClick={e => e.stopPropagation()} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: 4 }}>{getRef(p)}</span>
+                    <RefBadge pedido={p}/>
                     <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', fontSize: 14 }}>{p.cliente}</span>
                   </div>
                 ))}
@@ -215,7 +215,7 @@ export function MotoristaView({ pedidos, refresh, user }) {
   const divider = <div style={{ borderTop: '2px solid #E2E8F0', margin: '24px 0 18px' }} />
   const renderCard = p => (<div key={p.id} onClick={() => setViewing(p.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ background: '#F1F5F9', color: '#64748B', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace' }}>{getRef(p)}</span><span style={{ fontWeight: 700, color: '#0A1628' }}>{p.cliente}</span>{p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}</div><Badge status={p.status} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><RefBadge pedido={p}/><span style={{ fontWeight: 700, color: '#0A1628' }}>{p.cliente}</span>{p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}</div><Badge status={p.status} />
     </div>
     <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 6 }}>{fmt(p.atualizado_em)}</div>
   </div>)
