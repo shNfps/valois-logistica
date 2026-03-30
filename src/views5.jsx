@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase.js'
 import { fmt, groupByCidade, CIDADES, VEICULOS, ROTA_ORDEM, inputStyle, btnPrimary, btnSmall, card, updatePedido, addHistorico, createRota, addRotaPedidos, fetchRotasAtivas, fetchRotaPedidoIds, finalizarRota } from './db.js'
+import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
@@ -179,6 +180,8 @@ export function MotoristaView({ pedidos, refresh, user }) {
     setSaving(true)
     await updatePedido(id, { status: 'ENTREGUE', entrega_assinatura: assinatura, entrega_cpf: cpf, entrega_data: new Date().toISOString(), entregue_por: user.nome })
     await addHistorico(id, user.nome, 'Entregou — CPF: ' + cpf)
+    const _pe = pedidos.find(x => x.id === id)
+    await criarNotificacao('comercial', `✅ Pedido ${_pe?.numero_ref||id.slice(0,8).toUpperCase()} entregue para ${_pe?.cliente||''}`, `CPF: ${cpf} · Motorista: ${user.nome}`, id)
     const rotaId = Object.entries(rotasPedidos).find(([, ids]) => ids.includes(id))?.[0]
     if (rotaId) {
       const outros = rotasPedidos[rotaId].filter(pid => pid !== id)

@@ -5,16 +5,18 @@ import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, Historic
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
 import { ReprocessarCodigosModal } from './reprocessar-codigos.jsx'
 import { FotosProdutosModal } from './fotos-produtos.jsx'
+import { ReajusteModal } from './reajuste-precos.jsx'
 import { AdminEditRotaScreen } from './views7.jsx'
+import { fmtRelativo } from './notificacoes-ui.jsx'
 
 // ─── ADMIN VIEW ───
-export function AdminView({ pedidos, refresh, user }) {
+export function AdminView({ pedidos, refresh, user, notifs=[] }) {
   const [usuarios,setUsuarios]=useState([]);const [produtos,setProdutos]=useState([]);const [tab,setTab]=useState('dashboard')
   const [nome,setNome]=useState('');const [usuarioNovo,setUsuarioNovo]=useState('');const [senhaNova,setSenhaNova]=useState('')
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
   const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
-  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false)
+  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false);const [showReajuste,setShowReajuste]=useState(false)
   const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
@@ -99,6 +101,15 @@ export function AdminView({ pedidos, refresh, user }) {
           <button onClick={()=>handleDeletePedido(p.id,p.cliente)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#EF4444'}}>🗑 Deletar</button>
         </div>
       </div>))}
+      {notifs.length>0&&(<div style={{marginTop:8}}>
+        <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'16px 0 12px',textTransform:'uppercase',letterSpacing:1.5}}>Últimas Notificações</h3>
+        {notifs.slice(0,10).map(n=>(<div key={n.id} style={{...card,padding:'10px 14px',background:n.lida?'#fff':'#EFF6FF',marginBottom:6}}>
+          <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start'}}>
+            <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:'#0A1628'}}>{n.titulo}</div><div style={{fontSize:11,color:'#64748B',marginTop:2}}>{n.mensagem}</div></div>
+            <span style={{fontSize:10,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmtRelativo(n.criado_em)}</span>
+          </div>
+        </div>))}
+      </div>)}
     </div>)}
 
     {tab==='usuarios'&&(<div>
@@ -177,7 +188,10 @@ export function AdminView({ pedidos, refresh, user }) {
           <button onClick={()=>setShowFotos(true)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#1D4ED8',borderColor:'#BFDBFE'}}>🔍 Adicionar fotos</button>
         </div>
       )})()}
-      <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Produtos ({produtos.length})</h3>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:0,textTransform:'uppercase',letterSpacing:1.5}}>Produtos ({produtos.length})</h3>
+        <button onClick={()=>setShowReajuste(true)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#0EA5E9',borderColor:'#BAE6FD'}}>📊 Reajustar Preços</button>
+      </div>
       {CATEGORIAS_PRODUTO.map(cat=>{const prods=produtos.filter(p=>p.categoria===cat);if(prods.length===0)return null;return(<div key={cat}>
         <div style={{fontSize:12,fontWeight:700,color:'#64748B',padding:'8px 0',borderBottom:'1px solid #E2E8F0',marginBottom:8}}>{cat} ({prods.length})</div>
         {prods.map(p=>(<div key={p.id} style={{...card,display:'flex',gap:12,alignItems:'center'}}>
@@ -230,5 +244,6 @@ export function AdminView({ pedidos, refresh, user }) {
     {editRota&&<AdminEditRotaScreen rota={editRota} pedidos={pedidos} onClose={()=>setEditRota(null)} onSaved={()=>{loadRotas();refresh()}}/>}
     {showReprocessar&&<ReprocessarCodigosModal pedidos={pedidos} onClose={()=>setShowReprocessar(false)} onDone={loadProdutos}/>}
     {showFotos&&<FotosProdutosModal produtos={produtos} onClose={()=>setShowFotos(false)} onSaved={loadProdutos}/>}
+    {showReajuste&&<ReajusteModal produtos={produtos} onClose={()=>setShowReajuste(false)} onSaved={loadProdutos}/>}
   </div>)
 }

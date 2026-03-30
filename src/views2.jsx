@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
+import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { CarrinhoFlutuante } from './carrinho-panel.jsx'
 import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
@@ -44,14 +45,14 @@ export function ComercialView({ pedidos, refresh, user }) {
     if(!cidade){alert('Selecione a cidade');return}
     if(!arquivo){alert('Selecione o PDF do orçamento');return}
     setUploading(true)
-    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId);if(pedido)await addHistorico(pedido.id,user.nome,'Criou o pedido');setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
+    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId);if(pedido){await addHistorico(pedido.id,user.nome,'Criou o pedido');await criarNotificacao('galpao',`📦 Novo pedido de ${cliente.trim()} - ${cidade}`,`Aguardando conferência · Por: ${user.nome}`,pedido.id)}setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
   }
   const handleNf=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return
     const numero_nf=(nfNumeros[pedidoId]||'').trim()
     if(!numero_nf){alert('Informe o número da NF');e.target.value='';return}
     setUploading(true)
-    try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA',numero_nf});await addHistorico(pedidoId,user.nome,`Anexou NF nº ${numero_nf}`);setNfNumeros(prev=>{const n={...prev};delete n[pedidoId];return n});refresh()}}finally{setUploading(false);e.target.value=''}
+    try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA',numero_nf});await addHistorico(pedidoId,user.nome,`Anexou NF nº ${numero_nf}`);const _pnf=pedidos.find(x=>x.id===pedidoId);await criarNotificacao('motorista',`🚛 NF ${numero_nf} de ${_pnf?.cliente||''} - ${_pnf?.cidade||''}`,`Pronta para entrega · Por: ${user.nome}`,pedidoId);setNfNumeros(prev=>{const n={...prev};delete n[pedidoId];return n});refresh()}}finally{setUploading(false);e.target.value=''}
   }
   const handleOrcamentoCorrigido=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return;setUploading(true)
@@ -121,8 +122,8 @@ export function ComercialView({ pedidos, refresh, user }) {
 export function GalpaoView({ pedidos, refresh, user }) {
   const [viewing,setViewing]=useState(null);const [obs,setObs]=useState('');const [saving,setSaving]=useState(false)
   const relevantes=pedidos.filter(p=>['PENDENTE','INCOMPLETO'].includes(p.status))
-  const aprovar=async(id)=>{setSaving(true);await updatePedido(id,{status:'CONFERIDO',conferido_por:user.nome});await addHistorico(id,user.nome,'Conferiu e aprovou');refresh();setViewing(null);setSaving(false)}
-  const rejeitar=async(id)=>{if(!obs.trim()){alert('Escreva a observação');return};setSaving(true);await updatePedido(id,{status:'INCOMPLETO',obs:obs.trim(),conferido_por:user.nome});await addHistorico(id,user.nome,'Rejeitou: '+obs.trim());refresh();setViewing(null);setObs('');setSaving(false)}
+  const aprovar=async(id)=>{setSaving(true);await updatePedido(id,{status:'CONFERIDO',conferido_por:user.nome});await addHistorico(id,user.nome,'Conferiu e aprovou');const _pa=pedidos.find(x=>x.id===id);await criarNotificacao('comercial',`✅ Pedido ${_pa?.numero_ref||id.slice(0,8).toUpperCase()} de ${_pa?.cliente||''} conferido`,`Anexe a NF · Galpão: ${user.nome}`,id);refresh();setViewing(null);setSaving(false)}
+  const rejeitar=async(id)=>{if(!obs.trim()){alert('Escreva a observação');return};setSaving(true);await updatePedido(id,{status:'INCOMPLETO',obs:obs.trim(),conferido_por:user.nome});await addHistorico(id,user.nome,'Rejeitou: '+obs.trim());const _pr=pedidos.find(x=>x.id===id);await criarNotificacao('comercial',`⚠️ Pedido ${_pr?.numero_ref||id.slice(0,8).toUpperCase()} de ${_pr?.cliente||''} incompleto`,`${obs.trim()} · Galpão: ${user.nome}`,id);refresh();setViewing(null);setObs('');setSaving(false)}
   if(viewing){const p=pedidos.find(x=>x.id===viewing);if(!p){setViewing(null);return null}
     return(<div>
       <button onClick={()=>{setViewing(null);setObs('')}} style={{...btnSmall,marginBottom:16}}>← Voltar</button>
