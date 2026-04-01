@@ -149,6 +149,13 @@ export function groupByDateDetalhado(pedidos){
 
 // Pedido Itens
 export async function fetchPedidoItens(pedidoId){const{data,error}=await supabase.from('pedido_itens').select('*').eq('pedido_id',pedidoId).order('criado_em');if(error){console.error(error);return[]};return data||[]}
+export async function updateCliente(id,updates){const{error}=await supabase.from('clientes').update(updates).eq('id',id);if(error)console.error(error)}
+export async function updateClientesLote(ids,updates){const{error}=await supabase.from('clientes').update(updates).in('id',ids);if(error)console.error(error)}
+export async function fetchVendedores(){const{data}=await supabase.from('usuarios').select('*').order('nome');return(data||[]).filter(u=>{const s=u.setores||[u.setor];return s.includes('vendedor')})}
+export async function fetchMetas(){const{data,error}=await supabase.from('metas').select('*').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}
+export async function saveMeta(meta){const{data,error}=await supabase.from('metas').insert(meta).select().single();if(error){console.error(error);return null};return data}
+export async function deleteMeta(id){const{error}=await supabase.from('metas').delete().eq('id',id);if(error)console.error(error)}
+
 export async function savePedidoItens(pedidoId,itens){
   await supabase.from('pedido_itens').delete().eq('pedido_id',pedidoId)
   const rows=itens.map(i=>{const qtd=Number(i.quantidade)||0;const unit=Number(i.preco_unitario)||0;const total=Number(i.preco_total)||qtd*unit;const cod=i.codigo?String(i.codigo).replace(/\./g,''):null;return{pedido_id:pedidoId,codigo:cod,nome_produto:i.nome_produto,quantidade:qtd,unidade:i.unidade||'un',preco_unitario:unit,preco_total:total}})

@@ -1,97 +1,10 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, FABRICANTES, CATEGORIAS_PRODUTO, fetchClientes, createCliente, deleteCliente, uploadImage, updateProduto } from './db.js'
-import { ClienteDetalhe } from './views6.jsx'
-import { ClienteBadges, calcClienteBadges, ALL_BADGE_KEYS, BADGE_DEFS } from './cliente-badges.jsx'
+import { useState, useRef } from 'react'
+import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, FABRICANTES, CATEGORIAS_PRODUTO, uploadImage, updateProduto } from './db.js'
 
 export { ExtractorPanel } from './extractor-panel.jsx'
+export { AdminClientesTab } from './admin-clientes.jsx'
 
-// ─── ADMIN CLIENTES TAB ───
 const fmtDoc = v => { const n=v.replace(/\D/g,'').slice(0,14); if(n.length<=3)return n; if(n.length<=6)return n.slice(0,3)+'.'+n.slice(3); if(n.length<=9)return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6); if(n.length<=11)return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6,9)+'-'+n.slice(9); if(n.length<=12)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8); return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8,12)+'-'+n.slice(12) }
-
-export function AdminClientesTab({ pedidos = [] }) {
-  const [clientes, setClientes] = useState([])
-  const [selecionado, setSelecionado] = useState(null)
-  const [nome, setNome] = useState(''); const [cidade, setCidade] = useState('')
-  const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState(''); const [documento, setDocumento] = useState('')
-  const [endereco, setEndereco] = useState(''); const [cnpj, setCnpj] = useState('')
-  const [saving, setSaving] = useState(false)
-  const load = useCallback(async () => setClientes(await fetchClientes()), [])
-  useEffect(() => { load() }, [load])
-  const { badgesMap, valorMap } = useMemo(() => {
-    const bm = {}, vm = {}; clientes.forEach(c => { const cp = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase()); bm[c.id] = calcClienteBadges(cp) }); pedidos.filter(p => ['NF_EMITIDA','EM_ROTA','ENTREGUE'].includes(p.status)).forEach(p => { const k = p.cliente?.toLowerCase(); if (k) vm[k] = (vm[k] || 0) + (Number(p.valor_total) || 0) }); return { badgesMap: bm, valorMap: vm }
-  }, [clientes, pedidos])
-  const [activeFilters, setActiveFilters] = useState([])
-  const toggleFilter = k => setActiveFilters(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
-  const displayClientes = activeFilters.length === 0 ? clientes : clientes.filter(c => activeFilters.every(k => badgesMap[c.id]?.includes(k)))
-
-  if (selecionado) {
-    const c = clientes.find(x => x.id === selecionado)
-    if (!c) { setSelecionado(null); return null }
-    return <ClienteDetalhe cliente={c} onBack={() => setSelecionado(null)} />
-  }
-
-  const criar = async () => {
-    if (!nome.trim()) { alert('Informe o nome'); return }
-    if (!endereco.trim()) { alert('Informe o endereço'); return }
-    if (cnpj.replace(/\D/g, '').length !== 14) { alert('CNPJ deve ter 14 dígitos (somente números)'); return }
-    setSaving(true)
-    const docLimpo = documento.replace(/\D/g, '') || null
-    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, documento: docLimpo, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, '') })
-    if (error) {
-      alert(error.code === '23505' || error.message?.includes('unique') ? 'Já existe um cliente com este CPF/CNPJ cadastrado' : 'Erro: ' + error.message)
-      setSaving(false); return
-    }
-    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setDocumento(''); setEndereco(''); setCnpj('')
-    await load(); setSaving(false)
-  }
-
-  return (<div>
-    <div style={{ ...card, padding: 24, marginBottom: 20 }}>
-      <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0A1628' }}>Novo Cliente</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-        <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome do cliente *" style={inputStyle} />
-        <select value={cidade} onChange={e => setCidade(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', color: cidade ? '#0A1628' : '#94A3B8' }}>
-          <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
-      <input value={cnpj} onChange={e => setCnpj(fmtCnpj(e.target.value))} placeholder="CNPJ *" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
-      <input value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Endereço completo *" style={{ ...inputStyle, marginBottom: 10 }} />
-      <input value={documento} onChange={e => setDocumento(fmtDoc(e.target.value))} placeholder="CPF (opcional)" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-        <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={inputStyle} />
-        <input value={email} onChange={e => setEmail(e.target.value)} placeholder="E-mail" style={inputStyle} />
-      </div>
-      <button onClick={criar} disabled={saving} style={{ ...btnPrimary, width: '100%', opacity: saving ? 0.6 : 1 }}>{saving ? 'Salvando...' : '+ Adicionar Cliente'}</button>
-    </div>
-    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
-      <button onClick={() => setActiveFilters([])} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: activeFilters.length === 0 ? '#0A1628' : '#E2E8F0', color: activeFilters.length === 0 ? '#fff' : '#64748B', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>Todos</button>
-      {ALL_BADGE_KEYS.map(k => { const cnt = Object.values(badgesMap).filter(b => b.includes(k)).length; if (!cnt) return null; const active = activeFilters.includes(k); return <button key={k} onClick={() => toggleFilter(k)} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: active ? '#0A1628' : '#E2E8F0', color: active ? '#fff' : '#64748B', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>{BADGE_DEFS[k].icon} {cnt}</button> })}
-    </div>
-    <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.2 }}>Clientes ({displayClientes.length})</div>
-    {displayClientes.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>{activeFilters.length > 0 ? 'Nenhum cliente com este filtro' : 'Nenhum cliente cadastrado'}</div>}
-    {displayClientes.map(c => {
-      const nPedidos = pedidos.filter(p => p.cliente_id === c.id).length
-      const cPedidos = pedidos.filter(p => p.cliente?.toLowerCase() === c.nome?.toLowerCase())
-      const valorTotal = valorMap[c.nome?.toLowerCase()] || 0
-      return (<div key={c.id} onClick={() => setSelecionado(c.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</span>
-              {nPedidos > 0 && <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{nPedidos} pedido{nPedidos > 1 ? 's' : ''}</span>}
-              <ClienteBadges pedidos={cPedidos} />
-              <span style={{ background: '#F0FDF4', color: valorTotal > 0 ? '#059669' : '#94A3B8', fontWeight: 700, padding: '4px 10px', borderRadius: 8, fontSize: 12, flexShrink: 0 }}>{fmtMoney(valorTotal)}</span>
-            </div>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
-              {c.documento && <span style={{ fontWeight: 600 }}>{fmtDoc(c.documento)} &nbsp;</span>}{c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}
-            </div>
-          </div>
-          <button onClick={async (e) => { e.stopPropagation(); if (!confirm(`Deletar ${c.nome}?`)) return; await deleteCliente(c.id); load() }} style={{ ...btnSmall, fontSize: 11, padding: '4px 10px', color: '#EF4444' }}>Deletar</button>
-        </div>
-      </div>)
-    })}
-  </div>)
-}
 
 // ─── ADMIN VENDAS SECTION ───
 function getDayStart(ago = 0) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ago); return d }

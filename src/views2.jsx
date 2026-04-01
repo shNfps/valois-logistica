@@ -6,6 +6,7 @@ import { CarrinhoFlutuante } from './carrinho-panel.jsx'
 import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
 import { ClientesTab, NovoClienteRapidoModal } from './views4.jsx'
 import { VendedorRotasTab } from './views7.jsx'
+import { VendedorDashboardTab } from './vendedor-dashboard.jsx'
 
 const tabBtn=(active)=>({padding:'8px 16px',borderRadius:'8px 8px 0 0',border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:13,background:active?'#0A1628':'transparent',color:active?'#fff':'#64748B'})
 
@@ -114,7 +115,7 @@ export function ComercialView({ pedidos, refresh, user }) {
       {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
       {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
     </>}
-    {novoClienteNome&&<NovoClienteRapidoModal nomeInicial={novoClienteNome} onClose={()=>setNovoClienteNome(null)} onCriado={c=>{if(c){setCliente(c.nome);setClienteId(c.id);setClientes(prev=>[...prev,c])}}}/>}
+    {novoClienteNome&&<NovoClienteRapidoModal nomeInicial={novoClienteNome} user={user} onClose={()=>setNovoClienteNome(null)} onCriado={c=>{if(c){setCliente(c.nome);setClienteId(c.id);setClientes(prev=>[...prev,c])}}}/>}
   </div>)
 }
 
@@ -175,12 +176,14 @@ export function VendedorView({ user, pedidos=[] }) {
   const cats=[...new Set(produtos.map(p=>p.categoria))].sort()
 
   return(<div>
-    <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
+    <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0,overflowX:'auto'}}>
       <button onClick={()=>setTab('catalogo')} style={tabBtn(tab==='catalogo')}>🛍 Catálogo</button>
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
+      <button onClick={()=>setTab('comissao')} style={tabBtn(tab==='comissao')}>💰 Comissão</button>
       <button onClick={()=>setTab('rotas')} style={tabBtn(tab==='rotas')}>🗺️ Rotas</button>
     </div>
-    {tab==='clientes'&&<ClientesTab pedidos={pedidos}/>}
+    {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
+    {tab==='comissao'&&<VendedorDashboardTab user={user} pedidos={pedidos}/>}
     {tab==='rotas'&&<VendedorRotasTab/>}
     {tab==='catalogo'&&<>
     <SearchBar value={search} onChange={setSearch} placeholder="Buscar produto..."/>

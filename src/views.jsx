@@ -3,6 +3,7 @@ import { supabase } from './supabase.js'
 import { fmt, fmtMoney, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
+import { MetasProgressSection, ComissoesTab, MetasTab } from './comissoes-metas.jsx'
 import { ReprocessarCodigosModal } from './reprocessar-codigos.jsx'
 import { FotosProdutosModal } from './fotos-produtos.jsx'
 import { ReajusteModal } from './reajuste-precos.jsx'
@@ -51,10 +52,13 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
 
   return(<div>
     <div style={{display:'flex',gap:6,marginBottom:20,flexWrap:'wrap'}}>
-      {[{key:'dashboard',label:'Dashboard',icon:'📊'},{key:'usuarios',label:'Funcionários',icon:'👥'},{key:'produtos',label:'Produtos',icon:'🏷️'},{key:'pedidos',label:'Pedidos',icon:'📋'},{key:'clientes',label:'Clientes',icon:'👤'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>{t.icon} {t.label}</button>))}
+      {[{key:'dashboard',label:'Dashboard',icon:'📊'},{key:'usuarios',label:'Funcionários',icon:'👥'},{key:'produtos',label:'Produtos',icon:'🏷️'},{key:'pedidos',label:'Pedidos',icon:'📋'},{key:'clientes',label:'Clientes',icon:'👤'},{key:'comissoes',label:'Comissões',icon:'💰'},{key:'metas',label:'Metas',icon:'🎯'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>{t.icon} {t.label}</button>))}
     </div>
 
+    {tab==='comissoes'&&<ComissoesTab pedidos={pedidos}/>}
+    {tab==='metas'&&<MetasTab pedidos={pedidos}/>}
     {tab==='dashboard'&&(<div>
+      <MetasProgressSection pedidos={pedidos}/>
       <AdminVendasSection pedidos={pedidos}/>
       {rotasAtivas.length>0&&(<div style={{marginBottom:20}}>
         <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 12px',textTransform:'uppercase',letterSpacing:1.5}}>Rotas Ao Vivo ({rotasAtivas.length})</h3>
