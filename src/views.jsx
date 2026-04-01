@@ -15,7 +15,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
   const [usuarios,setUsuarios]=useState([]);const [produtos,setProdutos]=useState([]);const [tab,setTab]=useState('dashboard')
   const [nome,setNome]=useState('');const [usuarioNovo,setUsuarioNovo]=useState('');const [senhaNova,setSenhaNova]=useState('')
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
-  const [search,setSearch]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
+  const [search,setSearch]=useState('');const [searchProd,setSearchProd]=useState('');const [searchUser,setSearchUser]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
   const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false);const [showReajuste,setShowReajuste]=useState(false)
   const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null)
@@ -130,7 +130,8 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
         </div>
         <button onClick={criarUsuario} disabled={saving} style={{...btnPrimary,width:'100%',opacity:saving?0.6:1}}>{saving?'Criando...':'+ Criar Funcionário'}</button>
       </div>
-      {usuarios.map(u=>{const setores=u.setores||[u.setor];return(<div key={u.id} style={card}>
+      <SearchBar value={searchUser} onChange={setSearchUser} placeholder="Buscar por nome, usuário ou setor..."/>
+      {usuarios.filter(u=>{if(!searchUser)return true;const s=searchUser.toLowerCase();const setores=u.setores||[u.setor];return u.nome.toLowerCase().includes(s)||u.usuario.toLowerCase().includes(s)||setores.some(x=>x.toLowerCase().includes(s))}).map(u=>{const setores=u.setores||[u.setor];return(<div key={u.id} style={card}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div><span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{u.nome}</span><span style={{fontSize:12,color:'#94A3B8',marginLeft:8}}>@{u.usuario}</span></div>
           <div style={{display:'flex',gap:3}}>{setores.map(s=>{const info=SETOR_MAP[s]||SETOR_MAP.comercial;return<span key={s} style={{background:info.color+'22',color:info.color,fontWeight:700,fontSize:10,padding:'2px 6px',borderRadius:8}}>{info.icon}</span>})}</div>
@@ -192,11 +193,12 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
           <button onClick={()=>setShowFotos(true)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#1D4ED8',borderColor:'#BFDBFE'}}>🔍 Adicionar fotos</button>
         </div>
       )})()}
+      <SearchBar value={searchProd} onChange={setSearchProd} placeholder="Buscar por nome, código ou categoria..."/>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-        <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:0,textTransform:'uppercase',letterSpacing:1.5}}>Produtos ({produtos.length})</h3>
+        <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:0,textTransform:'uppercase',letterSpacing:1.5}}>Produtos ({searchProd?produtos.filter(p=>{const s=searchProd.toLowerCase();return p.nome.toLowerCase().includes(s)||p.categoria.toLowerCase().includes(s)||(p.codigo&&p.codigo.toLowerCase().includes(s))}).length:produtos.length})</h3>
         <button onClick={()=>setShowReajuste(true)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#0EA5E9',borderColor:'#BAE6FD'}}>📊 Reajustar Preços</button>
       </div>
-      {CATEGORIAS_PRODUTO.map(cat=>{const prods=produtos.filter(p=>p.categoria===cat);if(prods.length===0)return null;return(<div key={cat}>
+      {CATEGORIAS_PRODUTO.map(cat=>{const prods=produtos.filter(p=>{if(p.categoria!==cat)return false;if(!searchProd)return true;const s=searchProd.toLowerCase();return p.nome.toLowerCase().includes(s)||p.categoria.toLowerCase().includes(s)||(p.codigo&&p.codigo.toLowerCase().includes(s))});if(prods.length===0)return null;return(<div key={cat}>
         <div style={{fontSize:12,fontWeight:700,color:'#64748B',padding:'8px 0',borderBottom:'1px solid #E2E8F0',marginBottom:8}}>{cat} ({prods.length})</div>
         {prods.map(p=>(<div key={p.id} style={{...card,display:'flex',gap:12,alignItems:'center'}}>
           {p.img_url?<img src={p.img_url} style={{width:48,height:48,borderRadius:8,objectFit:'cover'}}/>:<div style={{width:48,height:48,borderRadius:8,background:'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>📦</div>}
