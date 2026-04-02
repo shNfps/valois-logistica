@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
+import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, fetchMetas, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
 import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { CarrinhoFlutuante } from './carrinho-panel.jsx'
@@ -7,6 +7,7 @@ import { ExtractorPanel, ClienteCombobox } from './views3.jsx'
 import { ClientesTab, NovoClienteRapidoModal } from './views4.jsx'
 import { VendedorRotasTab } from './views7.jsx'
 import { VendedorDashboardTab } from './vendedor-dashboard.jsx'
+import { PopupMetaDia, ConfetesMetaBatida, semanaKey, mesKey } from './vendedor-celebracao.jsx'
 
 const tabBtn=(active)=>({padding:'8px 16px',borderRadius:'8px 8px 0 0',border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:13,background:active?'#0A1628':'transparent',color:active?'#fff':'#64748B'})
 
@@ -163,8 +164,30 @@ export function VendedorView({ user, pedidos=[] }) {
   const [tab,setTab]=useState('catalogo')
   const [produtos,setProdutos]=useState([]);const [search,setSearch]=useState('');const [catFilter,setCatFilter]=useState('')
   const [carrinho,setCarrinho]=useState([]);const [prodPopup,setProdPopup]=useState(null)
+  const [showPopup,setShowPopup]=useState(false);const [confetesData,setConfetesData]=useState(null)
+  const [metas,setMetas]=useState([]);const [clientes,setClientes]=useState([])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
   useEffect(()=>{loadProdutos()},[loadProdutos])
+  useEffect(()=>{fetchMetas().then(setMetas);fetchClientes().then(setClientes)},[])
+  useEffect(()=>{
+    if(!user)return
+    const k=`valois-meta-popup-${user.usuario}`;const hoje=new Date().toISOString().slice(0,10)
+    if(localStorage.getItem(k)!==hoje)setShowPopup(true)
+  },[user])
+  useEffect(()=>{
+    if(!metas.length||!clientes.length||!pedidos.length)return
+    const mv=pedidos.filter(p=>{const c=clientes.find(x=>x.id===p.cliente_id||x.nome?.toLowerCase()===p.cliente?.toLowerCase());return c?.vendedor_nome===user.nome}).filter(p=>['NF_EMITIDA','EM_ROTA','ENTREGUE'].includes(p.status))
+    const now=new Date();const semIni=new Date(now);semIni.setDate(now.getDate()-now.getDay());semIni.setHours(0,0,0,0)
+    const semFim=new Date(semIni);semFim.setDate(semIni.getDate()+6);semFim.setHours(23,59,59)
+    const mesIni=new Date(now.getFullYear(),now.getMonth(),1)
+    const tS=mv.filter(p=>{const d=new Date(p.criado_em);return d>=semIni&&d<=semFim}).reduce((s,p)=>s+(Number(p.valor_total)||0),0)
+    const tM=mv.filter(p=>new Date(p.criado_em)>=mesIni).reduce((s,p)=>s+(Number(p.valor_total)||0),0)
+    const mS=metas.find(m=>m.tipo==='semanal'&&(!m.vendedor_nome||m.vendedor_nome===user.nome))
+    const mM=metas.find(m=>m.tipo==='mensal'&&(!m.vendedor_nome||m.vendedor_nome===user.nome))
+    const chk=(meta,total,tipo,chave)=>{if(!meta)return;const sk=`valois-meta-batida-${tipo}-${chave}`;if(total>=Number(meta.valor_meta)&&!localStorage.getItem(sk)){localStorage.setItem(sk,'1');setConfetesData({tipo,valor:total,nomeVendedor:user.nome.split(' ')[0]})}}
+    chk(mS,tS,'semanal',semanaKey());chk(mM,tM,'mensal',mesKey())
+  },[metas,clientes,pedidos,user])
+  const closePopup=()=>{localStorage.setItem(`valois-meta-popup-${user.usuario}`,new Date().toISOString().slice(0,10));setShowPopup(false)}
   const filtrados=produtos.filter(p=>{
     const matchSearch=!search||p.nome.toLowerCase().includes(search.toLowerCase())||p.categoria.toLowerCase().includes(search.toLowerCase())||(p.codigo&&p.codigo.toLowerCase().includes(search.toLowerCase()))
     const matchCat=!catFilter||p.categoria===catFilter;return matchSearch&&matchCat
@@ -211,5 +234,7 @@ export function VendedorView({ user, pedidos=[] }) {
     </>}
     <CarrinhoFlutuante carrinho={carrinho} total={total} alterarQtd={alterarQtd} removerItem={removerItem} vendedor={user.nome}/>
     {prodPopup&&<ProdutoPopup prod={prodPopup} onClose={()=>setProdPopup(null)} onAdd={()=>{addCarrinho(prodPopup);setProdPopup(null)}}/>}
+    {showPopup&&<PopupMetaDia user={user} pedidos={pedidos} metas={metas} clientes={clientes} onClose={closePopup}/>}
+    {confetesData&&<ConfetesMetaBatida tipo={confetesData.tipo} valor={confetesData.valor} nomeVendedor={confetesData.nomeVendedor} onClose={()=>setConfetesData(null)}/>}
   </div>)
 }

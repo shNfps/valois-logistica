@@ -211,7 +211,7 @@ export function MotoristaView({ pedidos, refresh, user }) {
     </div>)
   }
 
-  const hasRota = rotasAtivas.some(r => r.status === 'ativa')
+  const minhaRotaAtiva = rotasAtivas.find(r => r.status === 'ativa' && r.motorista_nome === user.nome)
   const nfEmitida = pedidos.filter(p => p.status === 'NF_EMITIDA')
   const nfPorCidade = groupByCidade(nfEmitida)
   const secH = (icon, title, count) => <h3 style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1.5 }}>{icon} {title}{count !== undefined ? ` (${count})` : ''}</h3>
@@ -225,7 +225,9 @@ export function MotoristaView({ pedidos, refresh, user }) {
 
   return (<div>
     {secH('📋', 'Pedidos para roteirizar', nfEmitida.length)}
-    {!hasRota && <button onClick={() => setMontarRota(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 14, background: '#3B82F6' }}>🗺️ Montar Rota</button>}
+    {minhaRotaAtiva
+      ? <div style={{ background: '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#92400E', fontWeight: 600 }}>⚠️ Você já tem uma rota ativa. Finalize a rota atual para criar uma nova.</div>
+      : <button onClick={() => setMontarRota(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 14, background: '#3B82F6' }}>🗺️ Montar Rota</button>}
     {nfEmitida.length === 0
       ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12, marginBottom: 4 }}>Nenhum pedido aguardando roteirização ✓</div>
       : nfPorCidade.map(g => <CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}>{g.items.map(renderCard)}</CidadeGroup>)}
