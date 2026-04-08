@@ -1,14 +1,35 @@
 import { useState, useEffect } from 'react'
-import { fmt, fmtMoney, getRef, btnSmall, card, fetchPedidosByCliente, fetchItensByPedidoIds, fmtCnpj } from './db.js'
+import { fmt, fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchPedidosByCliente, fetchItensByPedidoIds, fetchVendedores, updateCliente, updatePedidosCliente, getRef } from './db.js'
 import { Badge } from './components.jsx'
 import { ClienteBadges } from './cliente-badges.jsx'
 
 // ─── CLIENTE DETALHE ───
-export function ClienteDetalhe({ cliente, onBack }) {
+export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
   const [pedidos, setPedidos] = useState([])
   const [itens, setItens] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandidos, setExpandidos] = useState(new Set())
+  const [editando, setEditando] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [vendedores, setVendedores] = useState([])
+  const [eNome, setENome] = useState('')
+  const [eCnpj, setECnpj] = useState('')
+  const [eEndereco, setEEndereco] = useState('')
+  const [eCidade, setECidade] = useState('')
+  const [eTelefone, setETelefone] = useState('')
+  const [eEmail, setEEmail] = useState('')
+  const [eVendedor, setEVendedor] = useState('')
+
+  const isAdmin = user?.setor === 'admin' || user?.setores?.includes('admin')
+  const isComercial = user?.setor === 'comercial' || user?.setores?.includes('comercial')
+  const isVendedor = user?.setor === 'vendedor' || user?.setores?.includes('vendedor')
+  const isClienteDoVendedor = isVendedor && cliente.vendedor_nome === user?.nome
+  const podeEditar = isAdmin || isComercial || isClienteDoVendedor
+  const podeEditarVendedor = isAdmin
+  const camposRestritos = isVendedor && isClienteDoVendedor
+
+  const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
   useEffect(() => {
     setLoading(true)
@@ -21,10 +42,52 @@ export function ClienteDetalhe({ cliente, onBack }) {
     load()
   }, [cliente.nome])
 
+  const abrirEdicao = async () => {
+    setENome(cliente.nome || '')
+    setECnpj(fmtCnpj(cliente.cnpj || ''))
+    setEEndereco(cliente.endereco || '')
+    setECidade(cliente.cidade || '')
+    setETelefone(cliente.telefone || '')
+    setEEmail(cliente.email || '')
+    setEVendedor(cliente.vendedor_nome || 'Valois')
+    if (isAdmin) { const vs = await fetchVendedores(); setVendedores(vs) }
+    setEditando(true)
+  }
+
+  const cancelar = () => setEditando(false)
+
+  const salvar = async () => {
+    if (!camposRestritos && !eNome.trim()) { alert('Informe o nome'); return }
+    setSaving(true)
+    const updates = {}
+    if (!camposRestritos) {
+      updates.nome = eNome.trim()
+      updates.cnpj = eCnpj.replace(/\D/g, '') || null
+      updates.endereco = eEndereco.trim() || null
+      updates.cidade = eCidade || null
+    }
+    updates.telefone = eTelefone.trim() || null
+    updates.email = eEmail.trim() || null
+    if (podeEditarVendedor) updates.vendedor_nome = eVendedor || 'Valois'
+
+    await updateCliente(cliente.id, updates)
+
+    const nomeAlterado = !camposRestritos && updates.nome && updates.nome !== cliente.nome
+    if (nomeAlterado) {
+      if (confirm(`Deseja atualizar o nome nos pedidos existentes de "${cliente.nome}" para "${updates.nome}" também?`)) {
+        await updatePedidosCliente(cliente.nome, updates.nome)
+      }
+    }
+
+    setSaving(false)
+    setEditando(false)
+    showToast(`✅ Cadastro de ${updates.nome || cliente.nome} atualizado`)
+    onSaved?.()
+  }
+
   const validos = pedidos.filter(p => ['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE'].includes(p.status))
   const valorTotal = validos.reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
   const ticketMedio = validos.length > 0 ? valorTotal / validos.length : 0
-
   const prodMap = {}
   itens.forEach(i => {
     if (!i.nome_produto) return
@@ -33,46 +96,72 @@ export function ClienteDetalhe({ cliente, onBack }) {
     prodMap[i.nome_produto].valor += Number(i.preco_total) || 0
   })
   const topProds = Object.entries(prodMap).sort((a, b) => b[1].qtd - a[1].qtd).slice(0, 5)
-
   const toggle = id => setExpandidos(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const itensDo = id => itens.filter(i => i.pedido_id === id)
 
   return (
     <div>
+      {toast && <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: '#0A1628', color: '#fff', padding: '12px 20px', borderRadius: 12, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,.3)' }}>{toast}</div>}
       <button onClick={onBack} style={{ ...btnSmall, marginBottom: 16 }}>← Voltar</button>
 
       <div style={{ ...card, padding: 18, marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0A1628' }}>{cliente.nome}</h3>
-          <ClienteBadges pedidos={pedidos} />
-        </div>
-        <div style={{ fontSize: 13, color: '#64748B', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          {cliente.cidade && <span>📍 {cliente.cidade}</span>}
-          {cliente.telefone && <span>📞 {cliente.telefone}</span>}
-          {cliente.email && <span>✉ {cliente.email}</span>}
-        </div>
-        {cliente.cnpj && <div style={{ fontSize: 13, color: '#64748B', marginTop: 6 }}>🏢 CNPJ: <span style={{ fontWeight: 600 }}>{fmtCnpj(cliente.cnpj)}</span></div>}
-        {cliente.endereco && <div style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>🏠 {cliente.endereco}</div>}
+        {editando ? (
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#0A1628', marginBottom: 12 }}>Editar Cadastro</div>
+            {!camposRestritos && <>
+              <input value={eNome} onChange={e => setENome(e.target.value)} placeholder="Nome *" style={{ ...inputStyle, marginBottom: 8 }} />
+              <input value={eCnpj} onChange={e => setECnpj(fmtCnpj(e.target.value))} placeholder="CNPJ" inputMode="numeric" style={{ ...inputStyle, marginBottom: 8 }} />
+              <input value={eEndereco} onChange={e => setEEndereco(e.target.value)} placeholder="Endereço" style={{ ...inputStyle, marginBottom: 8 }} />
+              <select value={eCidade} onChange={e => setECidade(e.target.value)} style={{ ...inputStyle, marginBottom: 8, cursor: 'pointer', color: eCidade ? '#0A1628' : '#94A3B8' }}>
+                <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <input value={eTelefone} onChange={e => setETelefone(e.target.value)} placeholder="Telefone" style={inputStyle} />
+              <input value={eEmail} onChange={e => setEEmail(e.target.value)} placeholder="E-mail" style={inputStyle} />
+            </div>
+            {podeEditarVendedor && (
+              <select value={eVendedor} onChange={e => setEVendedor(e.target.value)} style={{ ...inputStyle, marginBottom: 8, cursor: 'pointer' }}>
+                <option value="Valois">Valois (empresa)</option>
+                {vendedores.map(v => <option key={v.id} value={v.nome}>{v.nome}</option>)}
+              </select>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button onClick={salvar} disabled={saving} style={{ ...btnPrimary, flex: 1, padding: '10px', opacity: saving ? 0.6 : 1 }}>{saving ? 'Salvando...' : 'Salvar'}</button>
+              <button onClick={cancelar} style={{ ...btnSmall, flex: 1, justifyContent: 'center' }}>Cancelar</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0A1628' }}>{cliente.nome}</h3>
+                <ClienteBadges pedidos={pedidos} />
+              </div>
+              {podeEditar && <button onClick={abrirEdicao} style={{ ...btnSmall, fontSize: 12, padding: '5px 10px', color: '#3B82F6', flexShrink: 0 }}>✏️ Editar cadastro</button>}
+            </div>
+            <div style={{ fontSize: 13, color: '#64748B', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {cliente.cidade && <span>📍 {cliente.cidade}</span>}
+              {cliente.telefone && <span>📞 {cliente.telefone}</span>}
+              {cliente.email && <span>✉ {cliente.email}</span>}
+            </div>
+            {cliente.cnpj && <div style={{ fontSize: 13, color: '#64748B', marginTop: 6 }}>🏢 CNPJ: <span style={{ fontWeight: 600 }}>{fmtCnpj(cliente.cnpj)}</span></div>}
+            {cliente.endereco && <div style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>🏠 {cliente.endereco}</div>}
+          </>
+        )}
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 32, color: '#94A3B8' }}>Carregando dados...</div>
       ) : (<>
-        {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 14 }}>
-          {[
-            ['💰 Total gasto', fmtMoney(valorTotal), '#059669'],
-            ['📋 Pedidos', String(validos.length), '#3B82F6'],
-            ['📊 Ticket médio', fmtMoney(ticketMedio), '#8B5CF6'],
-          ].map(([label, value, color]) => (
+          {[['💰 Total gasto', fmtMoney(valorTotal), '#059669'], ['📋 Pedidos', String(validos.length), '#3B82F6'], ['📊 Ticket médio', fmtMoney(ticketMedio), '#8B5CF6']].map(([label, value, color]) => (
             <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '12px 8px', textAlign: 'center', borderTop: `3px solid ${color}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ fontSize: 13, fontWeight: 800, color }}>{value}</div>
               <div style={{ fontSize: 9, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginTop: 2 }}>{label}</div>
             </div>
           ))}
         </div>
-
-        {/* Top Produtos */}
         <div style={{ ...card, padding: 16, marginBottom: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10 }}>Top Produtos</div>
           {topProds.length === 0
@@ -86,12 +175,8 @@ export function ClienteDetalhe({ cliente, onBack }) {
               </div>
             ))}
         </div>
-
-        {/* Últimos Pedidos */}
         <div style={{ ...card, padding: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10 }}>
-            Últimos Pedidos ({pedidos.length})
-          </div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10 }}>Últimos Pedidos ({pedidos.length})</div>
           {pedidos.length === 0
             ? <div style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>Nenhum pedido encontrado</div>
             : pedidos.slice(0, 10).map(p => {

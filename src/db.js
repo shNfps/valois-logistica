@@ -151,6 +151,7 @@ export function groupByDateDetalhado(pedidos){
 export async function fetchPedidoItens(pedidoId){const{data,error}=await supabase.from('pedido_itens').select('*').eq('pedido_id',pedidoId).order('criado_em');if(error){console.error(error);return[]};return data||[]}
 export async function updateCliente(id,updates){const{error}=await supabase.from('clientes').update(updates).eq('id',id);if(error)console.error(error)}
 export async function updateClientesLote(ids,updates){const{error}=await supabase.from('clientes').update(updates).in('id',ids);if(error)console.error(error)}
+export async function updatePedidosCliente(nomeAntigo,nomeNovo){const{error}=await supabase.from('pedidos').update({cliente:nomeNovo}).ilike('cliente',nomeAntigo);if(error)console.error(error)}
 export async function fetchVendedores(){const{data}=await supabase.from('usuarios').select('*').order('nome');return(data||[]).filter(u=>{const s=u.setores||[u.setor];return s.includes('vendedor')})}
 export async function fetchMetas(){const{data,error}=await supabase.from('metas').select('*').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}
 export async function saveMeta(meta){const{data,error}=await supabase.from('metas').insert(meta).select().single();if(error){console.error(error);return null};return data}

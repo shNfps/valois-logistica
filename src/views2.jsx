@@ -94,7 +94,7 @@ export function ComercialView({ pedidos, refresh, user }) {
       <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
     </div>
-    {tab==='clientes'&&<ClientesTab pedidos={pedidos}/>}
+    {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
     {tab==='pedidos'&&<>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
       <div style={{...card,padding:24,marginBottom:20}}>

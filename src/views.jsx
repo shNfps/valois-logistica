@@ -216,7 +216,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
       </div>)})}
     </div>)}
 
-    {tab==='clientes'&&<AdminClientesTab pedidos={pedidos}/>}
+    {tab==='clientes'&&<AdminClientesTab pedidos={pedidos} user={user}/>}
     {tab==='pedidos'&&(<div>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade, funcionário..."/>
       {pipelineFilter&&<div style={{background:'#F1F5F9',borderRadius:8,padding:'8px 12px',marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:12}}>

@@ -6,7 +6,7 @@ import { ClienteBadges, calcClienteBadges, ALL_BADGE_KEYS, BADGE_DEFS } from './
 const fmtDoc = v => { const n = v.replace(/\D/g, '').slice(0, 14); if (n.length <= 3) return n; if (n.length <= 6) return n.slice(0, 3) + '.' + n.slice(3); if (n.length <= 9) return n.slice(0, 3) + '.' + n.slice(3, 6) + '.' + n.slice(6); if (n.length <= 11) return n.slice(0, 3) + '.' + n.slice(3, 6) + '.' + n.slice(6, 9) + '-' + n.slice(9); if (n.length <= 12) return n.slice(0, 2) + '.' + n.slice(2, 5) + '.' + n.slice(5, 8) + '/' + n.slice(8); return n.slice(0, 2) + '.' + n.slice(2, 5) + '.' + n.slice(5, 8) + '/' + n.slice(8, 12) + '-' + n.slice(12) }
 
 // ─── ADMIN CLIENTES TAB ───
-export function AdminClientesTab({ pedidos = [] }) {
+export function AdminClientesTab({ pedidos = [], user }) {
   const [clientes, setClientes] = useState([])
   const [vendedores, setVendedores] = useState([])
   const [selecionado, setSelecionado] = useState(null)
@@ -74,7 +74,7 @@ export function AdminClientesTab({ pedidos = [] }) {
 
   const toggleLoteItem = id => setSelecionados(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
 
-  if (selecionado) { const c = clientes.find(x => x.id === selecionado); if (!c) { setSelecionado(null); return null }; return <ClienteDetalhe cliente={c} onBack={() => setSelecionado(null)} /> }
+  if (selecionado) { const c = clientes.find(x => x.id === selecionado); if (!c) { setSelecionado(null); return null }; return <ClienteDetalhe cliente={c} onBack={() => setSelecionado(null)} user={user} onSaved={load} /> }
 
   return (
     <div>

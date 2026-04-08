@@ -44,7 +44,7 @@ export function ClientesTab({ pedidos = [], user }) {
   if (selecionado) {
     const c = clientes.find(x => x.id === selecionado)
     if (!c) { setSelecionado(null); return null }
-    return <ClienteDetalhe cliente={c} onBack={() => setSelecionado(null)} />
+    return <ClienteDetalhe cliente={c} onBack={() => setSelecionado(null)} user={user} onSaved={load} />
   }
 
   const clientesFiltrados = clientes.filter(c => isVendedor && somentesMeus ? c.vendedor_nome === user.nome : true)
