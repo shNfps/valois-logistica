@@ -115,6 +115,7 @@ export function ClientesTab({ pedidos = [], user }) {
               <ClienteBadges pedidos={cPedidos} />
               <span style={{ background: '#F0FDF4', color: valorTotal > 0 ? '#059669' : '#94A3B8', fontWeight: 700, padding: '4px 10px', borderRadius: 8, fontSize: 12 }}>{fmtMoney(valorTotal)}</span>
             </div>
+            {c.cnpj && String(c.cnpj).trim() && <div style={{ fontSize: 12, color: '#64748B', marginBottom: 3 }}>🏢 <span style={{ fontWeight: 600 }}>{fmtCnpj(c.cnpj)}</span></div>}
             <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {c.cidade && <span>📍 {c.cidade}</span>}
               {c.telefone && <span>📞 {c.telefone}</span>}

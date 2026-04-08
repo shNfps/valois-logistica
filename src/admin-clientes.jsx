@@ -149,8 +149,9 @@ export function AdminClientesTab({ pedidos = [], user }) {
                   <ClienteBadges pedidos={cPedidos} />
                   <span style={{ background: '#F0FDF4', color: valorTotal > 0 ? '#059669' : '#94A3B8', fontWeight: 700, padding: '4px 10px', borderRadius: 8, fontSize: 12 }}>{fmtMoney(valorTotal)}</span>
                 </div>
+                {c.cnpj && String(c.cnpj).trim() && <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>🏢 <span style={{ fontWeight: 600 }}>{fmtCnpj(c.cnpj)}</span></div>}
                 <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
-                  {c.documento && <span style={{ fontWeight: 600 }}>{fmtDoc(c.documento)} &nbsp;</span>}{c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone}</span>}
+                  {c.cidade && <span>📍 {c.cidade} &nbsp;</span>}{c.telefone && <span>📞 {c.telefone} &nbsp;</span>}{c.email && <span>✉ {c.email}</span>}
                 </div>
                 <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>
                   💰 Vendedor: <strong style={{ color: c.vendedor_nome && c.vendedor_nome !== 'Valois' ? '#0EA5E9' : '#64748B' }}>{c.vendedor_nome || 'Valois'}</strong>
