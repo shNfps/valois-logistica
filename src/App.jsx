@@ -68,7 +68,7 @@ export default function App() {
       <NotifToast toast={toast} onDismiss={() => setToast(null)} />
 
       <div style={{ background: 'rgba(15,23,42,0.92)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 16px', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: userSetores.length > 1 ? 10 : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <svg width="32" height="32" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
@@ -113,7 +113,7 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '16px' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px' }}>
         {loading && activeTab !== 'vendedor' ? <Loader /> : (
           <>
             {activeTab === 'admin' && <AdminView pedidos={pedidos} refresh={loadData} user={user} notifs={notifs} />}

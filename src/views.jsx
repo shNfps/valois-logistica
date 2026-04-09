@@ -52,35 +52,17 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
 
   return(<div>
     <div style={{display:'flex',gap:6,marginBottom:20,flexWrap:'wrap'}}>
-      {[{key:'dashboard',label:'Dashboard',icon:'📊'},{key:'usuarios',label:'Funcionários',icon:'👥'},{key:'produtos',label:'Produtos',icon:'🏷️'},{key:'pedidos',label:'Pedidos',icon:'📋'},{key:'clientes',label:'Clientes',icon:'👤'},{key:'comissoes',label:'Comissões',icon:'💰'},{key:'metas',label:'Metas',icon:'🎯'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>{t.icon} {t.label}</button>))}
+      {[{key:'dashboard',label:'Dashboard'},{key:'usuarios',label:'Funcionários'},{key:'produtos',label:'Produtos'},{key:'pedidos',label:'Pedidos'},{key:'clientes',label:'Clientes'},{key:'comissoes',label:'Comissões'},{key:'metas',label:'Metas'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>{t.label}</button>))}
     </div>
 
     {tab==='comissoes'&&<ComissoesTab pedidos={pedidos}/>}
     {tab==='metas'&&<MetasTab pedidos={pedidos}/>}
     {tab==='dashboard'&&(<div>
       <MetasProgressSection pedidos={pedidos}/>
-      <AdminVendasSection pedidos={pedidos}/>
-      {rotasAtivas.length>0&&(<div style={{marginBottom:20}}>
-        <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 12px',textTransform:'uppercase',letterSpacing:1.5}}>Rotas Ao Vivo ({rotasAtivas.length})</h3>
-        <style>{`@keyframes blink-red{0%,100%{opacity:1}50%{opacity:0.15}}`}</style>
-        {rotasAtivas.map(r=>{const vi=VEICULOS.find(v=>v.key===r.veiculo)?.icon||'🚐';const emRota=pedidos.filter(p=>p.status==='EM_ROTA'&&p.entregue_por===r.motorista_nome).length;return(<div key={r.id} style={{...card,borderLeft:'3px solid #EF4444',padding:'12px 16px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div>
-              <span style={{fontWeight:700,color:'#0A1628',fontSize:14}}>{vi} {r.motorista_nome}</span>
-              <span style={{fontSize:12,color:'#64748B',marginLeft:8}}>📍 {r.cidades?.length > 0 ? r.cidades.join(', ') : r.cidade} · {r.veiculo}</span>
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <button onClick={e=>{e.stopPropagation();setEditRota(r)}} style={{...btnSmall,fontSize:11,padding:'3px 8px',color:'#3B82F6'}}>✏️ Editar</button>
-              <span style={{width:7,height:7,borderRadius:'50%',background:'#EF4444',display:'inline-block',animation:'blink-red 1s infinite'}}/>
-              <span style={{fontSize:11,fontWeight:700,color:'#EF4444',letterSpacing:1}}>AO VIVO</span>
-            </div>
-          </div>
-          {emRota>0&&<div style={{fontSize:11,color:'#94A3B8',marginTop:4}}>{emRota} pedido{emRota!==1?'s':''} em trânsito</div>}
-        </div>)})}
-      </div>)}
+      <AdminVendasSection pedidos={pedidos} rotasAtivas={rotasAtivas} onEditRota={setEditRota}/>
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Pipeline</h3>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:12}}>
-        {Object.entries(STATUS_MAP).map(([key,s])=>{const active=pipelineFilter===key;return(<div key={key} onClick={()=>setPipelineFilter(f=>f===key?null:key)} style={{background:'#fff',borderRadius:12,padding:14,textAlign:'center',border:active?`2px solid ${s.color}`:`none`,borderLeft:active?`2px solid ${s.color}`:`4px solid ${s.color}`,boxShadow:active?`0 0 0 2px ${s.color}33`:'0 1px 3px rgba(0,0,0,0.05)',cursor:'pointer',transform:active?'scale(1.04)':'scale(1)',transition:'transform 0.15s'}}>
+        {Object.entries(STATUS_MAP).map(([key,s])=>{const active=pipelineFilter===key;return(<div key={key} onClick={()=>setPipelineFilter(f=>f===key?null:key)} style={{background:active?s.bg:'#fff',borderRadius:12,padding:14,textAlign:'center',border:'1px solid rgba(226,232,240,0.8)',borderLeft:`4px solid ${s.color}`,boxShadow:active?`0 2px 8px ${s.color}22`:'0 1px 3px rgba(0,0,0,0.04)',cursor:'pointer',transition:'all 0.15s'}}>
           <div style={{fontSize:24,fontWeight:800,color:s.color}}>{counts[key]}</div>
           <div style={{fontSize:10,fontWeight:700,color:'#64748B',textTransform:'uppercase'}}>{s.label}</div>
         </div>)})}</div>
