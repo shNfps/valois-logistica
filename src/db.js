@@ -36,16 +36,16 @@ export function filterPedidos(pedidos, search) {
   return pedidos.filter(p=>getRef(p).toLowerCase().includes(s)||p.numero_ref?.toLowerCase().includes(s)||p.cliente?.toLowerCase().includes(s)||p.motorista?.toLowerCase().includes(s)||p.criado_por?.toLowerCase().includes(s)||p.conferido_por?.toLowerCase().includes(s)||p.entregue_por?.toLowerCase().includes(s)||p.status?.toLowerCase().includes(s)||p.cidade?.toLowerCase().includes(s)||p.numero_nf?.toLowerCase().includes(s))
 }
 
-export const STATUS_MAP={PENDENTE:{label:'Pendente',color:'#F59E0B',bg:'#FEF3C7'},CONFERIDO:{label:'Conferido',color:'#10B981',bg:'#D1FAE5'},INCOMPLETO:{label:'Incompleto',color:'#EF4444',bg:'#FEE2E2'},NF_EMITIDA:{label:'NF Emitida',color:'#3B82F6',bg:'#DBEAFE'},EM_ROTA:{label:'Em Rota',color:'#8B5CF6',bg:'#EDE9FE'},ENTREGUE:{label:'Entregue',color:'#059669',bg:'#A7F3D0'}}
+export const STATUS_MAP={PENDENTE:{label:'Pendente',color:'#B45309',bg:'#FEF3C7',border:'#FDE68A'},CONFERIDO:{label:'Conferido',color:'#065F46',bg:'#D1FAE5',border:'#A7F3D0'},INCOMPLETO:{label:'Incompleto',color:'#B91C1C',bg:'#FEE2E2',border:'#FECACA'},NF_EMITIDA:{label:'NF Emitida',color:'#1D4ED8',bg:'#DBEAFE',border:'#BFDBFE'},EM_ROTA:{label:'Em Rota',color:'#5B21B6',bg:'#EDE9FE',border:'#DDD6FE'},ENTREGUE:{label:'Entregue',color:'#065F46',bg:'#D1FAE5',border:'#A7F3D0'}}
 
 export const SETOR_MAP={admin:{label:'Admin',icon:'👑',color:'#F59E0B'},comercial:{label:'Comercial',icon:'📋',color:'#3B82F6'},galpao:{label:'Galpão',icon:'📦',color:'#10B981'},motorista:{label:'Motorista',icon:'🚛',color:'#8B5CF6'},vendedor:{label:'Vendedor',icon:'💰',color:'#0EA5E9'}}
 
 export const fmtCnpj = v => { if(!v)return''; const n=String(v).replace(/\D/g,'').slice(0,14); if(n.length<=2)return n; if(n.length<=5)return n.slice(0,2)+'.'+n.slice(2); if(n.length<=8)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5); if(n.length<=12)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8); return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8,12)+'-'+n.slice(12) }
 
-export const inputStyle={padding:'10px 14px',border:'2px solid #E2E8F0',borderRadius:10,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:'inherit',background:'#F8FAFC',width:'100%'}
-export const btnPrimary={display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'13px 20px',borderRadius:12,border:'none',background:'#0A1628',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}
-export const btnSmall={display:'inline-flex',alignItems:'center',gap:4,padding:'8px 16px',borderRadius:8,border:'1px solid #CBD5E1',background:'#fff',color:'#334155',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}
-export const card={background:'#fff',borderRadius:14,padding:18,marginBottom:12,boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}
+export const inputStyle={height:42,padding:'0 14px',border:'1px solid #E2E8F0',borderRadius:10,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:"'Inter',sans-serif",background:'#F8FAFC',width:'100%',color:'#0F172A'}
+export const btnPrimary={display:'flex',alignItems:'center',justifyContent:'center',gap:6,height:42,padding:'0 20px',borderRadius:10,border:'none',background:'#0F172A',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:"'Inter',sans-serif",transition:'all 0.18s'}
+export const btnSmall={display:'inline-flex',alignItems:'center',gap:4,height:32,padding:'0 12px',borderRadius:8,border:'none',background:'#F1F5F9',color:'#0F172A',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:"'Inter',sans-serif"}
+export const card={background:'#fff',borderRadius:16,padding:18,marginBottom:12,boxShadow:'0 1px 3px rgba(0,0,0,0.04),0 1px 2px rgba(0,0,0,0.03)',border:'1px solid rgba(226,232,240,0.8)'}
 
 // DB ops
 export async function fetchPedidos(){const{data,error}=await supabase.from('pedidos').select('*').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}

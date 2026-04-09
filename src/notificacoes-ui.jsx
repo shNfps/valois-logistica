@@ -88,10 +88,10 @@ export function NotifBell({ notifs, dismiss, dismissAll }) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 5px', position: 'relative', lineHeight: 1 }}>
-        <span style={{ fontSize: 19 }}>🔔</span>
+      <button onClick={() => setOpen(o => !o)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', position: 'relative', lineHeight: 1, color: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center' }}>
+        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
         {naoLidas > 0 && (
-          <span style={{ position: 'absolute', top: 0, right: 0, background: '#EF4444', color: '#fff', borderRadius: '50%', fontSize: 9, fontWeight: 800, minWidth: 15, height: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1 }}>
+          <span style={{ position: 'absolute', top: 2, right: 2, background: '#EF4444', color: '#fff', borderRadius: '50%', fontSize: 9, fontWeight: 700, minWidth: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1 }}>
             {naoLidas > 9 ? '9+' : naoLidas}
           </span>
         )}

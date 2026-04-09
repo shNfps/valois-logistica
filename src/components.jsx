@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fmt, getRef, fetchHistorico, STATUS_MAP, inputStyle, btnPrimary, btnSmall } from './db.js'
 import { supabase } from './supabase.js'
 
-export function Badge({status}){const s=STATUS_MAP[status]||STATUS_MAP.PENDENTE;return <span style={{background:s.bg,color:s.color,fontWeight:700,fontSize:11,padding:'3px 10px',borderRadius:20,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap'}}>{s.label}</span>}
+export function Badge({status}){const s=STATUS_MAP[status]||STATUS_MAP.PENDENTE;return <span style={{background:s.bg,color:s.color,border:`1px solid ${s.border||s.bg}`,fontWeight:600,fontSize:12,padding:'3px 10px',borderRadius:8,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap'}}>{s.label}</span>}
 export function Loader(){return <div style={{display:'flex',justifyContent:'center',padding:40}}><div style={{width:32,height:32,border:'3px solid #E2E8F0',borderTopColor:'#3B82F6',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>}
 
 export function PdfViewer({url,title}){
@@ -15,9 +15,9 @@ export function PdfViewer({url,title}){
 
 export function SearchBar({value,onChange,placeholder}){
   return(<div style={{position:'relative',marginBottom:16}}>
-    <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:16,color:'#94A3B8'}}>🔍</span>
-    <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder||'Buscar...'} style={{...inputStyle,paddingLeft:38}}/>
-    {value&&<button onClick={()=>onChange('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',fontSize:16,color:'#94A3B8',cursor:'pointer'}}>✕</button>}
+    <svg style={{position:'absolute',left:13,top:'50%',transform:'translateY(-50%)',width:16,height:16,color:'#94A3B8',pointerEvents:'none'}} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder||'Buscar...'} style={{...inputStyle,paddingLeft:40}}/>
+    {value&&<button onClick={()=>onChange('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',fontSize:15,color:'#94A3B8',cursor:'pointer',lineHeight:1}}>✕</button>}
   </div>)
 }
 
@@ -94,9 +94,9 @@ export function HistoricoView({pedidoId}){
 const NF_STATUSES=['NF_EMITIDA','EM_ROTA','ENTREGUE']
 export function RefBadge({pedido}){
   if(NF_STATUSES.includes(pedido.status)&&pedido.numero_nf){
-    return <span style={{background:'#DBEAFE',color:'#2563EB',fontWeight:700,fontSize:11,padding:'2px 8px',borderRadius:6,fontFamily:'monospace',whiteSpace:'nowrap'}}>NF {pedido.numero_nf}</span>
+    return <span style={{background:'#DBEAFE',color:'#1D4ED8',border:'1px solid #BFDBFE',fontWeight:600,fontSize:11,padding:'2px 8px',borderRadius:6,fontFamily:'monospace',whiteSpace:'nowrap'}}>NF {pedido.numero_nf}</span>
   }
-  return <span style={{background:'#F1F5F9',color:'#64748B',fontWeight:700,fontSize:11,padding:'2px 8px',borderRadius:6,fontFamily:'monospace'}}>{getRef(pedido)}</span>
+  return <span style={{background:'#F1F5F9',color:'#64748B',border:'1px solid #E2E8F0',fontWeight:600,fontSize:11,padding:'2px 8px',borderRadius:6,fontFamily:'monospace'}}>{getRef(pedido)}</span>
 }
 
 export function SignaturePad({onSave,onCancel}){
@@ -133,21 +133,26 @@ export function LoginScreen({onLogin}){
     setLoading(false);if(error||!data){setErro('Usuário ou senha incorretos');return};onLogin(data)
   }
   return(
-    <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,position:'relative',overflow:'hidden'}}>
+    <div style={{fontFamily:"'Inter',sans-serif",minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,position:'relative',overflow:'hidden'}}>
       <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:0,backgroundImage:'url(/login-bg.jpg)',backgroundSize:'cover',backgroundPosition:'center',filter:'brightness(0.3) saturate(0.7)'}}/>
       <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:1,background:'linear-gradient(135deg,rgba(10,22,40,0.85) 0%,rgba(30,58,95,0.75) 50%,rgba(10,22,40,0.9) 100%)'}}/>
       <div style={{position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center'}}>
-        <img src="/logo_2025.png" style={{height:80,width:'auto',objectFit:'contain',marginBottom:12,filter:'drop-shadow(0 4px 12px rgba(59,130,246,0.35))'}} alt="Valois" onError={e=>{e.target.style.display='none'}}/>
-        <div style={{color:'#fff',fontWeight:800,fontSize:22,marginBottom:4}}>VALOIS</div>
-        <div style={{color:'#94A3B8',fontSize:11,fontWeight:600,letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Descartáveis e Limpeza</div>
-        <div style={{color:'#64748B',fontSize:10,fontWeight:600,letterSpacing:3,textTransform:'uppercase',marginBottom:40}}>Sistema de Logística</div>
-        <div style={{width:'100%',maxWidth:340,background:'rgba(15,23,42,0.7)',backdropFilter:'blur(20px)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.08)'}}>
-          <div style={{marginBottom:12}}><label style={{display:'block',fontSize:12,fontWeight:600,color:'#94A3B8',marginBottom:6}}>Usuário</label>
-            <input value={usuario} onChange={e=>setUsuario(e.target.value)} placeholder="seu.usuario" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={{...inputStyle,background:'rgba(30,41,59,0.8)',border:'2px solid rgba(51,65,85,0.6)',color:'#fff'}}/></div>
-          <div style={{marginBottom:20}}><label style={{display:'block',fontSize:12,fontWeight:600,color:'#94A3B8',marginBottom:6}}>Senha</label>
-            <input type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={{...inputStyle,background:'rgba(30,41,59,0.8)',border:'2px solid rgba(51,65,85,0.6)',color:'#fff'}}/></div>
-          {erro&&<div style={{background:'#FEE2E2',color:'#DC2626',padding:'8px 12px',borderRadius:8,fontSize:13,marginBottom:12,textAlign:'center'}}>{erro}</div>}
-          <button onClick={handleLogin} disabled={loading} style={{...btnPrimary,width:'100%',background:'linear-gradient(135deg,#2563EB,#3B82F6)',opacity:loading?0.6:1}}>{loading?'Entrando...':'Entrar'}</button>
+        <svg width="64" height="64" viewBox="0 0 64 64" style={{marginBottom:14,filter:'drop-shadow(0 4px 16px rgba(37,99,235,0.4))'}}>
+          <rect width="64" height="64" rx="16" fill="#0F172A"/>
+          <text x="8" y="38" fontFamily="Inter,sans-serif" fontWeight="800" fontSize="18" fill="#2563EB">VA</text>
+          <text x="33" y="38" fontFamily="Inter,sans-serif" fontWeight="800" fontSize="18" fill="#10B981">LOIS</text>
+          <rect x="8" y="44" width="48" height="3" rx="1.5" fill="#10B981" opacity="0.8"/>
+        </svg>
+        <div style={{color:'#fff',fontWeight:700,fontSize:22,letterSpacing:3,marginBottom:4}}><span style={{color:'#2563EB'}}>VA</span><span style={{color:'#10B981'}}>LOIS</span></div>
+        <div style={{color:'#94A3B8',fontSize:11,fontWeight:500,letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>Descartáveis e Limpeza</div>
+        <div style={{color:'#64748B',fontSize:10,fontWeight:500,letterSpacing:3,textTransform:'uppercase',marginBottom:36}}>Sistema de Logística</div>
+        <div style={{width:'100%',maxWidth:340,background:'rgba(15,23,42,0.72)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.1)'}}>
+          <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:500,color:'#94A3B8',marginBottom:8,letterSpacing:0.3}}>Usuário</label>
+            <input value={usuario} onChange={e=>setUsuario(e.target.value)} placeholder="seu.usuario" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={{...inputStyle,background:'rgba(30,41,59,0.8)',border:'1px solid rgba(51,65,85,0.7)',color:'#fff',borderRadius:10}}/></div>
+          <div style={{marginBottom:20}}><label style={{display:'block',fontSize:12,fontWeight:500,color:'#94A3B8',marginBottom:8,letterSpacing:0.3}}>Senha</label>
+            <input type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={{...inputStyle,background:'rgba(30,41,59,0.8)',border:'1px solid rgba(51,65,85,0.7)',color:'#fff',borderRadius:10}}/></div>
+          {erro&&<div style={{background:'rgba(239,68,68,0.15)',color:'#FCA5A5',border:'1px solid rgba(239,68,68,0.3)',padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:16,textAlign:'center'}}>{erro}</div>}
+          <button onClick={handleLogin} disabled={loading} style={{...btnPrimary,width:'100%',background:'linear-gradient(135deg,#2563EB,#3B82F6)',borderRadius:10,opacity:loading?0.6:1}}>{loading?'Entrando...':'Entrar'}</button>
         </div>
       </div>
     </div>
