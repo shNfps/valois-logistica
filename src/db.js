@@ -112,10 +112,12 @@ export async function fetchRotaAtiva(motoristaNome){const{data,error}=await supa
 export async function fetchRotaPedidoIds(rotaId){const{data,error}=await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id',rotaId);if(error){console.error(error);return[]};return(data||[]).map(r=>r.pedido_id)}
 export async function finalizarRota(rotaId){const{error}=await supabase.from('rotas').update({status:'finalizada'}).eq('id',rotaId);if(error)console.error(error)}
 export async function fetchRotasAtivas(){const{data,error}=await supabase.from('rotas').select('*').eq('status','ativa').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}
+export async function fetchRotasFinalizadasHoje(){const hoje=new Date();hoje.setHours(0,0,0,0);const{data,error}=await supabase.from('rotas').select('*').eq('status','finalizada').gte('criado_em',hoje.toISOString()).order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}
 
 // Busca pedidos por IDs (para rotas)
 export async function fetchPedidosByIds(ids){if(!ids||!ids.length)return[];const{data,error}=await supabase.from('pedidos').select('id,cliente,status,numero_ref,criado_em,cidade,numero_nf').in('id',ids);if(error){console.error(error);return[]};return data||[]}
 export async function removeRotaPedido(rotaId,pedidoId){const{error}=await supabase.from('rota_pedidos').delete().eq('rota_id',rotaId).eq('pedido_id',pedidoId);if(error)console.error(error)}
+export async function fetchRotaByPedido(pedidoId){const{data,error}=await supabase.from('rota_pedidos').select('rota_id').eq('pedido_id',pedidoId).maybeSingle();if(error){console.error(error);return null};return data?.rota_id||null}
 
 // Agrupamento por dia para a view comercial
 export function groupByDateDetalhado(pedidos){

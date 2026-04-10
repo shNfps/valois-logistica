@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, groupByCidade, CIDADES, VEICULOS, ROTA_ORDEM, inputStyle, btnPrimary, btnSmall, card, updatePedido, addHistorico, createRota, addRotaPedidos, fetchRotasAtivas, fetchRotaPedidoIds, finalizarRota } from './db.js'
+import { fmt, groupByCidade, VEICULOS, btnPrimary, btnSmall, card, updatePedido, addHistorico, fetchRotasAtivas, fetchRotaPedidoIds, finalizarRota, fetchPedidosByIds, fetchRotasFinalizadasHoje, fetchRotaByPedido } from './db.js'
 import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
+import { MontarRotaScreen } from './views5-montar.jsx'
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
 
@@ -43,8 +44,7 @@ function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
           {emRota.map(p => (
             <div key={p.id} style={{ borderLeft: '3px solid #3B82F6', borderRadius: 8, padding: '10px 12px', background: '#F8FAFC' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }} onClick={() => onVerPedido(p.id)}>
-                <RefBadge pedido={p}/>
-                <span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
+                <RefBadge pedido={p}/><span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
                 {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
               </div>
               <button onClick={() => onAssinar(p.id)} style={{ ...btnPrimary, background: '#059669', padding: '8px 14px', fontSize: 13, width: '100%' }}>✍ Coletar Assinatura</button>
@@ -53,8 +53,7 @@ function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
           {entregues.map(p => (
             <div key={p.id} style={{ borderLeft: '3px solid #10B981', borderRadius: 8, padding: '10px 12px', background: '#F0FDF4' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <RefBadge pedido={p}/>
-                <span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
+                <RefBadge pedido={p}/><span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
                 {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
                 <span>✅</span>
               </div>
@@ -67,107 +66,34 @@ function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
   )
 }
 
-// ─── MONTAR ROTA SCREEN ───
-function MontarRotaScreen({ pedidos, user, onRotaCriada, onCancel }) {
-  const [cidades, setCidades] = useState(new Set())
-  const [veiculo, setVeiculo] = useState('')
-  const [selecionados, setSelecionados] = useState(new Set())
-  const [saving, setSaving] = useState(false)
-
-  const toggleCidade = (c) => {
-    const next = new Set(cidades)
-    if (next.has(c)) {
-      next.delete(c)
-      setSelecionados(prev => { const s = new Set(prev); pedidos.filter(p => p.cidade === c).forEach(p => s.delete(p.id)); return s })
-    } else { next.add(c) }
-    setCidades(next)
-  }
-  const toggle = id => setSelecionados(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-
-  const iniciar = async () => {
-    if (cidades.size === 0) { alert('Selecione ao menos 1 cidade'); return }
-    if (!veiculo) { alert('Selecione o veículo'); return }
-    if (selecionados.size === 0) { alert('Selecione ao menos 1 pedido'); return }
-    setSaving(true)
-    const cidadesArr = [...cidades].sort((a, b) => (ROTA_ORDEM[a] ?? 99) - (ROTA_ORDEM[b] ?? 99))
-    const rota = await createRota(user.nome, cidadesArr[0], veiculo, cidadesArr)
-    if (!rota) { setSaving(false); return }
-    await addRotaPedidos(rota.id, [...selecionados])
-    for (const id of selecionados) {
-      const p = pedidos.find(x => x.id === id)
-      await updatePedido(id, { status: 'EM_ROTA', entregue_por: user.nome })
-      await addHistorico(id, user.nome, 'Iniciou rota — ' + (p?.cidade || cidadesArr.join(', ')))
-    }
-    setSaving(false); onRotaCriada(rota, [...selecionados])
-  }
-
-  const cidadesOrdenadas = [...cidades].sort((a, b) => (ROTA_ORDEM[a] ?? 99) - (ROTA_ORDEM[b] ?? 99))
-
-  return (
-    <div>
-      <button onClick={onCancel} style={{ ...btnSmall, marginBottom: 16 }}>← Voltar</button>
-      <div style={{ ...card, padding: 20 }}>
-        <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#0A1628' }}>🗺️ Montar Rota</h3>
-        <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 8 }}>Cidades</label>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 18, flexWrap: 'wrap' }}>
-          {CIDADES.map(c => {
-            const active = cidades.has(c)
-            const count = pedidos.filter(p => p.cidade === c && p.status === 'NF_EMITIDA').length
-            return (
-              <button key={c} onClick={() => toggleCidade(c)} style={{ padding: '7px 12px', borderRadius: 10, border: `2px solid ${active ? '#3B82F6' : '#E2E8F0'}`, background: active ? '#EFF6FF' : '#fff', color: active ? '#1D4ED8' : count > 0 ? '#334155' : '#94A3B8', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                {c}{count > 0 && <span style={{ marginLeft: 4, fontSize: 11, opacity: 0.8 }}>({count})</span>}
-              </button>
-            )
-          })}
-        </div>
-        <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 8 }}>Veículo</label>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-          {VEICULOS.map(v => (
-            <button key={v.key} onClick={() => setVeiculo(v.key)} style={{ padding: '10px 16px', borderRadius: 10, border: `2px solid ${veiculo === v.key ? '#3B82F6' : '#E2E8F0'}`, background: veiculo === v.key ? '#EFF6FF' : '#fff', color: veiculo === v.key ? '#1D4ED8' : '#64748B', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              {v.icon} {v.label}
-            </button>
-          ))}
-        </div>
-        {cidadesOrdenadas.map(cidade => {
-          const disponiveis = pedidos.filter(p => p.cidade === cidade && p.status === 'NF_EMITIDA')
-          return (
-            <div key={cidade} style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: '#334155', background: '#F1F5F9', padding: '7px 12px', borderRadius: 8, marginBottom: 6 }}>
-                📍 {cidade} · {disponiveis.length} pedido{disponiveis.length !== 1 ? 's' : ''} disponível{disponiveis.length !== 1 ? 'is' : ''}
-              </div>
-              {disponiveis.length === 0
-                ? <div style={{ fontSize: 12, color: '#94A3B8', padding: '6px 12px' }}>Nenhum pedido com NF emitida nessa cidade</div>
-                : disponiveis.map(p => (
-                  <div key={p.id} onClick={() => toggle(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F1F5F9', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={selecionados.has(p.id)} onChange={() => toggle(p.id)} onClick={e => e.stopPropagation()} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-                    <RefBadge pedido={p}/>
-                    <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', fontSize: 14 }}>{p.cliente}</span>
-                  </div>
-                ))}
-            </div>
-          )
-        })}
-        <button onClick={iniciar} disabled={saving || selecionados.size === 0} style={{ ...btnPrimary, width: '100%', marginTop: 10, opacity: saving || selecionados.size === 0 ? 0.5 : 1 }}>
-          {saving ? 'Iniciando...' : `🚀 Iniciar Rota (${selecionados.size} pedido${selecionados.size !== 1 ? 's' : ''})`}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ─── MOTORISTA VIEW ───
 export function MotoristaView({ pedidos, refresh, user }) {
   const [viewing, setViewing] = useState(null); const [signing, setSigning] = useState(false); const [saving, setSaving] = useState(false)
   const [montarRota, setMontarRota] = useState(false)
   const [rotasAtivas, setRotasAtivas] = useState([]); const [rotasPedidos, setRotasPedidos] = useState({})
+  const [rotasFinalizadas, setRotasFinalizadas] = useState([]); const [finColapsado, setFinColapsado] = useState(true)
+  const [toast, setToast] = useState(null)
+
+  const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 4000) }
 
   const loadRotas = useCallback(async () => {
     const rs = await fetchRotasAtivas()
-    setRotasAtivas(rs || [])
-    const map = {}
-    for (const r of rs || []) { map[r.id] = await fetchRotaPedidoIds(r.id) }
-    setRotasPedidos(map)
+    const map = {}; const ativas = []
+    for (const r of rs || []) {
+      const ids = await fetchRotaPedidoIds(r.id)
+      map[r.id] = ids
+      if (ids.length > 0) {
+        const pedidosDB = await fetchPedidosByIds(ids)
+        if (pedidosDB.length > 0 && pedidosDB.every(p => p.status === 'ENTREGUE')) {
+          await finalizarRota(r.id); continue
+        }
+      }
+      ativas.push(r)
+    }
+    setRotasAtivas(ativas); setRotasPedidos(map)
+    setRotasFinalizadas(await fetchRotasFinalizadasHoje() || [])
   }, [])
+
   useEffect(() => { loadRotas() }, [loadRotas])
   useEffect(() => {
     const sub = supabase.channel('rotas-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'rotas' }, loadRotas).subscribe()
@@ -182,11 +108,20 @@ export function MotoristaView({ pedidos, refresh, user }) {
     await addHistorico(id, user.nome, 'Entregou — CPF: ' + cpf)
     const _pe = pedidos.find(x => x.id === id)
     await criarNotificacao('comercial', `✅ Pedido ${_pe?.numero_ref||id.slice(0,8).toUpperCase()} entregue para ${_pe?.cliente||''}`, `CPF: ${cpf} · Motorista: ${user.nome}`, id)
-    const rotaId = Object.entries(rotasPedidos).find(([, ids]) => ids.includes(id))?.[0]
+    // Busca rota diretamente no banco (evita state stale)
+    const rotaId = await fetchRotaByPedido(id) || Object.entries(rotasPedidos).find(([, ids]) => ids.includes(id))?.[0]
     if (rotaId) {
-      const outros = rotasPedidos[rotaId].filter(pid => pid !== id)
-      const todosEntregues = outros.every(pid => pedidos.find(x => x.id === pid)?.status === 'ENTREGUE')
-      if (todosEntregues) await finalizarRota(rotaId)
+      const todosIds = await fetchRotaPedidoIds(rotaId)
+      const pedidosDB = await fetchPedidosByIds(todosIds)
+      // Trata o pedido atual como ENTREGUE (acabou de ser atualizado, evita race condition)
+      const totalPedidos = todosIds.length
+      const entregues = todosIds.filter(pid => pid === id || pedidosDB.find(p => p.id === pid)?.status === 'ENTREGUE').length
+      console.log(`Verificando rota: ${totalPedidos} pedidos total, ${entregues} entregues`)
+      const todosEntregues = todosIds.every(pid => pid === id || pedidosDB.find(p => p.id === pid)?.status === 'ENTREGUE')
+      if (todosEntregues) {
+        await finalizarRota(rotaId)
+        showToast('🎉 Rota finalizada! Todas as entregas concluídas.')
+      }
     }
     await loadRotas(); refresh(); setSigning(false); setViewing(null); setSaving(false)
   }
@@ -216,21 +151,34 @@ export function MotoristaView({ pedidos, refresh, user }) {
   const nfPorCidade = groupByCidade(nfEmitida)
   const secH = (icon, title, count) => <h3 style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1.5 }}>{icon} {title}{count !== undefined ? ` (${count})` : ''}</h3>
   const divider = <div style={{ borderTop: '2px solid #E2E8F0', margin: '24px 0 18px' }} />
-  const renderCard = p => (<div key={p.id} onClick={() => setViewing(p.id)} style={{ ...card, cursor: 'pointer', border: '2px solid transparent' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><RefBadge pedido={p}/><span style={{ fontWeight: 700, color: '#0A1628' }}>{p.cliente}</span>{p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}</div><Badge status={p.status} />
+
+  const renderCard = p => (
+    <div key={p.id} onClick={() => setViewing(p.id)} style={{ ...card, padding: 16, cursor: 'pointer', marginBottom: 0, border: '2px solid transparent' }}
+      onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <RefBadge pedido={p}/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, color: '#0A1628', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.cliente}</div>
+          {p.valor_total && <div style={{ fontSize: 11, color: '#64748B' }}>R$ {Number(p.valor_total).toFixed(2)}</div>}
+        </div>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 2 }}>{fmt(p.atualizado_em)}</div>
+          <Badge status={p.status} />
+        </div>
+      </div>
     </div>
-    <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 6 }}>{fmt(p.atualizado_em)}</div>
-  </div>)
+  )
 
   return (<div>
+    <style>{`.nf-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(max-width:640px){.nf-grid{grid-template-columns:1fr}}`}</style>
+    {toast && <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: '#059669', color: '#fff', padding: '12px 24px', borderRadius: 12, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,.3)', whiteSpace: 'nowrap' }}>{toast}</div>}
     {secH('📋', 'Pedidos para roteirizar', nfEmitida.length)}
     {minhaRotaAtiva
       ? <div style={{ background: '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#92400E', fontWeight: 600 }}>⚠️ Você já tem uma rota ativa. Finalize a rota atual para criar uma nova.</div>
       : <button onClick={() => setMontarRota(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 14, background: '#3B82F6' }}>🗺️ Montar Rota</button>}
     {nfEmitida.length === 0
       ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12, marginBottom: 4 }}>Nenhum pedido aguardando roteirização ✓</div>
-      : nfPorCidade.map(g => <CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}>{g.items.map(renderCard)}</CidadeGroup>)}
+      : nfPorCidade.map(g => <CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}><div className="nf-grid">{g.items.map(renderCard)}</div></CidadeGroup>)}
     {divider}
     {secH('🚛', 'Rota Ativa')}
     {rotasAtivas.length === 0
@@ -243,5 +191,19 @@ export function MotoristaView({ pedidos, refresh, user }) {
             onVerPedido={setViewing}
             onFechar={rota.status === 'finalizada' ? () => setRotasAtivas(prev => prev.filter(r => r.id !== rota.id)) : null} />
         })}
+    {rotasFinalizadas.length > 0 && (<>
+      {divider}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        {secH('✅', 'Rotas finalizadas hoje', rotasFinalizadas.length)}
+        <button onClick={() => setFinColapsado(f => !f)} style={{ ...btnSmall, fontSize: 11, marginBottom: 12 }}>{finColapsado ? '▼ Ver' : '▲ Fechar'}</button>
+      </div>
+      {!finColapsado && rotasFinalizadas.map(r => (
+        <div key={r.id} style={{ background: '#F0FDF4', border: '1px solid #A7F3D0', borderRadius: 12, padding: '12px 16px', marginBottom: 8 }}>
+          <div style={{ fontWeight: 700, color: '#065F46', fontSize: 13 }}>✅ Rota finalizada</div>
+          <div style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>{r.motorista_nome} · {(r.cidades?.length ? r.cidades : [r.cidade]).join(', ')}</div>
+          <div style={{ fontSize: 11, color: '#6EE7B7', marginTop: 2 }}>{fmt(r.criado_em)}</div>
+        </div>
+      ))}
+    </>)}
   </div>)
 }
