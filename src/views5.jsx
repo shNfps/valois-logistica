@@ -80,12 +80,18 @@ export function MotoristaView({ pedidos, refresh, user }) {
     const rs = await fetchRotasAtivas()
     const map = {}; const ativas = []
     for (const r of rs || []) {
-      const ids = await fetchRotaPedidoIds(r.id)
+      // Busca pedidos da rota diretamente via supabase para evitar cache
+      const { data: rpRows } = await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id', r.id)
+      const ids = (rpRows || []).map(x => x.pedido_id)
       map[r.id] = ids
       if (ids.length > 0) {
-        const pedidosDB = await fetchPedidosByIds(ids)
-        if (pedidosDB.length > 0 && pedidosDB.every(p => p.status === 'ENTREGUE')) {
-          await finalizarRota(r.id); continue
+        const { data: pedidosDB } = await supabase.from('pedidos').select('id, status').in('id', ids)
+        const allEntregue = pedidosDB && pedidosDB.length > 0 && pedidosDB.every(p => p.status === 'ENTREGUE')
+        console.log(`[loadRotas] Rota ${r.id.slice(0,8)}: ${pedidosDB?.length} pedidos, ${pedidosDB?.filter(p=>p.status==='ENTREGUE').length} entregues, finalizar=${allEntregue}`)
+        if (allEntregue) {
+          await supabase.from('rotas').update({ status: 'finalizada' }).eq('id', r.id)
+          console.log('[loadRotas] ROTA FINALIZADA:', r.id)
+          continue
         }
       }
       ativas.push(r)
@@ -105,24 +111,29 @@ export function MotoristaView({ pedidos, refresh, user }) {
   const confirmarEntrega = async (id, { assinatura, cpf }) => {
     setSaving(true)
     await updatePedido(id, { status: 'ENTREGUE', entrega_assinatura: assinatura, entrega_cpf: cpf, entrega_data: new Date().toISOString(), entregue_por: user.nome })
+
+    // Verificar se a rota pode ser finalizada (usando supabase direto, sem funções intermediárias)
+    const { data: rotaPedido } = await supabase.from('rota_pedidos').select('rota_id').eq('pedido_id', id).maybeSingle()
+    if (rotaPedido && rotaPedido.rota_id) {
+      const { data: todosRp } = await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id', rotaPedido.rota_id)
+      if (todosRp && todosRp.length > 0) {
+        const pedidoIds = todosRp.map(rp => rp.pedido_id)
+        const { data: pedidosRota } = await supabase.from('pedidos').select('id, status').in('id', pedidoIds)
+        const todosEntregues = pedidosRota && pedidosRota.every(p => p.status === 'ENTREGUE')
+        console.log(`Verificando rota: ${pedidosRota?.length} pedidos total, ${pedidosRota?.filter(p => p.status === 'ENTREGUE').length} entregues`)
+        if (todosEntregues) {
+          await supabase.from('rotas').update({ status: 'finalizada' }).eq('id', rotaPedido.rota_id)
+          console.log('ROTA FINALIZADA:', rotaPedido.rota_id)
+          showToast('🎉 Rota finalizada! Todas as entregas concluídas.')
+        } else {
+          console.log('Rota ainda tem pedidos pendentes:', pedidosRota?.filter(p => p.status !== 'ENTREGUE').length)
+        }
+      }
+    }
+
     await addHistorico(id, user.nome, 'Entregou — CPF: ' + cpf)
     const _pe = pedidos.find(x => x.id === id)
     await criarNotificacao('comercial', `✅ Pedido ${_pe?.numero_ref||id.slice(0,8).toUpperCase()} entregue para ${_pe?.cliente||''}`, `CPF: ${cpf} · Motorista: ${user.nome}`, id)
-    // Busca rota diretamente no banco (evita state stale)
-    const rotaId = await fetchRotaByPedido(id) || Object.entries(rotasPedidos).find(([, ids]) => ids.includes(id))?.[0]
-    if (rotaId) {
-      const todosIds = await fetchRotaPedidoIds(rotaId)
-      const pedidosDB = await fetchPedidosByIds(todosIds)
-      // Trata o pedido atual como ENTREGUE (acabou de ser atualizado, evita race condition)
-      const totalPedidos = todosIds.length
-      const entregues = todosIds.filter(pid => pid === id || pedidosDB.find(p => p.id === pid)?.status === 'ENTREGUE').length
-      console.log(`Verificando rota: ${totalPedidos} pedidos total, ${entregues} entregues`)
-      const todosEntregues = todosIds.every(pid => pid === id || pedidosDB.find(p => p.id === pid)?.status === 'ENTREGUE')
-      if (todosEntregues) {
-        await finalizarRota(rotaId)
-        showToast('🎉 Rota finalizada! Todas as entregas concluídas.')
-      }
-    }
     await loadRotas(); refresh(); setSigning(false); setViewing(null); setSaving(false)
   }
 
