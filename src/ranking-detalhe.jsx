@@ -59,7 +59,9 @@ export function RankingDetalhe({ nome, tipo, pedidos, clientes }) {
   const mesPed = pedPessoa.filter(p => { const d = new Date(p.criado_em); return d >= mesIni && d <= mesFim })
   const tSem = semPed.filter(p => p.status === 'ENTREGUE').reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
   const tMes = mesPed.filter(p => p.status === 'ENTREGUE').reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
-  const comissao = pedPessoa.filter(p => p.status === 'ENTREGUE').reduce((s, p) => s + (Number(p.valor_total) || 0) * 0.05, 0)
+  const entreguesAll = pedPessoa.filter(p => p.status === 'ENTREGUE')
+  const comissao = entreguesAll.reduce((s, p) => s + (Number(p.valor_total) || 0) * 0.05, 0)
+  const taxaAprov = pedPessoa.length > 0 ? Math.round((entreguesAll.length / pedPessoa.length) * 100) : 0
 
   const porDia = {}
   pedPessoa.forEach(p => { const d = new Date(p.criado_em).toLocaleDateString('pt-BR'); porDia[d] = (porDia[d] || 0) + (Number(p.valor_total) || 0) })
@@ -76,10 +78,12 @@ export function RankingDetalhe({ nome, tipo, pedidos, clientes }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 14 }}>
         <Stat label="Pedidos semana" value={semPed.length} sub={fmtMoney(tSem)} />
         <Stat label="Pedidos mês" value={mesPed.length} sub={fmtMoney(tMes)} />
-        <Stat label="Comissão acum." value={fmtMoney(comissao)} sub="5% dos entregues" />
+        {tipo === 'vendedor'
+          ? <Stat label="Comissão acum." value={fmtMoney(comissao)} sub="5% dos entregues" />
+          : <Stat label="Taxa aprovação" value={`${taxaAprov}%`} sub={`${entreguesAll.length} entregues`} />}
         <Stat label="Melhor dia" value={melhorDia?.[0] || '—'} sub={melhorDia ? fmtMoney(melhorDia[1]) : null} />
         <Stat label="Top cliente" value={topClientes[0]?.[0]?.split(' ')[0] || '—'} sub={topClientes[0] ? fmtMoney(topClientes[0][1]) : null} />
-        <Stat label="Entregues total" value={pedPessoa.filter(p => p.status === 'ENTREGUE').length} sub="pedidos" />
+        <Stat label="Entregues total" value={entreguesAll.length} sub="pedidos" />
       </div>
       <div style={{ marginBottom: 14, background: '#fff', borderRadius: 10, padding: '12px 14px', border: '1px solid #E2E8F0' }}>
         <MiniBarras pedidos={pedPessoa} />
