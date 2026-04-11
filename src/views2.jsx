@@ -8,6 +8,7 @@ import { ClientesTab, NovoClienteRapidoModal } from './views4.jsx'
 import { VendedorRotasTab } from './views7.jsx'
 import { VendedorDashboardTab } from './vendedor-dashboard.jsx'
 import { PopupMetaDia, ConfetesMetaBatida, semanaKey, mesKey } from './vendedor-celebracao.jsx'
+import { RankingPage } from './ranking.jsx'
 
 const tabBtn=(active)=>({padding:'8px 16px',borderRadius:'8px 8px 0 0',border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:13,background:active?'#0A1628':'transparent',color:active?'#fff':'#64748B'})
 
@@ -93,8 +94,10 @@ export function ComercialView({ pedidos, refresh, user }) {
     <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
       <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
+      <button onClick={()=>setTab('ranking')} style={tabBtn(tab==='ranking')}>🏆 Ranking</button>
     </div>
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
+    {tab==='ranking'&&<RankingPage pedidos={pedidos} usuarios={[]} userLogado={user.nome} readonly={false} tipoInicial="comercial"/>}
     {tab==='pedidos'&&<>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
       <div style={{...card,padding:24,marginBottom:20}}>
@@ -204,10 +207,12 @@ export function VendedorView({ user, pedidos=[] }) {
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
       <button onClick={()=>setTab('comissao')} style={tabBtn(tab==='comissao')}>💰 Comissão</button>
       <button onClick={()=>setTab('rotas')} style={tabBtn(tab==='rotas')}>🗺️ Rotas</button>
+      <button onClick={()=>setTab('ranking')} style={tabBtn(tab==='ranking')}>🏆 Ranking</button>
     </div>
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
     {tab==='comissao'&&<VendedorDashboardTab user={user} pedidos={pedidos}/>}
     {tab==='rotas'&&<VendedorRotasTab/>}
+    {tab==='ranking'&&<RankingPage pedidos={pedidos} usuarios={[]} userLogado={user.nome} readonly={true} tipoInicial="vendedor"/>}
     {tab==='catalogo'&&<>
     <SearchBar value={search} onChange={setSearch} placeholder="Buscar produto..."/>
     <div style={{display:'flex',gap:4,marginBottom:16,flexWrap:'wrap'}}>

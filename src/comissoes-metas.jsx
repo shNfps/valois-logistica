@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fmtMoney, btnPrimary, btnSmall, card, inputStyle, fetchClientes, fetchMetas, saveMeta, deleteMeta } from './db.js'
+import { fmtMoney, fmt, getRef, btnPrimary, btnSmall, card, inputStyle, fetchClientes, fetchMetas, saveMeta, deleteMeta, STATUS_MAP } from './db.js'
+import { AvatarByNome } from './avatar.jsx'
 
 // ─── BARRA DE PROGRESSO ───
 export function BarraProgresso({ atual, meta, label }) {
@@ -26,7 +27,7 @@ export function BarraProgresso({ atual, meta, label }) {
   )
 }
 
-// ─── SEÇÃO DE METAS NO DASHBOARD (usada no admin e vendedor) ───
+// ─── SEÇÃO DE METAS NO DASHBOARD ───
 export function MetasProgressSection({ pedidos, vendedorNome }) {
   const [metas, setMetas] = useState([])
   useEffect(() => { fetchMetas().then(setMetas) }, [])
@@ -35,9 +36,8 @@ export function MetasProgressSection({ pedidos, vendedorNome }) {
   const mesIni = new Date(now.getFullYear(), now.getMonth(), 1)
   const semIni = new Date(now); semIni.setDate(now.getDate() - now.getDay()); semIni.setHours(0, 0, 0, 0)
   const semFim = new Date(semIni); semFim.setDate(semIni.getDate() + 6); semFim.setHours(23, 59, 59)
-  const filtrar = ps => vendedorNome ? ps : ps
-  const tMes = filtrar(pv).filter(p => new Date(p.criado_em) >= mesIni).reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
-  const tSemana = filtrar(pv).filter(p => { const d = new Date(p.criado_em); return d >= semIni && d <= semFim }).reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
+  const tMes = pv.filter(p => new Date(p.criado_em) >= mesIni).reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
+  const tSemana = pv.filter(p => { const d = new Date(p.criado_em); return d >= semIni && d <= semFim }).reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
   const mSemana = metas.find(m => m.tipo === 'semanal' && (!m.vendedor_nome || m.vendedor_nome === vendedorNome))
   const mMes = metas.find(m => m.tipo === 'mensal' && (!m.vendedor_nome || m.vendedor_nome === vendedorNome))
   if (!mSemana && !mMes) return null
@@ -50,28 +50,36 @@ export function MetasProgressSection({ pedidos, vendedorNome }) {
   )
 }
 
-// ─── COMISSÕES TAB (admin) ───
+// ─── COMISSÕES TAB (admin) ─── cards clicáveis e expansíveis
 export function ComissoesTab({ pedidos }) {
   const [clientes, setClientes] = useState([])
+  const [vendedores, setVendedores] = useState([])
   const [periodo, setPeriodo] = useState('atual')
   const [mesAno, setMesAno] = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}` })
+  const [expandido, setExpandido] = useState(null)
   useEffect(() => { fetchClientes().then(setClientes) }, [])
+
   const getRange = () => {
     if (periodo === 'atual') { const n = new Date(); return [new Date(n.getFullYear(), n.getMonth(), 1), new Date(n.getFullYear(), n.getMonth() + 1, 0, 23, 59, 59)] }
     if (periodo === 'anterior') { const n = new Date(); return [new Date(n.getFullYear(), n.getMonth() - 1, 1), new Date(n.getFullYear(), n.getMonth(), 0, 23, 59, 59)] }
     const [y, m] = mesAno.split('-').map(Number); return [new Date(y, m - 1, 1), new Date(y, m, 0, 23, 59, 59)]
   }
+
   const [start, end] = getRange()
-  const pedidosV = pedidos.filter(p => { const d = new Date(p.criado_em); return d >= start && d <= end && ['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE'].includes(p.status) })
+  const pedNoPeriodo = pedidos.filter(p => { const d = new Date(p.criado_em); return d >= start && d <= end })
+
   const vMap = {}
-  pedidosV.forEach(p => {
+  pedNoPeriodo.forEach(p => {
     const c = clientes.find(x => x.id === p.cliente_id || x.nome?.toLowerCase() === p.cliente?.toLowerCase())
     const v = c?.vendedor_nome || 'Valois'
-    if (!vMap[v]) vMap[v] = { pedidos: [], total: 0 }
-    vMap[v].pedidos.push(p); vMap[v].total += Number(p.valor_total) || 0
+    if (!vMap[v]) vMap[v] = { pedidos: [], totalEntregue: 0 }
+    vMap[v].pedidos.push(p)
+    if (p.status === 'ENTREGUE') vMap[v].totalEntregue += Number(p.valor_total) || 0
   })
-  const grupos = Object.entries(vMap).sort((a, b) => b[1].total - a[1].total)
-  const totalGeral = grupos.reduce((s, [, g]) => s + g.total, 0)
+
+  const grupos = Object.entries(vMap).sort((a, b) => b[1].totalEntregue - a[1].totalEntregue)
+  const totalGeral = grupos.reduce((s, [, g]) => s + g.totalEntregue, 0)
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -81,19 +89,58 @@ export function ComissoesTab({ pedidos }) {
         {periodo === 'custom' && <input type="month" value={mesAno} onChange={e => setMesAno(e.target.value)} style={{ ...inputStyle, width: 160, padding: '6px 10px' }} />}
       </div>
       <div style={{ ...card, background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '14px 18px', marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: 1 }}>Total Comissões</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: 1 }}>Total Comissões (entregues)</div>
         <div style={{ fontSize: 26, fontWeight: 800, color: '#059669', margin: '4px 0 2px' }}>{fmtMoney(totalGeral * 0.05)}</div>
-        <div style={{ fontSize: 12, color: '#94A3B8' }}>5% de {fmtMoney(totalGeral)} vendidos</div>
+        <div style={{ fontSize: 12, color: '#94A3B8' }}>5% de {fmtMoney(totalGeral)} entregues</div>
       </div>
       {grupos.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: '#94A3B8' }}>Nenhum pedido no período</div>}
-      {grupos.map(([nome, g]) => (
-        <div key={nome} style={{ ...card, borderLeft: '4px solid #10B981' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div><div style={{ fontWeight: 700, fontSize: 15, color: '#0A1628' }}>💰 {nome}</div><div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{g.pedidos.length} pedido{g.pedidos.length !== 1 ? 's' : ''} · {fmtMoney(g.total)}</div></div>
-            <div style={{ textAlign: 'right' }}><div style={{ fontSize: 10, fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>Comissão 5%</div><div style={{ fontSize: 22, fontWeight: 800, color: '#059669' }}>{fmtMoney(g.total * 0.05)}</div></div>
+      {grupos.map(([nome, g]) => {
+        const aberto = expandido === nome
+        const byStatus = {}; g.pedidos.forEach(p => { byStatus[p.status] = (byStatus[p.status] || { count: 0, valor: 0 }); byStatus[p.status].count++; byStatus[p.status].valor += Number(p.valor_total) || 0 })
+        return (
+          <div key={nome} style={{ ...card, borderLeft: '4px solid #10B981', cursor: 'pointer' }} onClick={() => setExpandido(aberto ? null : nome)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <AvatarByNome nome={nome} size={36} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#0A1628' }}>{nome}</div>
+                  <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{g.pedidos.length} pedido{g.pedidos.length !== 1 ? 's' : ''} no período · {aberto ? '▲ Fechar' : '▼ Ver detalhes'}</div>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>Comissão 5%</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#059669' }}>{fmtMoney(g.totalEntregue * 0.05)}</div>
+              </div>
+            </div>
+            {aberto && (
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #E2E8F0' }} onClick={e => e.stopPropagation()}>
+                {g.pedidos.map(p => {
+                  const s = STATUS_MAP[p.status] || { label: p.status, color: '#64748B', bg: '#F1F5F9' }
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F1F5F9', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#F1F5F9', color: '#64748B', padding: '1px 5px', borderRadius: 4 }}>{getRef(p)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#0A1628', flex: 1, minWidth: 100 }}>{p.cliente}</span>
+                      {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>{fmtMoney(p.valor_total || 0)}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 6px', borderRadius: 6 }}>{s.label}</span>
+                      <span style={{ fontSize: 10, color: '#94A3B8' }}>{fmt(p.criado_em)}</span>
+                    </div>
+                  )
+                })}
+                <div style={{ marginTop: 12, padding: '10px 14px', background: '#F8FAFC', borderRadius: 10 }}>
+                  {Object.entries(byStatus).map(([st, d]) => {
+                    const s = STATUS_MAP[st] || { label: st, color: '#64748B' }
+                    return <div key={st} style={{ fontSize: 12, color: '#334155', marginBottom: 3 }}><span style={{ color: s.color, fontWeight: 700 }}>{s.label}:</span> {fmtMoney(d.valor)} ({d.count} pedido{d.count !== 1 ? 's' : ''})</div>
+                  })}
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #E2E8F0', fontSize: 13, fontWeight: 700, color: '#059669' }}>
+                    Comissão: 5% de {fmtMoney(g.totalEntregue)} = {fmtMoney(g.totalEntregue * 0.05)}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

@@ -4,6 +4,9 @@ import { fmt, fmtMoney, groupByDate, groupByCidade, filterPedidos, CIDADES, CATE
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
 import { MetasProgressSection, ComissoesTab, MetasTab } from './comissoes-metas.jsx'
+import { TopVendedores, TimeComercial } from './ranking-vendedores.jsx'
+import { PerformanceFlashcard } from './performance-flashcard.jsx'
+import { RankingPage } from './ranking.jsx'
 import { ReprocessarCodigosModal } from './reprocessar-codigos.jsx'
 import { FotosProdutosModal } from './fotos-produtos.jsx'
 import { ReajusteModal } from './reajuste-precos.jsx'
@@ -52,14 +55,19 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
 
   return(<div>
     <div style={{display:'flex',gap:6,marginBottom:20,flexWrap:'wrap'}}>
-      {[{key:'dashboard',label:'Dashboard'},{key:'usuarios',label:'Funcionários'},{key:'produtos',label:'Produtos'},{key:'pedidos',label:'Pedidos'},{key:'clientes',label:'Clientes'},{key:'comissoes',label:'Comissões'},{key:'metas',label:'Metas'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>{t.label}</button>))}
+      {[{key:'dashboard',label:'Dashboard'},{key:'ranking',label:'🏆 Ranking'},{key:'usuarios',label:'Funcionários'},{key:'produtos',label:'Produtos'},{key:'pedidos',label:'Pedidos'},{key:'clientes',label:'Clientes'},{key:'comissoes',label:'Comissões'},{key:'metas',label:'Metas'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>{t.label}</button>))}
     </div>
 
+    {tab==='ranking'&&<RankingPage pedidos={pedidos} usuarios={usuarios}/>}
     {tab==='comissoes'&&<ComissoesTab pedidos={pedidos}/>}
     {tab==='metas'&&<MetasTab pedidos={pedidos}/>}
     {tab==='dashboard'&&(<div>
       <MetasProgressSection pedidos={pedidos}/>
       <AdminVendasSection pedidos={pedidos} rotasAtivas={rotasAtivas} onEditRota={setEditRota}/>
+      <PerformanceFlashcard pedidos={pedidos} usuarios={usuarios}/>
+      <TopVendedores pedidos={pedidos}/>
+      <TimeComercial pedidos={pedidos} usuarios={usuarios}/>
+      <div style={{textAlign:'right',marginBottom:16}}><button onClick={()=>setTab('ranking')} style={{background:'none',border:'none',cursor:'pointer',color:'#2563EB',fontSize:13,fontWeight:600,fontFamily:'inherit',padding:'4px 0'}}>Ver ranking completo →</button></div>
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Pipeline</h3>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:12}}>
         {Object.entries(STATUS_MAP).map(([key,s])=>{const active=pipelineFilter===key;return(<div key={key} onClick={()=>setPipelineFilter(f=>f===key?null:key)} style={{background:active?s.bg:'#fff',borderRadius:12,padding:14,textAlign:'center',border:'1px solid rgba(226,232,240,0.8)',borderLeft:`4px solid ${s.color}`,boxShadow:active?`0 2px 8px ${s.color}22`:'0 1px 3px rgba(0,0,0,0.04)',cursor:'pointer',transition:'all 0.15s'}}>
