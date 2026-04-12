@@ -7,6 +7,7 @@ import { ComercialView, GalpaoView, VendedorView } from './views2.jsx'
 import { MotoristaView } from './views5.jsx'
 import { useNotificacoes, NotifBell, NotifToast } from './notificacoes-ui.jsx'
 import { AvatarCircle, AvatarPickerModal } from './avatar.jsx'
+import { EloBadgeAuto } from './performance-rank.jsx'
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -91,6 +92,7 @@ export default function App() {
                 <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: 500 }}>{user.nome}</div>
                 <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'capitalize' }}>{(user.setores||[user.setor])[0]}</div>
               </div>
+              <EloBadgeAuto user={user} pedidos={pedidos}/>
               <AvatarCircle user={user} size={34} onClick={() => setShowAvatarPicker(true)} />
               <NotifBell notifs={notifs} dismiss={dismiss} dismissAll={dismissAll} />
               <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 10px', color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: "'Inter',sans-serif" }}>Sair</button>
