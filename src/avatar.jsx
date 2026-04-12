@@ -57,12 +57,11 @@ export function AvatarPickerModal({ user, onClose, onSaved }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 20, padding: 24, width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0A1628' }}>Escolher Avatar</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#94A3B8', lineHeight: 1 }}>✕</button>
-        </div>
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9998 }}/>
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 9999, background: '#fff', borderRadius: 20, padding: 24, width: '90%', maxWidth: 400, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#94A3B8', lineHeight: 1 }}>✕</button>
+        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#0A1628', paddingRight: 32 }}>Escolher Avatar</h3>
         <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 16px' }}>Escolha um emoji para representar você no sistema</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
           {AVATARES.map(a => (
@@ -77,6 +76,6 @@ export function AvatarPickerModal({ user, onClose, onSaved }) {
           <button onClick={salvar} disabled={saving} style={{ flex: 2, height: 42, borderRadius: 10, border: 'none', background: '#0F172A', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>{saving ? 'Salvando...' : '✓ Salvar avatar'}</button>
         </div>
       </div>
-    </div>
+    </>
   )
 }
