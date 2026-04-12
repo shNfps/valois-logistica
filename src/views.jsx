@@ -21,7 +21,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
   const [search,setSearch]=useState('');const [searchProd,setSearchProd]=useState('');const [searchUser,setSearchUser]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
   const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false);const [showReajuste,setShowReajuste]=useState(false)
-  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null)
+  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null);const [expandedAdminId,setExpandedAdminId]=useState(null)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
   const loadRotas=useCallback(async()=>{setRotasAtivas(await fetchRotasAtivas())},[])
@@ -213,26 +213,22 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
         <span style={{fontWeight:700,color:'#334155'}}>Filtrado por: {STATUS_MAP[pipelineFilter].label} ({pedidosFiltrados.length} pedidos)</span>
         <button onClick={()=>setPipelineFilter(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#64748B',fontSize:13,fontFamily:'inherit'}}>✕ Limpar</button>
       </div>}
-      {pedidosAgrupados.map(g=>(<DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>
-        {g.items.map(p=>(<div key={p.id} style={card}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <RefBadge pedido={p}/>
-              <span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{p.cliente}</span>
-              {p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}
-            </div><Badge status={p.status}/>
+      {pedidosAgrupados.map(g=>(<DateGroup key={g.label} label={g.label} count={g.items.length} valor={g.items.reduce((s,p)=>s+(Number(p.valor_total)||0),0)} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>
+        <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>
+        {g.items.map(p=>{const isExp=expandedAdminId===p.id;return(<div key={p.id}>
+          <div onClick={()=>setExpandedAdminId(v=>v===p.id?null:p.id)} onMouseEnter={e=>{if(!isExp)e.currentTarget.style.background='#F8FAFC'}} onMouseLeave={e=>{if(!isExp)e.currentTarget.style.background='#fff'}} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:isExp?'#F8FAFC':'#fff'}}>
+            <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
+            {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>{p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669',whiteSpace:'nowrap'}}>{fmtMoney(p.valor_total)}</span>}
+            <span style={{fontSize:10,color:'#94A3B8',transition:'transform 0.2s',display:'inline-block',transform:isExp?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
           </div>
-          <div style={{fontSize:11,color:'#64748B',display:'flex',flexWrap:'wrap',gap:8,marginTop:4}}>
-            {p.criado_por&&<span>📋 <b>{p.criado_por}</b></span>}{p.conferido_por&&<span>📦 <b>{p.conferido_por}</b></span>}{p.entregue_por&&<span>🚛 <b>{p.entregue_por}</b></span>}
-          </div>
-          {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginTop:6}}>Obs: {p.obs}</div>}
-          {p.valor_total>0&&<div style={{fontSize:12,fontWeight:700,color:'#059669',marginTop:4}}>💰 {fmtMoney(p.valor_total)}</div>}
-          <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
-          <div style={{marginTop:8,borderTop:'1px solid #F1F5F9',paddingTop:8,display:'flex',gap:8,flexWrap:'wrap'}}>
-            {p.orcamento_url&&<button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button>}
-            <button onClick={()=>handleDeletePedido(p.id,p.cliente)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444'}}>🗑 Deletar pedido</button>
-          </div>
-        </div>))}
+          {isExp&&(<div style={{padding:'10px 14px',background:'#F8FAFC',borderBottom:'1px solid #F1F5F9'}}>
+            <div style={{fontSize:11,color:'#64748B',marginBottom:6}}>{[p.criado_por&&`📋${p.criado_por}`,p.conferido_por&&`📦${p.conferido_por}`,p.entregue_por&&`🚛${p.entregue_por}`].filter(Boolean).join(' → ')}</div>
+            {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:8}}>Obs: {p.obs}</div>}
+            <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
+            <div style={{marginTop:8,display:'flex',gap:6}}>{p.orcamento_url&&<button onClick={e=>{e.stopPropagation();setExtractingPedido(p)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button>}<button onClick={e=>{e.stopPropagation();handleDeletePedido(p.id,p.cliente)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444'}}>🗑 Deletar pedido</button></div>
+          </div>)}
+        </div>)})}
+        </div>
       </DateGroup>))}
     </div>)}
     {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}

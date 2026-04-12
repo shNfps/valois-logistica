@@ -39,7 +39,7 @@ export function ComercialView({ pedidos, refresh, user }) {
   const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
   const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('');const [nfNumeros,setNfNumeros]=useState({})
   const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
-  const [novoClienteNome,setNovoClienteNome]=useState(null)
+  const [novoClienteNome,setNovoClienteNome]=useState(null);const [expandedId,setExpandedId]=useState(null)
   const fileRef=useRef(null);const nfFileRefs=useRef({});const orcCorrigidoRefs=useRef({})
   useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
@@ -62,34 +62,25 @@ export function ComercialView({ pedidos, refresh, user }) {
     try{const url=await uploadPdf(file,'orcamentos');if(url){await updatePedido(pedidoId,{orcamento_url:url,status:'PENDENTE'});await addHistorico(pedidoId,user.nome,'Enviou orçamento corrigido');refresh()}}finally{setUploading(false);e.target.value=''}
   }
   const filtrados=filterPedidos(pedidos,search);const agrupados=groupByDateDetalhado(filtrados)
-  const renderCard=(p)=>(<div key={p.id} style={card}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-      <div style={{display:'flex',alignItems:'center',gap:8}}>
-        <RefBadge pedido={p}/>
-        <span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{p.cliente}</span>
-        {p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}
-      </div><Badge status={p.status}/>
-    </div>
-    <div style={{fontSize:12,color:'#94A3B8',marginBottom:4,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-      <span>{p.criado_por&&<span>Por: {p.criado_por} · </span>}{fmt(p.criado_em)}</span>
-      {p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669'}}>💰 {fmtMoney(p.valor_total)}</span>}
-    </div>
-    {p.obs&&p.status==='INCOMPLETO'&&<div style={{background:'#FEE2E2',padding:'8px 12px',borderRadius:8,fontSize:13,color:'#991B1B',marginBottom:6,fontWeight:600,border:'1px solid #FECACA'}}>⚠️ Galpão: {p.obs}</div>}
-    {p.obs&&p.status!=='INCOMPLETO'&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:6}}>📋 Obs: {p.obs}</div>}
-    {p.status==='INCOMPLETO'&&(<div style={{marginTop:8}}>
-      <input type="file" accept=".pdf" ref={el=>orcCorrigidoRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleOrcamentoCorrigido(p.id,e)}/>
-      <button onClick={()=>orcCorrigidoRefs.current[p.id]?.click()} disabled={uploading} style={{...btnSmall,background:'#F59E0B',color:'#fff',border:'none'}}>📄 Enviar orçamento corrigido</button>
-    </div>)}
-    {p.status==='CONFERIDO'&&(<div style={{marginTop:8}}>
-      <input type="file" accept=".pdf" ref={el=>nfFileRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleNf(p.id,e)}/>
-      <div style={{display:'flex',gap:8,alignItems:'center'}}>
-        <input type="text" inputMode="numeric" value={nfNumeros[p.id]||''} onChange={e=>setNfNumeros(prev=>({...prev,[p.id]:e.target.value.replace(/\D/g,'')}))} placeholder="Número da NF *" style={{...inputStyle,flex:1,padding:'7px 12px',fontSize:13}}/>
-        <button onClick={()=>{if(!(nfNumeros[p.id]||'').trim()){alert('Informe o número da NF');return};nfFileRefs.current[p.id]?.click()}} disabled={uploading} style={{...btnSmall,background:'#10B981',color:'#fff',border:'none',whiteSpace:'nowrap'}}>✓ Anexar NF</button>
+  const renderRow=(p)=>{const isExp=expandedId===p.id
+    return(<div key={p.id}>
+      <div onClick={()=>setExpandedId(v=>v===p.id?null:p.id)} onMouseEnter={e=>{if(!isExp)e.currentTarget.style.background='#F8FAFC'}} onMouseLeave={e=>{if(!isExp)e.currentTarget.style.background='#fff'}} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:isExp?'#F8FAFC':'#fff'}}>
+        <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
+        {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>
+        {p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669',whiteSpace:'nowrap'}}>{fmtMoney(p.valor_total)}</span>}
+        <span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmt(p.criado_em)}</span>
+        <span style={{fontSize:10,color:'#94A3B8',transition:'transform 0.2s',display:'inline-block',transform:isExp?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
       </div>
-    </div>)}
-    {p.orcamento_url&&<div style={{marginTop:8}}><button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:11,padding:'5px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button></div>}
-    <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
-  </div>)
+      {isExp&&(<div style={{padding:'10px 14px',background:'#F8FAFC',borderBottom:'1px solid #F1F5F9'}}>
+        {p.obs&&p.status==='INCOMPLETO'&&<div style={{background:'#FEE2E2',padding:'8px 12px',borderRadius:8,fontSize:13,color:'#991B1B',marginBottom:8,fontWeight:600,border:'1px solid #FECACA'}}>⚠️ Galpão: {p.obs}</div>}
+        {p.obs&&p.status!=='INCOMPLETO'&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:8}}>📋 {p.obs}</div>}
+        {p.status==='INCOMPLETO'&&(<div style={{marginBottom:8}}><input type="file" accept=".pdf" ref={el=>orcCorrigidoRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleOrcamentoCorrigido(p.id,e)}/><button onClick={e=>{e.stopPropagation();orcCorrigidoRefs.current[p.id]?.click()}} disabled={uploading} style={{...btnSmall,background:'#F59E0B',color:'#fff',border:'none'}}>📄 Enviar orçamento corrigido</button></div>)}
+        {p.status==='CONFERIDO'&&(<div style={{marginBottom:8}}><input type="file" accept=".pdf" ref={el=>nfFileRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleNf(p.id,e)}/><div style={{display:'flex',gap:8,alignItems:'center'}}><input type="text" inputMode="numeric" value={nfNumeros[p.id]||''} onChange={e=>setNfNumeros(prev=>({...prev,[p.id]:e.target.value.replace(/\D/g,'')}))} placeholder="Número da NF *" style={{...inputStyle,flex:1,padding:'7px 12px',fontSize:13}}/><button onClick={e=>{e.stopPropagation();if(!(nfNumeros[p.id]||'').trim()){alert('Informe o número da NF');return};nfFileRefs.current[p.id]?.click()}} disabled={uploading} style={{...btnSmall,background:'#10B981',color:'#fff',border:'none',whiteSpace:'nowrap'}}>✓ Anexar NF</button></div></div>)}
+        {p.orcamento_url&&<div style={{marginBottom:8}}><button onClick={e=>{e.stopPropagation();setExtractingPedido(p)}} style={{...btnSmall,fontSize:11,padding:'5px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button></div>}
+        <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
+      </div>)}
+    </div>)
+  }
   return(<div>
     <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
       <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
@@ -115,7 +106,7 @@ export function ComercialView({ pedidos, refresh, user }) {
         </button>
         <button onClick={handleSubmit} disabled={uploading} style={{...btnPrimary,width:'100%',opacity:uploading?0.6:1}}>{uploading?'Enviando...':'+ Criar Pedido'}</button>
       </div>
-      {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.label==='Hoje'}>{g.items.map(renderCard)}</DateGroup>)}
+      {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} valor={g.items.reduce((s,p)=>s+(Number(p.valor_total)||0),0)} defaultOpen={g.label==='Hoje'}><div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>{g.items.map(renderRow)}</div></DateGroup>)}
       {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
       {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
     </>}
@@ -151,13 +142,14 @@ export function GalpaoView({ pedidos, refresh, user }) {
   return(<div>
     <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Conferência ({relevantes.length})</h3>
     {relevantes.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido para conferir 👍</div>}
-    {relevantes.map(p=>(<div key={p.id} onClick={()=>setViewing(p.id)} style={{...card,cursor:'pointer',border:'2px solid transparent'}} onMouseEnter={e=>e.currentTarget.style.borderColor='#CBD5E1'} onMouseLeave={e=>e.currentTarget.style.borderColor='transparent'}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div style={{display:'flex',alignItems:'center',gap:8}}><RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{p.cliente}</span>{p.cidade&&<span style={{fontSize:11,color:'#94A3B8'}}>📍{p.cidade}</span>}</div><Badge status={p.status}/>
-      </div>
-      <div style={{fontSize:12,color:'#94A3B8',marginTop:6}}>{p.criado_por&&'Por: '+p.criado_por+' · '}{fmt(p.criado_em)}</div>
-      {p.obs&&<div style={{fontSize:12,color:'#EF4444',marginTop:4}}>⚠ {p.obs}</div>}
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>
+    {relevantes.map(p=>(<div key={p.id} onClick={()=>setViewing(p.id)} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='#fff'} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer'}}>
+      <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
+      {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>
+      <span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmt(p.criado_em)}</span>
+      {p.obs&&<span style={{fontSize:11,color:'#EF4444',marginLeft:4}}>⚠</span>}
     </div>))}
+    </div>
   </div>)
 }
 

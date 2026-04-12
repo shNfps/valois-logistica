@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { fmt, getRef, fetchHistorico, STATUS_MAP, inputStyle, btnPrimary, btnSmall } from './db.js'
+import { fmt, fmtMoney, getRef, fetchHistorico, STATUS_MAP, inputStyle, btnPrimary, btnSmall } from './db.js'
 import { supabase } from './supabase.js'
 
 export function Badge({status}){const s=STATUS_MAP[status]||STATUS_MAP.PENDENTE;return <span style={{background:s.bg,color:s.color,border:`1px solid ${s.border||s.bg}`,fontWeight:600,fontSize:12,padding:'3px 10px',borderRadius:8,textTransform:'uppercase',letterSpacing:0.5,whiteSpace:'nowrap'}}>{s.label}</span>}
@@ -21,13 +21,16 @@ export function SearchBar({value,onChange,placeholder}){
   </div>)
 }
 
-export function DateGroup({label,count,defaultOpen,children}){
+export function DateGroup({label,count,valor,defaultOpen,children}){
   const[open,setOpen]=useState(defaultOpen!==false)
   return(<div style={{marginBottom:8}}>
-    <button onClick={()=>setOpen(!open)} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',background:'#E2E8F0',border:'none',borderRadius:10,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:700,color:'#475569',marginBottom:open?10:0}}>
-      <span style={{fontSize:10,transition:'transform 0.2s',transform:open?'rotate(90deg)':'rotate(0deg)'}}>▶</span>{label}
-      <span style={{background:'#CBD5E1',color:'#475569',fontSize:11,fontWeight:700,padding:'1px 8px',borderRadius:10,marginLeft:'auto'}}>{count}</span>
-    </button>{open&&<div>{children}</div>}
+    <button onClick={()=>setOpen(!open)} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'6px 12px',background:'#E2E8F0',border:'none',borderRadius:10,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:700,color:'#475569',marginBottom:open?4:0}}>
+      <span style={{fontSize:10,transition:'transform 0.2s',transform:open?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
+      <span style={{flex:1,textAlign:'left'}}>{label}</span>
+      {valor>0&&<span style={{fontSize:11,fontWeight:600,color:'#059669'}}>{fmtMoney(valor)}</span>}
+      <span style={{background:'#CBD5E1',color:'#475569',fontSize:11,fontWeight:700,padding:'1px 8px',borderRadius:10}}>{count}</span>
+    </button>
+    {open&&<div style={{maxHeight:400,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'#CBD5E1 transparent'}}>{children}</div>}
   </div>)
 }
 
