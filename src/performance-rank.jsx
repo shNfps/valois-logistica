@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react'
 import { getRef, fetchClientes } from './db.js'
 
 export const ELOS = [
-  { id:'bronze',    label:'Bronze',    min:0,    max:199,  emoji:'🛡️',  gradFrom:'#92400E', gradTo:'#B45309', color:'#92400E', bg:'#FEF3C7' },
-  { id:'prata',     label:'Prata',     min:200,  max:499,  emoji:'🛡️',  gradFrom:'#64748B', gradTo:'#94A3B8', color:'#64748B', bg:'#F1F5F9' },
-  { id:'ouro',      label:'Ouro',      min:500,  max:999,  emoji:'⭐',  gradFrom:'#B45309', gradTo:'#F59E0B', color:'#B45309', bg:'#FFFBEB' },
-  { id:'platina',   label:'Platina',   min:1000, max:1999, emoji:'💠',  gradFrom:'#1E40AF', gradTo:'#3B82F6', color:'#1E40AF', bg:'#DBEAFE' },
-  { id:'esmeralda', label:'Esmeralda', min:2000, max:3499, emoji:'💚',  gradFrom:'#065F46', gradTo:'#10B981', color:'#065F46', bg:'#D1FAE5' },
-  { id:'diamante',  label:'Diamante',  min:3500, max:Infinity, emoji:'💎', gradFrom:'#7C3AED', gradTo:'#06B6D4', color:'#7C3AED', bg:'#EDE9FE' },
+  { id:'bronze',    label:'Bronze',    min:0,     max:499,   emoji:'🛡️',  gradFrom:'#92400E', gradTo:'#B45309', color:'#92400E', bg:'#FEF3C7' },
+  { id:'prata',     label:'Prata',     min:500,   max:1499,  emoji:'🛡️',  gradFrom:'#64748B', gradTo:'#94A3B8', color:'#64748B', bg:'#F1F5F9' },
+  { id:'ouro',      label:'Ouro',      min:1500,  max:3499,  emoji:'⭐',  gradFrom:'#B45309', gradTo:'#F59E0B', color:'#B45309', bg:'#FFFBEB' },
+  { id:'platina',   label:'Platina',   min:3500,  max:5999,  emoji:'💠',  gradFrom:'#1E40AF', gradTo:'#3B82F6', color:'#1E40AF', bg:'#DBEAFE' },
+  { id:'esmeralda', label:'Esmeralda', min:6000,  max:9999,  emoji:'💚',  gradFrom:'#065F46', gradTo:'#10B981', color:'#065F46', bg:'#D1FAE5' },
+  { id:'diamante',  label:'Diamante',  min:10000, max:Infinity, emoji:'💎', gradFrom:'#7C3AED', gradTo:'#06B6D4', color:'#7C3AED', bg:'#EDE9FE' },
 ]
 
 export const getElo = (pts) => [...ELOS].reverse().find(e => pts >= e.min) || ELOS[0]
@@ -17,11 +17,11 @@ export function calcPontosComercial(pedidos, userName, rangeIni, rangeFim) {
   const ini = rangeIni || (() => { const d=new Date(); d.setDate(1); d.setHours(0,0,0,0); return d })()
   const meus = pedidos.filter(p => { const d=new Date(p.criado_em); return p.criado_por===userName && d>=ini && (!rangeFim||d<=rangeFim) })
   let pts = 0; const logs = []
-  meus.forEach(p => { pts += 10; logs.push({ ref: getRef(p), acao: 'Criou pedido', pts: 10 }) })
-  meus.filter(p => !p.obs && !['INCOMPLETO','PENDENTE'].includes(p.status)).forEach(p => { pts += 15; logs.push({ ref: getRef(p), acao: 'Aprovado direto', pts: 15 }) })
-  meus.filter(p => p.status === 'INCOMPLETO').forEach(p => { pts -= 5; logs.push({ ref: getRef(p), acao: 'Rejeitado pelo galpão', pts: -5 }) })
-  meus.filter(p => p.status === 'ENTREGUE').forEach(p => { pts += 20; logs.push({ ref: getRef(p), acao: 'Pedido entregue', pts: 20 }) })
-  const dias = {}; meus.forEach(p => { const k=p.criado_em?.slice(0,10); if(!dias[k]){ dias[k]=true; pts+=5; logs.push({ ref: k, acao: 'Primeiro pedido do dia', pts: 5 }) } })
+  meus.forEach(p => { pts += 5; logs.push({ ref: getRef(p), acao: 'Criou pedido', pts: 5 }) })
+  meus.filter(p => !p.obs && !['INCOMPLETO','PENDENTE'].includes(p.status)).forEach(p => { pts += 8; logs.push({ ref: getRef(p), acao: 'Aprovado direto', pts: 8 }) })
+  meus.filter(p => p.status === 'INCOMPLETO').forEach(p => { pts -= 10; logs.push({ ref: getRef(p), acao: 'Rejeitado pelo galpão', pts: -10 }) })
+  meus.filter(p => p.status === 'ENTREGUE').forEach(p => { pts += 10; logs.push({ ref: getRef(p), acao: 'Pedido entregue', pts: 10 }) })
+  const dias = {}; meus.forEach(p => { const k=p.criado_em?.slice(0,10); if(!dias[k]){ dias[k]=true; pts+=3; logs.push({ ref: k, acao: 'Primeiro pedido do dia', pts: 3 }) } })
   return { pontos: Math.max(0, pts), logs }
 }
 
@@ -32,15 +32,15 @@ export function calcPontosVendedor(pedidos, clientes, userName) {
   const todos = pedidos.filter(p => cIds.has(p.cliente_id) || cNomes.has(p.cliente?.toLowerCase()))
   const doMes = todos.filter(p => new Date(p.criado_em) >= mesIni)
   let pts = 0; const logs = []
-  doMes.forEach(p => { pts += 5; logs.push({ ref: getRef(p), acao: 'Orçamento gerado', pts: 5 }) })
-  doMes.filter(p => p.status === 'ENTREGUE').forEach(p => { pts += 20; logs.push({ ref: getRef(p), acao: 'Pedido entregue', pts: 20 }) })
+  doMes.forEach(p => { pts += 3; logs.push({ ref: getRef(p), acao: 'Orçamento gerado', pts: 3 }) })
+  doMes.filter(p => p.status === 'ENTREGUE').forEach(p => { pts += 10; logs.push({ ref: getRef(p), acao: 'Pedido entregue', pts: 10 }) })
   const clientesMes = [...new Set(doMes.map(p => p.cliente?.toLowerCase()).filter(Boolean))]
   clientesMes.forEach(nc => {
     const hist = todos.filter(p => p.cliente?.toLowerCase()===nc).sort((a,b)=>new Date(a.criado_em)-new Date(b.criado_em))
-    if (hist[0] && new Date(hist[0].criado_em) >= mesIni) { pts += 15; logs.push({ ref: nc, acao: 'Cliente novo', pts: 15 }) }
+    if (hist[0] && new Date(hist[0].criado_em) >= mesIni) { pts += 8; logs.push({ ref: nc, acao: 'Cliente novo', pts: 8 }) }
     else if (hist.length > 1) {
       const idx = hist.findIndex(p => new Date(p.criado_em) >= mesIni)
-      if (idx > 0 && (new Date(hist[idx].criado_em)-new Date(hist[idx-1].criado_em))/86400000 >= 14) { pts += 25; logs.push({ ref: nc, acao: 'Cliente reativado', pts: 25 }) }
+      if (idx > 0 && (new Date(hist[idx].criado_em)-new Date(hist[idx-1].criado_em))/86400000 >= 14) { pts += 15; logs.push({ ref: nc, acao: 'Cliente reativado', pts: 15 }) }
     }
   })
   return { pontos: Math.max(0, pts), logs }
