@@ -84,8 +84,10 @@ export async function concluirOS(id, observacao, fotoPosterior, equipamentoId) {
   }
 }
 
-export async function cancelarOS(id) {
-  await updateOrdemServico(id, { status: 'CANCELADA' })
+export async function cancelarOS(id, motivo) {
+  const updates = { status: 'CANCELADA' }
+  if (motivo) updates.observacao_conclusao = motivo
+  await updateOrdemServico(id, updates)
 }
 
 export async function uploadFotoManutencao(file) {

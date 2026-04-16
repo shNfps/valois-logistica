@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase.js'
 import { inputStyle, btnPrimary, btnSmall, card, fetchClientes } from './db.js'
-import { fetchEquipamentosByCliente, fetchOSBySolicitante, createOrdemServico } from './manutencao-db.js'
+import { fetchEquipamentosByCliente, fetchOSBySolicitante, createOrdemServico, uploadFotoManutencao } from './manutencao-db.js'
 import { criarNotificacao } from './notificacoes.js'
 import { SearchBar } from './components.jsx'
 
@@ -24,7 +24,10 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
   const [descricao, setDescricao] = useState('')
   const [dataAgendada, setDataAgendada] = useState('')
   const [periodo, setPeriodo] = useState('manha')
+  const [foto, setFoto] = useState(null)
+  const [fotoPreview, setFotoPreview] = useState(null)
   const [saving, setSaving] = useState(false)
+  const fotoRef = useRef(null)
 
   const clienteSel = clientes.find(c => c.id === clienteId)
 
@@ -46,6 +49,8 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
     if (!descricao.trim()) { alert('Descreva o serviço'); return }
     if (!dataAgendada) { alert('Selecione a data'); return }
     setSaving(true)
+    let fotoUrl = null
+    if (foto) fotoUrl = await uploadFotoManutencao(foto)
     const cl = clientes.find(c => c.id === clienteId)
     const eq = equipamentos.find(e => e.id === equipamentoId)
     const os = {
@@ -53,7 +58,8 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
       cidade: cl?.cidade || null, endereco: cl?.endereco || null,
       equipamento_id: equipamentoId || null, equipamento_tipo: eq?.tipo || null,
       descricao: descricao.trim(), data_agendada: dataAgendada,
-      periodo, solicitante_nome: user.nome, status: 'AGENDADA'
+      periodo, solicitante_nome: user.nome, status: 'AGENDADA',
+      foto_antes: fotoUrl
     }
     const result = await createOrdemServico(os)
     if (result) {
@@ -104,6 +110,15 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
 
         <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Descrição do serviço *</label>
         <textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Descreva o problema ou o serviço necessário..." rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: 12 }} />
+
+        <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Foto do problema (opcional)</label>
+        <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" ref={fotoRef} onChange={e => { const f = e.target.files[0]; if (f) { setFoto(f); setFotoPreview(URL.createObjectURL(f)) } }} style={{ display: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <button type="button" onClick={() => fotoRef.current.click()} style={{ ...btnSmall, flex: 1, justifyContent: 'center', color: foto ? '#10B981' : '#64748B', borderColor: foto ? '#A7F3D0' : '#E2E8F0' }}>
+            {foto ? `✓ ${foto.name.slice(0, 25)}` : '📷 Anexar foto do problema'}
+          </button>
+          {fotoPreview && <img src={fotoPreview} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid #E2E8F0' }} />}
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           <div>

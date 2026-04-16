@@ -74,7 +74,7 @@ export default function App() {
 
       <div style={{ background: 'rgba(15,23,42,0.92)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 16px', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: userSetores.length > 1 ? 10 : 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <svg width="32" height="32" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
                 <rect width="32" height="32" rx="8" fill="#0F172A" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
@@ -101,8 +101,7 @@ export default function App() {
             </div>
             {showAvatarPicker && <AvatarPickerModal user={user} onClose={() => setShowAvatarPicker(false)} onSaved={u => { setUser(u); try { window.localStorage?.setItem('valois-user', JSON.stringify(u)) } catch {} }} />}
           </div>
-          {userSetores.length > 1 && (
-            <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 999, padding: 3, overflowX: 'auto' }}>
+          <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 999, padding: 3, overflowX: 'auto' }}>
               {userSetores.map(s => {
                 const info = SETOR_MAP[s] || SETOR_MAP.comercial
                 const isActive = activeTab === s
@@ -117,7 +116,6 @@ export default function App() {
                 )
               })}
             </div>
-          )}
         </div>
       </div>
 
