@@ -12,6 +12,7 @@ import { FotosProdutosModal } from './fotos-produtos.jsx'
 import { ReajusteModal } from './reajuste-precos.jsx'
 import { AdminEditRotaScreen } from './views7.jsx'
 import { fmtRelativo } from './notificacoes-ui.jsx'
+import { AdminManutencaoCard } from './admin-manutencao.jsx'
 
 // ─── ADMIN VIEW ───
 export function AdminView({ pedidos, refresh, user, notifs=[] }) {
@@ -64,6 +65,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
     {tab==='dashboard'&&(<div>
       <MetasProgressSection pedidos={pedidos}/>
       <AdminVendasSection pedidos={pedidos} rotasAtivas={rotasAtivas} onEditRota={setEditRota}/>
+      <AdminManutencaoCard/>
       <PerformanceFlashcard pedidos={pedidos} usuarios={usuarios}/>
       <TopVendedores pedidos={pedidos}/>
       <TimeComercial pedidos={pedidos} usuarios={usuarios}/>
@@ -116,7 +118,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
         <input type="password" value={senhaNova} onChange={e=>setSenhaNova(e.target.value)} placeholder="Senha" style={{...inputStyle,marginBottom:10}}/>
         <label style={{display:'block',fontSize:12,fontWeight:600,color:'#334155',marginBottom:8}}>Setores</label>
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
-          {['comercial','galpao','motorista','vendedor','admin'].map(s=>{const info=SETOR_MAP[s];const active=setoresNovo.includes(s);return(<button key={s} onClick={()=>toggleSetor(s)} style={{padding:'6px 12px',borderRadius:8,border:`2px solid ${active?info.color:'#E2E8F0'}`,background:active?info.color+'22':'#fff',color:active?info.color:'#94A3B8',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>{info.icon} {info.label}</button>)})}
+          {['comercial','galpao','motorista','vendedor','manutencao','admin'].map(s=>{const info=SETOR_MAP[s];const active=setoresNovo.includes(s);return(<button key={s} onClick={()=>toggleSetor(s)} style={{padding:'6px 12px',borderRadius:8,border:`2px solid ${active?info.color:'#E2E8F0'}`,background:active?info.color+'22':'#fff',color:active?info.color:'#94A3B8',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>{info.icon} {info.label}</button>)})}
         </div>
         <button onClick={criarUsuario} disabled={saving} style={{...btnPrimary,width:'100%',opacity:saving?0.6:1}}>{saving?'Criando...':'+ Criar Funcionário'}</button>
       </div>

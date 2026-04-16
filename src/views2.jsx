@@ -10,6 +10,7 @@ import { VendedorDashboardTab } from './vendedor-dashboard.jsx'
 import { PopupMetaDia, ConfetesMetaBatida, semanaKey, mesKey } from './vendedor-celebracao.jsx'
 import { PerformanceVendedorTab } from './performance-vendedor.jsx'
 import { PerformanceComercialTab } from './performance-comercial.jsx'
+import { SolicitarManutencaoTab } from './manutencao-solicit.jsx'
 
 const tabBtn=(active)=>({padding:'8px 16px',borderRadius:'8px 8px 0 0',border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:13,background:active?'#0A1628':'transparent',color:active?'#fff':'#64748B'})
 
@@ -86,9 +87,11 @@ export function ComercialView({ pedidos, refresh, user }) {
     <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
       <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
+      <button onClick={()=>setTab('manutencao')} style={tabBtn(tab==='manutencao')}>🔧 Manutenção</button>
       <button onClick={()=>setTab('performance')} style={tabBtn(tab==='performance')}>📊 Performance</button>
     </div>
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
+    {tab==='manutencao'&&<SolicitarManutencaoTab user={user}/>}
     {tab==='performance'&&<PerformanceComercialTab user={user} pedidos={pedidos}/>}
     {tab==='pedidos'&&<>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
@@ -200,11 +203,13 @@ export function VendedorView({ user, pedidos=[] }) {
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
       <button onClick={()=>setTab('comissao')} style={tabBtn(tab==='comissao')}>💰 Comissão</button>
       <button onClick={()=>setTab('rotas')} style={tabBtn(tab==='rotas')}>🗺️ Rotas</button>
+      <button onClick={()=>setTab('manutencao')} style={tabBtn(tab==='manutencao')}>🔧 Manutenção</button>
       <button onClick={()=>setTab('performance')} style={tabBtn(tab==='performance')}>📊 Performance</button>
     </div>
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
     {tab==='comissao'&&<VendedorDashboardTab user={user} pedidos={pedidos}/>}
     {tab==='rotas'&&<VendedorRotasTab/>}
+    {tab==='manutencao'&&<SolicitarManutencaoTab user={user}/>}
     {tab==='performance'&&<PerformanceVendedorTab user={user} pedidos={pedidos}/>}
     {tab==='catalogo'&&<>
     <SearchBar value={search} onChange={setSearch} placeholder="Buscar produto..."/>

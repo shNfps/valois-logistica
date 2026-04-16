@@ -38,7 +38,9 @@ export function filterPedidos(pedidos, search) {
 
 export const STATUS_MAP={PENDENTE:{label:'Pendente',color:'#B45309',bg:'#FEF3C7',border:'#FDE68A'},CONFERIDO:{label:'Conferido',color:'#065F46',bg:'#D1FAE5',border:'#A7F3D0'},INCOMPLETO:{label:'Incompleto',color:'#B91C1C',bg:'#FEE2E2',border:'#FECACA'},NF_EMITIDA:{label:'NF Emitida',color:'#1D4ED8',bg:'#DBEAFE',border:'#BFDBFE'},EM_ROTA:{label:'Em Rota',color:'#5B21B6',bg:'#EDE9FE',border:'#DDD6FE'},ENTREGUE:{label:'Entregue',color:'#065F46',bg:'#D1FAE5',border:'#A7F3D0'}}
 
-export const SETOR_MAP={admin:{label:'Admin',icon:'👑',color:'#F59E0B'},comercial:{label:'Comercial',icon:'📋',color:'#3B82F6'},galpao:{label:'Galpão',icon:'📦',color:'#10B981'},motorista:{label:'Motorista',icon:'🚛',color:'#8B5CF6'},vendedor:{label:'Vendedor',icon:'💰',color:'#0EA5E9'}}
+export const SETOR_MAP={admin:{label:'Admin',icon:'👑',color:'#F59E0B'},comercial:{label:'Comercial',icon:'📋',color:'#3B82F6'},galpao:{label:'Galpão',icon:'📦',color:'#10B981'},motorista:{label:'Motorista',icon:'🚛',color:'#8B5CF6'},vendedor:{label:'Vendedor',icon:'💰',color:'#0EA5E9'},manutencao:{label:'Manutenção',icon:'🔧',color:'#F97316'}}
+
+export const TIPOS_EQUIPAMENTO=['Dispenser de Sabonete','Dispenser de Papel Toalha','Dispenser de Papel Higiênico','Diluidor','Foamer','Saboneteira','Lixeira','Suporte','Outro']
 
 export const fmtCnpj = v => { if(!v)return''; const n=String(v).replace(/\D/g,'').slice(0,14); if(n.length<=2)return n; if(n.length<=5)return n.slice(0,2)+'.'+n.slice(2); if(n.length<=8)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5); if(n.length<=12)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8); return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8,12)+'-'+n.slice(12) }
 

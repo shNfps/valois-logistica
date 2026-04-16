@@ -5,6 +5,7 @@ import { Loader, LoginScreen } from './components.jsx'
 import { AdminView } from './views.jsx'
 import { ComercialView, GalpaoView, VendedorView } from './views2.jsx'
 import { MotoristaView } from './views5.jsx'
+import { ManutencaoView } from './manutencao.jsx'
 import { useNotificacoes, NotifBell, NotifToast } from './notificacoes-ui.jsx'
 import { AvatarCircle, AvatarPickerModal } from './avatar.jsx'
 import { EloBadgeAuto } from './performance-rank.jsx'
@@ -63,6 +64,7 @@ export default function App() {
     galpao: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>,
     motorista: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16,8 20,8 23,11 23,16 16,16 16,8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
     vendedor: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+    manutencao: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>,
   }
 
   return (
@@ -127,6 +129,7 @@ export default function App() {
             {activeTab === 'galpao' && <GalpaoView pedidos={pedidos} refresh={loadData} user={user} />}
             {activeTab === 'motorista' && <MotoristaView pedidos={pedidos} refresh={loadData} user={user} />}
             {activeTab === 'vendedor' && <VendedorView user={user} pedidos={pedidos} />}
+            {activeTab === 'manutencao' && <ManutencaoView user={user} />}
           </>
         )}
       </div>

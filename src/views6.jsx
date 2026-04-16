@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { fmt, fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchPedidosByCliente, fetchItensByPedidoIds, fetchVendedores, updateCliente, updatePedidosCliente, getRef } from './db.js'
 import { Badge } from './components.jsx'
 import { ClienteBadges } from './cliente-badges.jsx'
+import { ClienteEquipamentosSection } from './admin-manutencao.jsx'
 
 // ─── CLIENTE DETALHE ───
 export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
@@ -175,6 +176,7 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
               </div>
             ))}
         </div>
+        <ClienteEquipamentosSection clienteId={cliente.id} clienteNome={cliente.nome} user={user} />
         <div style={{ ...card, padding: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10 }}>Últimos Pedidos ({pedidos.length})</div>
           {pedidos.length === 0
