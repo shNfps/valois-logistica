@@ -48,6 +48,8 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
     if (!clienteId) { alert('Selecione o cliente'); return }
     if (!descricao.trim()) { alert('Descreva o serviço'); return }
     if (!dataAgendada) { alert('Selecione a data'); return }
+    const amanha = new Date(); amanha.setDate(amanha.getDate() + 1)
+    if (dataAgendada <= new Date().toISOString().slice(0, 10)) { alert('⚠️ Manutenção deve ser agendada com pelo menos 1 dia de antecedência'); return }
     setSaving(true)
     let fotoUrl = null
     if (foto) fotoUrl = await uploadFotoManutencao(foto)
@@ -123,7 +125,7 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Data *</label>
-            <input type="date" value={dataAgendada} onChange={e => setDataAgendada(e.target.value)} style={inputStyle} />
+            <input type="date" value={dataAgendada} onChange={e => setDataAgendada(e.target.value)} min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()} style={inputStyle} />
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Período</label>

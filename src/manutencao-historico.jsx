@@ -73,11 +73,12 @@ export function ManutencaoHistoricoTab() {
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: '#D1FAE5', color: '#065F46' }}>CONCLUÍDA</span>
               </div>
               <div style={{ fontSize: 11, color: '#64748B' }}>
-                {OS_TIPO_LABEL[os.tipo]} · {os.tecnico_nome || 'Sem técnico'} · {new Date(os.concluido_em || os.criado_em).toLocaleDateString('pt-BR')}
+                {OS_TIPO_LABEL[os.tipo]} · {os.tecnico_nome || 'Sem técnico'} · {new Date(os.concluido_em || os.criado_em).toLocaleDateString('pt-BR')}{os.solicitante_nome ? ` · Solicitado por: ${os.solicitante_nome}` : ''}
               </div>
             </div>
             {exp && (
               <div style={{ padding: '12px 16px', borderTop: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+                {os.solicitante_nome && <div style={{ fontSize: 12, color: '#334155', marginBottom: 8 }}><b>Solicitado por:</b> {os.solicitante_nome}</div>}
                 <div style={{ fontSize: 12, color: '#334155', marginBottom: 8 }}><b>Descrição:</b> {os.descricao}</div>
                 {os.observacao_conclusao && <div style={{ fontSize: 12, color: '#334155', marginBottom: 8 }}><b>Obs. conclusão:</b> {os.observacao_conclusao}</div>}
                 {os.equipamento_tipo && <div style={{ fontSize: 12, color: '#64748B', marginBottom: 8 }}>📦 Equipamento: {os.equipamento_tipo}</div>}
