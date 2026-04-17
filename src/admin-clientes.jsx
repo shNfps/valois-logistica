@@ -135,7 +135,7 @@ export function AdminClientesTab({ pedidos = [], user }) {
         const valorTotal = valorMap[c.nome?.toLowerCase()] || 0
         const editandoEste = editandoVendedor === c.id
         return (
-          <div key={c.id} style={{ ...card, border: '2px solid transparent', cursor: modoLote ? 'pointer' : 'default' }}
+          <div key={c.id}
             onClick={() => modoLote ? toggleLoteItem(c.id) : null}
             onMouseEnter={e => { if (!modoLote) e.currentTarget.style.borderColor = '#CBD5E1' }}
             onMouseLeave={e => { if (!modoLote) e.currentTarget.style.borderColor = 'transparent' }}
