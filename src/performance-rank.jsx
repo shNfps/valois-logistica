@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { getRef, fetchClientes, fetchConfigRanking } from './db.js'
+
+const EloJornadaPanel = lazy(() => import('./elo-jornada.jsx').then(m => ({ default: m.EloJornadaPanel })))
 
 export const ELOS = [
   { id:'bronze',    label:'Bronze',    min:0,     max:499,   emoji:'🛡️',  gradFrom:'#92400E', gradTo:'#B45309', color:'#92400E', bg:'#FEF3C7' },
@@ -74,11 +76,11 @@ export function EloCard({ pontos }) {
 }
 
 export function EloBadge({ pontos }) {
-  const elo = getElo(pontos); const [tip, setTip] = useState(false)
+  const elo = getElo(pontos); const [open, setOpen] = useState(false)
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-      <div onMouseEnter={() => setTip(true)} onMouseLeave={() => setTip(false)} style={{ width: 22, height: 22, borderRadius: '50%', background: `linear-gradient(135deg,${elo.gradFrom},${elo.gradTo})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, cursor: 'default', boxShadow: `0 2px 6px ${elo.color}55`, flexShrink: 0 }}>{elo.emoji}</div>
-      {tip && <div style={{ position: 'absolute', top: 28, right: 0, background: '#0F172A', color: '#fff', fontSize: 11, padding: '4px 8px', borderRadius: 6, whiteSpace: 'nowrap', zIndex: 999 }}>{elo.label} · {pontos} pts</div>}
+      <div onClick={() => setOpen(true)} style={{ width: 22, height: 22, borderRadius: '50%', background: `linear-gradient(135deg,${elo.gradFrom},${elo.gradTo})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, cursor: 'pointer', boxShadow: `0 2px 6px ${elo.color}55`, flexShrink: 0 }}>{elo.emoji}</div>
+      {open && <Suspense fallback={null}><EloJornadaPanel pontos={pontos} onClose={() => setOpen(false)} /></Suspense>}
     </div>
   )
 }

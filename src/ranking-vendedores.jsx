@@ -42,9 +42,10 @@ export function TopVendedores({ pedidos }) {
   const [ini, fim] = getPeriodoRange(periodo)
   const avatarMap = {}; vendedores.forEach(v => { avatarMap[v.nome] = v.avatar })
 
+  const FATURADOS = ['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE']
   const pedFiltrados = pedidos.filter(p => {
     const d = new Date(p.criado_em)
-    return d >= ini && d <= fim && p.status === 'ENTREGUE'
+    return d >= ini && d <= fim && FATURADOS.includes(p.status)
   })
 
   const vMap = {}
@@ -100,12 +101,13 @@ export function TimeComercial({ pedidos, usuarios = [] }) {
     const d = new Date(p.criado_em); return d >= iniEfetivo && d <= fim && p.criado_por
   })
 
+  const FATURADOS_C = ['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE']
   const cMap = {}
   pedFiltrados.forEach(p => {
     const n = p.criado_por
     if (!cMap[n]) cMap[n] = { nome: n, total: 0, valor: 0, entregues: 0 }
-    cMap[n].total++; cMap[n].valor += Number(p.valor_total) || 0
-    if (p.status === 'ENTREGUE') cMap[n].entregues++
+    cMap[n].total++
+    if (FATURADOS_C.includes(p.status)) { cMap[n].valor += Number(p.valor_total) || 0; cMap[n].entregues++ }
   })
 
   const ranking = Object.values(cMap).sort((a, b) => b.total - a.total || b.valor - a.valor)

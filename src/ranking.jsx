@@ -40,10 +40,9 @@ function getPeriodo(p) {
   return [new Date(now.getFullYear(),now.getMonth(),1), new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59)]
 }
 
-function posColor(i) { return i===0?'#F59E0B':i===1?'#94A3B8':i===2?'#D97706':'#CBD5E1' }
-function posTextColor(i) { return i<3?'#fff':'#64748B' }
+const posColor = i => i===0?'#F59E0B':i===1?'#94A3B8':i===2?'#D97706':'#CBD5E1'
 function PosCircle({ pos }) {
-  return <div style={{ width:28,height:28,borderRadius:'50%',background:posColor(pos),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:posTextColor(pos),flexShrink:0 }}>{pos+1}</div>
+  return <div style={{ width:28,height:28,borderRadius:'50%',background:posColor(pos),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:pos<3?'#fff':'#64748B',flexShrink:0 }}>{pos+1}</div>
 }
 function MetaBadge() {
   return <span style={{ fontSize:10,fontWeight:800,padding:'2px 8px',borderRadius:6,color:'#fff',letterSpacing:0.5,background:'linear-gradient(90deg,#10B981 25%,#34D399 50%,#10B981 75%)',backgroundSize:'200% auto',animation:'shimmer 3s linear infinite,metapop 0.35s ease' }}>META ✓</span>
@@ -112,6 +111,8 @@ function RankingRow({ item, pos, avatarMap, metaValor, animado, delay, expandido
   )
 }
 
+const FATURADOS = ['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE']
+
 function computeRanking(tipo, pedidos, clientes, ini, fim) {
   const map = {}
   pedidos.filter(p => { const d = new Date(p.criado_em); return d >= ini && d <= fim }).forEach(p => {
@@ -119,7 +120,7 @@ function computeRanking(tipo, pedidos, clientes, ini, fim) {
     if (!n) return
     if (!map[n]) map[n] = { nome: n, count: 0, valor: 0, entregues: 0, clientesSet: new Set() }
     map[n].count++
-    if (p.status === 'ENTREGUE') { map[n].valor += Number(p.valor_total) || 0; map[n].entregues++ }
+    if (FATURADOS.includes(p.status)) { map[n].valor += Number(p.valor_total) || 0; map[n].entregues++ }
     if (tipo === 'vendedor' && p.cliente) map[n].clientesSet.add(p.cliente)
   })
   return Object.values(map).map(r => ({ nome:r.nome,count:r.count,valor:r.valor,entregues:r.entregues,clientesAtivos:r.clientesSet.size })).sort((a, b) => b.valor - a.valor)
@@ -204,8 +205,9 @@ export function RankingPage({ pedidos, usuarios=[], userLogado, readonly=false, 
       <style>{ANIM}</style>
       <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14,flexWrap:'wrap',gap:10 }}>
         <div>
-          <h2 style={{ margin:'0 0 4px',fontSize:22,fontWeight:800,color:'#0A1628' }}>
+          <h2 style={{ margin:'0 0 4px',fontSize:22,fontWeight:800,color:'#0A1628',display:'flex',alignItems:'center',gap:6 }}>
             {title}<span style={{ opacity:title.length < FULL_TITLE.length ? 1 : 0, animation:'pulse 0.7s step-start infinite' }}>|</span>
+            <span title="Valor calculado sobre pedidos faturados (NF emitida, em rota ou entregue)" style={{ fontSize:14,cursor:'help',color:'#94A3B8' }}>ℹ️</span>
           </h2>
           <div style={{ display:'flex',alignItems:'center',gap:6 }}>
             <span style={{ width:8,height:8,borderRadius:'50%',background:'#10B981',display:'inline-block',animation:'pulse 1.2s ease-in-out infinite,glow 1.2s ease-in-out infinite' }} />
