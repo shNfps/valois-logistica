@@ -8,7 +8,7 @@ export const ELOS = [
   { id:'prata',     label:'Prata',     min:500,   max:1499,  emoji:'🛡️',  gradFrom:'#64748B', gradTo:'#94A3B8', color:'#64748B', bg:'#F1F5F9' },
   { id:'ouro',      label:'Ouro',      min:1500,  max:3499,  emoji:'⭐',  gradFrom:'#B45309', gradTo:'#F59E0B', color:'#B45309', bg:'#FFFBEB' },
   { id:'platina',   label:'Platina',   min:3500,  max:5999,  emoji:'💠',  gradFrom:'#1E40AF', gradTo:'#3B82F6', color:'#1E40AF', bg:'#DBEAFE' },
-  { id:'esmeralda', label:'Esmeralda', min:6000,  max:9999,  emoji:'💚',  gradFrom:'#065F46', gradTo:'#10B981', color:'#065F46', bg:'#D1FAE5' },
+  { id:'rubi',      label:'Rubi',      min:6000,  max:9999,  emoji:'🔴',  gradFrom:'#991B1B', gradTo:'#DC2626', color:'#DC2626', bg:'#FEE2E2' },
   { id:'diamante',  label:'Diamante',  min:10000, max:Infinity, emoji:'💎', gradFrom:'#7C3AED', gradTo:'#06B6D4', color:'#7C3AED', bg:'#EDE9FE' },
 ]
 
@@ -59,8 +59,9 @@ export function calcPontosVendedor(pedidos, clientes, userName) {
 export function EloCard({ pontos }) {
   const elo = getElo(pontos); const idx = ELOS.indexOf(elo); const next = ELOS[idx+1]
   const pct = next ? Math.min(((pontos - elo.min) / (next.min - elo.min)) * 100, 100) : 100
+  const [showJornada, setShowJornada] = useState(false)
   return (
-    <div style={{ background: `linear-gradient(135deg,${elo.gradFrom}18,${elo.gradTo}30)`, border: `2px solid ${elo.gradFrom}50`, borderRadius: 20, padding: '28px 20px', textAlign: 'center', marginBottom: 16 }}>
+    <div onClick={() => setShowJornada(true)} style={{ background: `linear-gradient(135deg,${elo.gradFrom}18,${elo.gradTo}30)`, border: `2px solid ${elo.gradFrom}50`, borderRadius: 20, padding: '28px 20px', textAlign: 'center', marginBottom: 16, cursor: 'pointer' }}>
       <style>{`@keyframes ep{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}} @keyframes sbf{from{width:0}} @keyframes shim{0%{left:-100%}100%{left:200%}}`}</style>
       <div style={{ fontSize: 80, lineHeight: 1, animation: 'ep 3s ease-in-out infinite', filter: `drop-shadow(0 6px 18px ${elo.color}66)`, marginBottom: 12 }}>{elo.emoji}</div>
       <div style={{ fontSize: 28, fontWeight: 800, color: elo.color, letterSpacing: 3, marginBottom: 4 }}>{elo.label.toUpperCase()}</div>
@@ -71,6 +72,8 @@ export function EloCard({ pontos }) {
         </div>
       </div>
       {next && <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'right' }}>{elo.label} → {next.label}</div>}
+      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 8 }}>Toque para ver sua jornada</div>
+      {showJornada && <Suspense fallback={null}><EloJornadaPanel pontos={pontos} onClose={(e) => { e?.stopPropagation(); setShowJornada(false) }} /></Suspense>}
     </div>
   )
 }

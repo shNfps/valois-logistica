@@ -6,8 +6,8 @@ const DICAS = {
   bronze: 'Crie pedidos consistentemente para subir para Prata! 💪',
   prata: 'Melhore sua taxa de aprovação para ganhar pontos bônus! ⭐',
   ouro: 'Você está indo muito bem! Continue assim para Platina! 🏆',
-  platina: 'Incrível! Poucos chegam aqui. Esmeralda aguarda! 💎',
-  esmeralda: 'Excepcional! Você é referência. Diamante está próximo! ✨',
+  platina: 'Incrível! Poucos chegam aqui. Rubi aguarda! 💎',
+  rubi: 'Lendário! Você está entre os melhores. Diamante aguarda! 🔥',
   diamante: 'Você é uma LENDA do time! 👑',
 }
 
