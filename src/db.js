@@ -161,6 +161,10 @@ export async function fetchMetas(){const{data,error}=await supabase.from('metas'
 export async function saveMeta(meta){const{data,error}=await supabase.from('metas').insert(meta).select().single();if(error){console.error(error);return null};return data}
 export async function deleteMeta(id){const{error}=await supabase.from('metas').delete().eq('id',id);if(error)console.error(error)}
 
+// Config Ranking
+export async function fetchConfigRanking(){const{data,error}=await supabase.from('config_ranking').select('*').eq('id',1).maybeSingle();if(error){console.error(error);return null};return data}
+export async function updateConfigRanking(updates){const{error}=await supabase.from('config_ranking').upsert({id:1,...updates,atualizado_em:new Date().toISOString()});if(error)console.error(error)}
+
 export async function savePedidoItens(pedidoId,itens){
   await supabase.from('pedido_itens').delete().eq('pedido_id',pedidoId)
   const rows=itens.map(i=>{const qtd=Number(i.quantidade)||0;const unit=Number(i.preco_unitario)||0;const total=Number(i.preco_total)||qtd*unit;const cod=i.codigo?String(i.codigo).replace(/\./g,''):null;return{pedido_id:pedidoId,codigo:cod,nome_produto:i.nome_produto,quantidade:qtd,unidade:i.unidade||'un',preco_unitario:unit,preco_total:total}})

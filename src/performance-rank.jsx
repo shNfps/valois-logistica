@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getRef, fetchClientes } from './db.js'
+import { getRef, fetchClientes, fetchConfigRanking } from './db.js'
 
 export const ELOS = [
   { id:'bronze',    label:'Bronze',    min:0,     max:499,   emoji:'🛡️',  gradFrom:'#92400E', gradTo:'#B45309', color:'#92400E', bg:'#FEF3C7' },
@@ -11,6 +11,14 @@ export const ELOS = [
 ]
 
 export const getElo = (pts) => [...ELOS].reverse().find(e => pts >= e.min) || ELOS[0]
+
+// Retorna MAX(dataCorte, inicioMes) - para aplicar data de corte do ranking
+export function getInicioComercial(dataCorte) {
+  const mesIni = new Date(); mesIni.setDate(1); mesIni.setHours(0,0,0,0)
+  if (!dataCorte) return mesIni
+  const corte = new Date(dataCorte)
+  return corte > mesIni ? corte : mesIni
+}
 
 // rangeIni/rangeFim opcionais para calcular pontos de períodos anteriores
 export function calcPontosComercial(pedidos, userName, rangeIni, rangeFim) {
@@ -77,9 +85,14 @@ export function EloBadge({ pontos }) {
 
 export function EloBadgeAuto({ user, pedidos }) {
   const [clientes, setClientes] = useState([])
+  const [dataCorte, setDataCorte] = useState(null)
   const setor = (user?.setores || [user?.setor])[0]
-  useEffect(() => { if (setor === 'vendedor') fetchClientes().then(setClientes) }, [setor]) // eslint-disable-line
+  useEffect(() => {
+    if (setor === 'vendedor') fetchClientes().then(setClientes)
+    if (setor === 'comercial') fetchConfigRanking().then(c => setDataCorte(c?.data_corte_comercial || null))
+  }, [setor])
   if (!['comercial','vendedor'].includes(setor)) return null
-  const pontos = setor === 'comercial' ? calcPontosComercial(pedidos, user?.nome).pontos : calcPontosVendedor(pedidos, clientes, user?.nome).pontos
+  const ini = setor === 'comercial' ? getInicioComercial(dataCorte) : undefined
+  const pontos = setor === 'comercial' ? calcPontosComercial(pedidos, user?.nome, ini).pontos : calcPontosVendedor(pedidos, clientes, user?.nome).pontos
   return <EloBadge pontos={pontos} />
 }

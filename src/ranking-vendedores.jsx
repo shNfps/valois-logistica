@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { fmtMoney, card, fetchClientes, fetchVendedores } from './db.js'
+import { fmtMoney, card, fetchClientes, fetchVendedores, fetchConfigRanking } from './db.js'
 import { AvatarByNome } from './avatar.jsx'
+import { getInicioComercial } from './performance-rank.jsx'
 
 function getPeriodoRange(periodo) {
   const now = new Date()
@@ -87,12 +88,16 @@ export function TopVendedores({ pedidos }) {
 // ─── TIME COMERCIAL ───
 export function TimeComercial({ pedidos, usuarios = [] }) {
   const [periodo, setPeriodo] = useState('mes')
+  const [dataCorte, setDataCorte] = useState(null)
+  useEffect(() => { fetchConfigRanking().then(c => setDataCorte(c?.data_corte_comercial || null)) }, [])
   const [ini, fim] = getPeriodoRange(periodo)
+  const corteIni = getInicioComercial(dataCorte)
+  const iniEfetivo = (periodo === 'mes' || periodo === 'semana') && corteIni > ini ? corteIni : ini
 
   const avatarMap = {}; usuarios.forEach(u => { avatarMap[u.nome] = u.avatar })
 
   const pedFiltrados = pedidos.filter(p => {
-    const d = new Date(p.criado_em); return d >= ini && d <= fim && p.criado_por
+    const d = new Date(p.criado_em); return d >= iniEfetivo && d <= fim && p.criado_por
   })
 
   const cMap = {}

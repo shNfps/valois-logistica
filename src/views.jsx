@@ -59,7 +59,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
       {[{key:'dashboard',label:'Dashboard'},{key:'ranking',label:'🏆 Ranking'},{key:'usuarios',label:'Funcionários'},{key:'produtos',label:'Produtos'},{key:'pedidos',label:'Pedidos'},{key:'clientes',label:'Clientes'},{key:'comissoes',label:'Comissões'},{key:'metas',label:'Metas'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>{t.label}</button>))}
     </div>
 
-    {tab==='ranking'&&<RankingPage pedidos={pedidos} usuarios={usuarios}/>}
+    {tab==='ranking'&&<RankingPage pedidos={pedidos} usuarios={usuarios} isAdmin={true}/>}
     {tab==='comissoes'&&<ComissoesTab pedidos={pedidos}/>}
     {tab==='metas'&&<MetasTab pedidos={pedidos}/>}
     {tab==='dashboard'&&(<div>

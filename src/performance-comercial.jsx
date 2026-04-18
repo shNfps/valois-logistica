@@ -1,5 +1,6 @@
-import { card } from './db.js'
-import { EloCard, calcPontosComercial } from './performance-rank.jsx'
+import { useState, useEffect } from 'react'
+import { card, fetchConfigRanking } from './db.js'
+import { EloCard, calcPontosComercial, getInicioComercial } from './performance-rank.jsx'
 
 function Seta({ atual, ant }) {
   if (atual === ant) return <span style={{color:'#94A3B8',fontSize:12}}>—</span>
@@ -9,14 +10,17 @@ function Seta({ atual, ant }) {
 }
 
 export function PerformanceComercialTab({ user, pedidos }) {
+  const [dataCorte, setDataCorte] = useState(null)
+  useEffect(() => { fetchConfigRanking().then(c => setDataCorte(c?.data_corte_comercial || null)) }, [])
   const now = new Date()
   const mesIni = new Date(now.getFullYear(), now.getMonth(), 1)
+  const iniEfetivo = getInicioComercial(dataCorte)
   const mesAntIni = new Date(now.getFullYear(), now.getMonth()-1, 1)
   const mesAntFim = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
   const semIni = new Date(now); semIni.setDate(now.getDate()-now.getDay()); semIni.setHours(0,0,0,0)
   const semFim = new Date(semIni); semFim.setDate(semIni.getDate()+6); semFim.setHours(23,59,59)
 
-  const doMes = pedidos.filter(p => p.criado_por===user.nome && new Date(p.criado_em)>=mesIni)
+  const doMes = pedidos.filter(p => p.criado_por===user.nome && new Date(p.criado_em)>=iniEfetivo)
   const daSemana = pedidos.filter(p => p.criado_por===user.nome && new Date(p.criado_em)>=semIni && new Date(p.criado_em)<=semFim)
   const doMesAnt = pedidos.filter(p => p.criado_por===user.nome && new Date(p.criado_em)>=mesAntIni && new Date(p.criado_em)<=mesAntFim)
 
@@ -33,7 +37,7 @@ export function PerformanceComercialTab({ user, pedidos }) {
   const aprovAnt = doMesAnt.filter(p => !p.obs && !['INCOMPLETO','PENDENTE'].includes(p.status))
   const taxaAnt = doMesAnt.length > 0 ? Math.round((aprovAnt.length/doMesAnt.length)*100) : 0
 
-  const { pontos, logs } = calcPontosComercial(pedidos, user.nome)
+  const { pontos, logs } = calcPontosComercial(pedidos, user.nome, iniEfetivo)
   const { pontos: pontosAnt } = calcPontosComercial(pedidos, user.nome, mesAntIni, mesAntFim)
 
   const comp = [
@@ -46,6 +50,7 @@ export function PerformanceComercialTab({ user, pedidos }) {
   return (
     <div>
       <EloCard pontos={pontos}/>
+      {dataCorte && iniEfetivo > mesIni && <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:12,padding:12,marginBottom:12,fontSize:13,color:'#1D4ED8',fontWeight:600}}>ℹ️ Ranking atualizado em {new Date(dataCorte).toLocaleDateString('pt-BR')}. Pontos contados a partir desta data.</div>}
       <div style={{...card,padding:'16px 20px',marginBottom:16}}>
         <div style={{fontSize:11,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:1.5,marginBottom:12}}>📊 Meu Mês</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { fmtMoney, fetchClientes, fetchMetas } from './db.js'
+import { fmtMoney, fetchClientes, fetchMetas, fetchConfigRanking, updateConfigRanking, inputStyle, btnSmall, card } from './db.js'
 import { AvatarByNome } from './avatar.jsx'
 import { RankingDetalhe } from './ranking-detalhe.jsx'
 import { PodioPodium } from './ranking-podio.jsx'
+import { getInicioComercial } from './performance-rank.jsx'
 
 const ANIM = `
 @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
@@ -127,7 +128,39 @@ function computeRanking(tipo, pedidos, clientes, ini, fim) {
 const PERIODOS = [['semana','Esta semana'],['mes','Este mês'],['mes-anterior','Mês anterior'],['3meses','Últ. 3 meses']]
 const FULL_TITLE = 'Ranking de Vendas'
 
-export function RankingPage({ pedidos, usuarios=[], userLogado, readonly=false, tipoInicial }) {
+function ResetRankingModal({ onClose, onSaved }) {
+  const [dataCorte, setDataCorte] = useState(new Date().toISOString().slice(0, 16))
+  const [saving, setSaving] = useState(false)
+  const agora = new Date().toISOString().slice(0, 16)
+  const hojeIni = new Date(); hojeIni.setHours(0,0,0,0)
+  const semIni = new Date(); semIni.setDate(semIni.getDate()-semIni.getDay()); semIni.setHours(0,0,0,0)
+  const salvar = async () => {
+    if (!confirm('Confirma o reset do ranking comercial?')) return
+    setSaving(true)
+    await updateConfigRanking({ data_corte_comercial: new Date(dataCorte).toISOString() })
+    setSaving(false); onSaved(); onClose()
+  }
+  return (
+    <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
+      <div style={{ background:'#fff',borderRadius:16,width:'100%',maxWidth:380,padding:24 }}>
+        <h3 style={{ margin:'0 0 16px',fontSize:16,fontWeight:700 }}>🔄 Resetar Ranking Comercial</h3>
+        <p style={{ fontSize:13,color:'#64748B',margin:'0 0 14px' }}>Pedidos antes da data escolhida não contarão para pontos e elo.</p>
+        <div style={{ display:'flex',gap:6,marginBottom:12,flexWrap:'wrap' }}>
+          <button onClick={() => setDataCorte(agora)} style={{ ...btnSmall,fontSize:11,padding:'4px 10px',color:'#3B82F6' }}>Agora</button>
+          <button onClick={() => setDataCorte(hojeIni.toISOString().slice(0,16))} style={{ ...btnSmall,fontSize:11,padding:'4px 10px',color:'#3B82F6' }}>Início de hoje</button>
+          <button onClick={() => setDataCorte(semIni.toISOString().slice(0,16))} style={{ ...btnSmall,fontSize:11,padding:'4px 10px',color:'#3B82F6' }}>Início da semana</button>
+        </div>
+        <input type="datetime-local" value={dataCorte} onChange={e => setDataCorte(e.target.value)} style={{ ...inputStyle,marginBottom:16 }} />
+        <div style={{ display:'flex',gap:10 }}>
+          <button onClick={onClose} style={{ ...btnSmall,flex:1,justifyContent:'center' }}>Cancelar</button>
+          <button onClick={salvar} disabled={saving} style={{ flex:2,height:42,borderRadius:10,border:'none',background:'#EF4444',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:"'Inter',sans-serif",opacity:saving?0.6:1 }}>{saving ? 'Salvando...' : 'Confirmar Reset'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function RankingPage({ pedidos, usuarios=[], userLogado, readonly=false, tipoInicial, isAdmin=false }) {
   const [tipo, setTipo] = useState(tipoInicial || 'vendedor')
   const [periodo, setPeriodo] = useState('mes')
   const [clientes, setClientes] = useState([])
@@ -136,8 +169,11 @@ export function RankingPage({ pedidos, usuarios=[], userLogado, readonly=false, 
   const [fade, setFade] = useState(1)
   const [animado, setAnimado] = useState(false)
   const [title, setTitle] = useState('')
+  const [configRanking, setConfigRanking] = useState(null)
+  const [showReset, setShowReset] = useState(false)
 
-  useEffect(() => { fetchClientes().then(setClientes); fetchMetas().then(setMetas) }, [])
+  const loadConfig = () => fetchConfigRanking().then(setConfigRanking)
+  useEffect(() => { fetchClientes().then(setClientes); fetchMetas().then(setMetas); loadConfig() }, [])
   useEffect(() => {
     setFade(0)
     const t = setTimeout(() => { setAnimado(false); setFade(1); setTimeout(() => setAnimado(true), 80) }, 250)
@@ -151,7 +187,13 @@ export function RankingPage({ pedidos, usuarios=[], userLogado, readonly=false, 
 
   const avatarMap = {}; usuarios.forEach(u => { avatarMap[u.nome] = u.avatar })
   const [ini, fim] = getPeriodo(periodo)
-  const ranking = computeRanking(tipo, pedidos, clientes, ini, fim)
+  const dataCorteComercial = configRanking?.data_corte_comercial || null
+  const iniEfetivo = tipo === 'comercial' && (periodo === 'mes' || periodo === 'semana')
+    ? (() => { const corte = getInicioComercial(dataCorteComercial); return corte > ini ? corte : ini })()
+    : ini
+  const ranking = computeRanking(tipo, pedidos, clientes, iniEfetivo, fim)
+  const mesIni = new Date(); mesIni.setDate(1); mesIni.setHours(0,0,0,0)
+  const showBanner = tipo === 'comercial' && dataCorteComercial && getInicioComercial(dataCorteComercial) > mesIni
   const metaTipo = periodo === 'semana' ? 'semanal' : 'mensal'
   const metaValor = Number(metas.find(m => m.tipo === metaTipo && !m.vendedor_nome)?.valor_meta || 0)
   const posLogado = ranking.findIndex(r => r.nome === userLogado)
@@ -179,7 +221,13 @@ export function RankingPage({ pedidos, usuarios=[], userLogado, readonly=false, 
       <div style={{ display:'flex',gap:0,marginBottom:16,background:'#F1F5F9',borderRadius:10,padding:3 }}>
         {[['vendedor','💰 Vendedores'],['comercial','📋 Time Comercial']].map(([k,l]) => <button key={k} onClick={() => setTipo(k)} style={{ flex:1,padding:'8px 0',border:'none',cursor:'pointer',borderRadius:8,background:tipo===k?'#0A1628':'transparent',color:tipo===k?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit',transition:'all 0.18s' }}>{l}</button>)}
       </div>
+      {showBanner && <div style={{ background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:12,padding:12,marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8 }}>
+        <span style={{ fontSize:13,color:'#1D4ED8',fontWeight:600 }}>ℹ️ Ranking atualizado em {new Date(dataCorteComercial).toLocaleDateString('pt-BR')}. Pontos contados a partir desta data.</span>
+        {isAdmin && <button onClick={() => setShowReset(true)} style={{ ...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444',borderColor:'#FECACA' }}>🔄 Resetar Ranking</button>}
+      </div>}
+      {isAdmin && tipo === 'comercial' && !showBanner && <div style={{ textAlign:'right',marginBottom:10 }}><button onClick={() => setShowReset(true)} style={{ ...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444',borderColor:'#FECACA' }}>🔄 Resetar Ranking</button></div>}
       {ranking.length === 0 && <div style={{ textAlign:'center',padding:40,color:'#94A3B8' }}>Sem dados no período</div>}
+      {showReset && <ResetRankingModal onClose={() => setShowReset(false)} onSaved={loadConfig} />}
       {ranking.map((item, i) => {
         const nextVal = ranking[i+1]?.valor || 0
         const showComp = i < ranking.length - 1 && Math.abs(item.valor - nextVal) / maxVal < 0.05
