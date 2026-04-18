@@ -127,17 +127,28 @@ export function SignaturePad({onSave,onCancel}){
   </div>)
 }
 
-const loginInputStyle = { ...inputStyle, background:'rgba(30,41,59,0.8)', border:'1px solid rgba(51,65,85,0.7)', color:'#FFFFFF', WebkitTextFillColor:'#FFFFFF', caretColor:'#FFFFFF', borderRadius:10 }
+const loginInputStyle = { ...inputStyle, border:'1px solid rgba(51,65,85,0.7)', borderRadius:10 }
 const LOGIN_AUTOFILL_CSS = `
-.valois-login-input:-webkit-autofill,
-.valois-login-input:-webkit-autofill:hover,
-.valois-login-input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #FFFFFF !important;
-  -webkit-box-shadow: 0 0 0 30px rgba(30,41,59,0.95) inset !important;
+input.valois-login-input,
+input.valois-login-input:hover,
+input.valois-login-input:focus,
+input.valois-login-input:active {
   background: rgba(30,41,59,0.95) !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
   caret-color: #FFFFFF !important;
 }
-.valois-login-input::placeholder { color: #64748B !important; opacity: 1; }
+input.valois-login-input:-webkit-autofill,
+input.valois-login-input:-webkit-autofill:hover,
+input.valois-login-input:-webkit-autofill:focus,
+input.valois-login-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #FFFFFF !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(30,41,59,0.95) inset !important;
+  box-shadow: 0 0 0 1000px rgba(30,41,59,0.95) inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+  caret-color: #FFFFFF !important;
+}
+input.valois-login-input::placeholder { color: #64748B !important; opacity: 1; }
 `
 
 export function LoginScreen({onLogin}){
@@ -167,9 +178,9 @@ export function LoginScreen({onLogin}){
         {msgSessao&&<div style={{background:'rgba(37,99,235,0.15)',color:'#93C5FD',border:'1px solid rgba(37,99,235,0.3)',padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:16,textAlign:'center',maxWidth:340,width:'100%'}}>{msgSessao}</div>}
         <div style={{width:'100%',maxWidth:340,background:'rgba(15,23,42,0.72)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.1)'}}>
           <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:500,color:'#94A3B8',marginBottom:8,letterSpacing:0.3}}>Usuário</label>
-            <input className="valois-login-input" value={usuario} onChange={e=>setUsuario(e.target.value)} placeholder="seu.usuario" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={loginInputStyle}/></div>
+            <input className="valois-login-input" autoComplete="off" value={usuario} onChange={e=>setUsuario(e.target.value)} placeholder="seu.usuario" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={loginInputStyle}/></div>
           <div style={{marginBottom:20}}><label style={{display:'block',fontSize:12,fontWeight:500,color:'#94A3B8',marginBottom:8,letterSpacing:0.3}}>Senha</label>
-            <input className="valois-login-input" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={loginInputStyle}/></div>
+            <input className="valois-login-input" autoComplete="off" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={loginInputStyle}/></div>
           {erro&&<div style={{background:'rgba(239,68,68,0.15)',color:'#FCA5A5',border:'1px solid rgba(239,68,68,0.3)',padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:16,textAlign:'center'}}>{erro}</div>}
           <button onClick={handleLogin} disabled={loading} style={{...btnPrimary,width:'100%',background:'linear-gradient(135deg,#2563EB,#3B82F6)',borderRadius:10,opacity:loading?0.6:1}}>{loading?'Entrando...':'Entrar'}</button>
         </div>
