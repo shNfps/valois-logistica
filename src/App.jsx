@@ -23,13 +23,31 @@ export default function App() {
     setUser(userData)
     const setores = userData.setores || [userData.setor]
     setActiveTab(setores[0])
-    try { window.localStorage?.setItem('valois-user', JSON.stringify(userData)) } catch {}
+    try {
+      window.localStorage?.setItem('valois-user', JSON.stringify(userData))
+      window.localStorage?.setItem('valois-login-date', new Date().toISOString().split('T')[0])
+    } catch {}
   }
 
   const handleLogout = () => {
     setUser(null); setActiveTab(null)
-    try { window.localStorage?.removeItem('valois-user') } catch {}
+    try { window.localStorage?.removeItem('valois-user'); window.localStorage?.removeItem('valois-login-date') } catch {}
   }
+
+  // Logout automático à meia-noite
+  useEffect(() => {
+    const checkDayChange = () => {
+      const loginDate = window.localStorage?.getItem('valois-login-date')
+      const today = new Date().toISOString().split('T')[0]
+      if (loginDate && loginDate !== today) {
+        try { window.sessionStorage?.setItem('valois-sessao-msg', '👋 Bom dia! Por favor, faça login novamente.') } catch {}
+        handleLogout()
+      }
+    }
+    checkDayChange()
+    const interval = setInterval(checkDayChange, 60000)
+    return () => clearInterval(interval)
+  }, []) // eslint-disable-line
 
   useEffect(() => {
     if (user && !activeTab) {

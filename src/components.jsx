@@ -127,8 +127,22 @@ export function SignaturePad({onSave,onCancel}){
   </div>)
 }
 
+const loginInputStyle = { ...inputStyle, background:'rgba(30,41,59,0.8)', border:'1px solid rgba(51,65,85,0.7)', color:'#FFFFFF', WebkitTextFillColor:'#FFFFFF', caretColor:'#FFFFFF', borderRadius:10 }
+const LOGIN_AUTOFILL_CSS = `
+.valois-login-input:-webkit-autofill,
+.valois-login-input:-webkit-autofill:hover,
+.valois-login-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #FFFFFF !important;
+  -webkit-box-shadow: 0 0 0 30px rgba(30,41,59,0.95) inset !important;
+  background: rgba(30,41,59,0.95) !important;
+  caret-color: #FFFFFF !important;
+}
+.valois-login-input::placeholder { color: #64748B !important; opacity: 1; }
+`
+
 export function LoginScreen({onLogin}){
   const[usuario,setUsuario]=useState('');const[senha,setSenha]=useState('');const[erro,setErro]=useState('');const[loading,setLoading]=useState(false)
+  const[msgSessao]=useState(()=>{ try { const m=window.sessionStorage?.getItem('valois-sessao-msg'); window.sessionStorage?.removeItem('valois-sessao-msg'); return m } catch { return null } })
   const handleLogin=async()=>{
     if(!usuario.trim()||!senha.trim()){setErro('Preencha usuário e senha');return}
     setLoading(true);setErro('')
@@ -137,6 +151,7 @@ export function LoginScreen({onLogin}){
   }
   return(
     <div style={{fontFamily:"'Inter',sans-serif",minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,position:'relative',overflow:'hidden'}}>
+      <style>{LOGIN_AUTOFILL_CSS}</style>
       <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:0,backgroundImage:'url(/login-bg.jpg)',backgroundSize:'cover',backgroundPosition:'center',filter:'brightness(0.3) saturate(0.7)'}}/>
       <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:1,background:'linear-gradient(135deg,rgba(10,22,40,0.85) 0%,rgba(30,58,95,0.75) 50%,rgba(10,22,40,0.9) 100%)'}}/>
       <div style={{position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center'}}>
@@ -149,11 +164,12 @@ export function LoginScreen({onLogin}){
         <div style={{color:'#fff',fontWeight:700,fontSize:22,letterSpacing:3,marginBottom:4}}><span style={{color:'#2563EB'}}>VA</span><span style={{color:'#10B981'}}>LOIS</span></div>
         <div style={{color:'#94A3B8',fontSize:11,fontWeight:500,letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>Descartáveis e Limpeza</div>
         <div style={{color:'#64748B',fontSize:10,fontWeight:500,letterSpacing:3,textTransform:'uppercase',marginBottom:36}}>Sistema de Logística</div>
+        {msgSessao&&<div style={{background:'rgba(37,99,235,0.15)',color:'#93C5FD',border:'1px solid rgba(37,99,235,0.3)',padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:16,textAlign:'center',maxWidth:340,width:'100%'}}>{msgSessao}</div>}
         <div style={{width:'100%',maxWidth:340,background:'rgba(15,23,42,0.72)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.1)'}}>
           <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:500,color:'#94A3B8',marginBottom:8,letterSpacing:0.3}}>Usuário</label>
-            <input value={usuario} onChange={e=>setUsuario(e.target.value)} placeholder="seu.usuario" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={{...inputStyle,background:'rgba(30,41,59,0.8)',border:'1px solid rgba(51,65,85,0.7)',color:'#fff',borderRadius:10}}/></div>
+            <input className="valois-login-input" value={usuario} onChange={e=>setUsuario(e.target.value)} placeholder="seu.usuario" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={loginInputStyle}/></div>
           <div style={{marginBottom:20}}><label style={{display:'block',fontSize:12,fontWeight:500,color:'#94A3B8',marginBottom:8,letterSpacing:0.3}}>Senha</label>
-            <input type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={{...inputStyle,background:'rgba(30,41,59,0.8)',border:'1px solid rgba(51,65,85,0.7)',color:'#fff',borderRadius:10}}/></div>
+            <input className="valois-login-input" type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==='Enter'&&handleLogin()} style={loginInputStyle}/></div>
           {erro&&<div style={{background:'rgba(239,68,68,0.15)',color:'#FCA5A5',border:'1px solid rgba(239,68,68,0.3)',padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:16,textAlign:'center'}}>{erro}</div>}
           <button onClick={handleLogin} disabled={loading} style={{...btnPrimary,width:'100%',background:'linear-gradient(135deg,#2563EB,#3B82F6)',borderRadius:10,opacity:loading?0.6:1}}>{loading?'Entrando...':'Entrar'}</button>
         </div>
