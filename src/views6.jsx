@@ -3,6 +3,7 @@ import { fmt, fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES
 import { Badge } from './components.jsx'
 import { ClienteBadges } from './cliente-badges.jsx'
 import { ClienteEquipamentosSection } from './admin-manutencao.jsx'
+import { EnderecoAutocomplete } from './endereco-autocomplete.jsx'
 
 // ─── CLIENTE DETALHE ───
 export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
@@ -21,6 +22,8 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
   const [eTelefone, setETelefone] = useState('')
   const [eEmail, setEEmail] = useState('')
   const [eVendedor, setEVendedor] = useState('')
+  const [eLatitude, setELatitude] = useState(null)
+  const [eLongitude, setELongitude] = useState(null)
 
   const isAdmin = user?.setor === 'admin' || user?.setores?.includes('admin')
   const isComercial = user?.setor === 'comercial' || user?.setores?.includes('comercial')
@@ -51,6 +54,8 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
     setETelefone(cliente.telefone || '')
     setEEmail(cliente.email || '')
     setEVendedor(cliente.vendedor_nome || 'Valois')
+    setELatitude(cliente.latitude || null)
+    setELongitude(cliente.longitude || null)
     if (isAdmin) { const vs = await fetchVendedores(); setVendedores(vs) }
     setEditando(true)
   }
@@ -66,6 +71,8 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
       updates.cnpj = eCnpj.replace(/\D/g, '') || null
       updates.endereco = eEndereco.trim() || null
       updates.cidade = eCidade || null
+      updates.latitude = eLatitude || null
+      updates.longitude = eLongitude || null
     }
     updates.telefone = eTelefone.trim() || null
     updates.email = eEmail.trim() || null
@@ -112,7 +119,8 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
             {!camposRestritos && <>
               <input value={eNome} onChange={e => setENome(e.target.value)} placeholder="Nome *" style={{ ...inputStyle, marginBottom: 8 }} />
               <input value={eCnpj} onChange={e => setECnpj(fmtCnpj(e.target.value))} placeholder="CNPJ" inputMode="numeric" style={{ ...inputStyle, marginBottom: 8 }} />
-              <input value={eEndereco} onChange={e => setEEndereco(e.target.value)} placeholder="Endereço" style={{ ...inputStyle, marginBottom: 8 }} />
+              <EnderecoAutocomplete value={eEndereco} onChange={setEEndereco} placeholder="Endereço" style={{ marginBottom: 8 }}
+                onSelect={({ endereco: end, cidade: cid, latitude: lat, longitude: lng }) => { setEEndereco(end); if (cid) setECidade(cid); setELatitude(lat); setELongitude(lng) }} />
               <select value={eCidade} onChange={e => setECidade(e.target.value)} style={{ ...inputStyle, marginBottom: 8, cursor: 'pointer', color: eCidade ? '#0A1628' : '#94A3B8' }}>
                 <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, fmtCnpj, fetchVendedores } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
 import { ClienteBadges, calcClienteBadges, ALL_BADGE_KEYS, BADGE_DEFS } from './cliente-badges.jsx'
+import { EnderecoAutocomplete } from './endereco-autocomplete.jsx'
 
 // ─── CLIENTES TAB (COMERCIAL / VENDEDOR) ───
 export function ClientesTab({ pedidos = [], user }) {
@@ -14,6 +15,7 @@ export function ClientesTab({ pedidos = [], user }) {
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState('')
   const [endereco, setEndereco] = useState(''); const [cnpj, setCnpj] = useState('')
   const [vendedorNovo, setVendedorNovo] = useState('')
+  const [latitude, setLatitude] = useState(null); const [longitude, setLongitude] = useState(null)
   const [saving, setSaving] = useState(false)
   const [activeFilters, setActiveFilters] = useState([])
   const isVendedor = user?.setores?.includes('vendedor') || user?.setor === 'vendedor'
@@ -35,9 +37,9 @@ export function ClientesTab({ pedidos = [], user }) {
     if (cnpj.replace(/\D/g, '').length !== 14) { alert('CNPJ deve ter 14 dígitos'); return }
     if (!vendedorNovo) { alert('Selecione o vendedor responsável'); return }
     setSaving(true)
-    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo })
+    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo, latitude: latitude || null, longitude: longitude || null })
     if (error) { alert('Erro: ' + error.message); setSaving(false); return }
-    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setEndereco(''); setCnpj(''); setShowForm(false)
+    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setEndereco(''); setCnpj(''); setLatitude(null); setLongitude(null); setShowForm(false)
     await load(); setSaving(false)
   }
 
@@ -72,7 +74,8 @@ export function ClientesTab({ pedidos = [], user }) {
             </select>
           </div>
           <input value={cnpj} onChange={e => setCnpj(fmtCnpj(e.target.value))} placeholder="CNPJ *" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
-          <input value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Endereço completo *" style={{ ...inputStyle, marginBottom: 10 }} />
+          <EnderecoAutocomplete value={endereco} onChange={setEndereco} placeholder="Endereço completo *" style={{ marginBottom: 10 }}
+            onSelect={({ endereco: end, cidade: cid, latitude: lat, longitude: lng }) => { setEndereco(end); if (cid) setCidade(cid); setLatitude(lat); setLongitude(lng) }} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={inputStyle} />
             <input value={email} onChange={e => setEmail(e.target.value)} placeholder="E-mail" style={inputStyle} />
@@ -138,6 +141,7 @@ export function NovoClienteRapidoModal({ nomeInicial, onClose, onCriado, user })
   const [telefone, setTelefone] = useState('')
   const [endereco, setEndereco] = useState('')
   const [cnpj, setCnpj] = useState('')
+  const [latitude, setLatitude] = useState(null); const [longitude, setLongitude] = useState(null)
   const [vendedores, setVendedores] = useState([])
   const isVendedor = user?.setores?.includes('vendedor') || user?.setor === 'vendedor'
   const [vendedorNovo, setVendedorNovo] = useState(isVendedor ? (user?.nome || 'Valois') : 'Valois')
@@ -149,7 +153,7 @@ export function NovoClienteRapidoModal({ nomeInicial, onClose, onCriado, user })
     if (!endereco.trim()) { alert('Informe o endereço'); return }
     if (cnpj.replace(/\D/g, '').length !== 14) { alert('CNPJ deve ter 14 dígitos'); return }
     setSaving(true)
-    const { data, error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo || 'Valois' })
+    const { data, error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo || 'Valois', latitude: latitude || null, longitude: longitude || null })
     if (error) { alert('Erro: ' + error.message); setSaving(false); return }
     onCriado?.(data); onClose()
   }
@@ -166,7 +170,8 @@ export function NovoClienteRapidoModal({ nomeInicial, onClose, onCriado, user })
           <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <input value={cnpj} onChange={e => setCnpj(fmtCnpj(e.target.value))} placeholder="CNPJ *" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
-        <input value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Endereço completo *" style={{ ...inputStyle, marginBottom: 10 }} />
+        <EnderecoAutocomplete value={endereco} onChange={setEndereco} placeholder="Endereço completo *" style={{ marginBottom: 10 }}
+          onSelect={({ endereco: end, cidade: cid, latitude: lat, longitude: lng }) => { setEndereco(end); if (cid) setCidade(cid); setLatitude(lat); setLongitude(lng) }} />
         <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={{ ...inputStyle, marginBottom: 10 }} />
         <select value={vendedorNovo} onChange={e => setVendedorNovo(e.target.value)} style={{ ...inputStyle, marginBottom: 14, cursor: 'pointer' }}>
           <option value="Valois">Valois (empresa)</option>

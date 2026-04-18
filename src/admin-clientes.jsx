@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, deleteCliente, updateCliente, updateClientesLote, fetchVendedores } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
 import { ClienteBadges, calcClienteBadges, ALL_BADGE_KEYS, BADGE_DEFS } from './cliente-badges.jsx'
+import { EnderecoAutocomplete } from './endereco-autocomplete.jsx'
 
 const fmtDoc = v => { const n = v.replace(/\D/g, '').slice(0, 14); if (n.length <= 3) return n; if (n.length <= 6) return n.slice(0, 3) + '.' + n.slice(3); if (n.length <= 9) return n.slice(0, 3) + '.' + n.slice(3, 6) + '.' + n.slice(6); if (n.length <= 11) return n.slice(0, 3) + '.' + n.slice(3, 6) + '.' + n.slice(6, 9) + '-' + n.slice(9); if (n.length <= 12) return n.slice(0, 2) + '.' + n.slice(2, 5) + '.' + n.slice(5, 8) + '/' + n.slice(8); return n.slice(0, 2) + '.' + n.slice(2, 5) + '.' + n.slice(5, 8) + '/' + n.slice(8, 12) + '-' + n.slice(12) }
 
@@ -14,6 +15,7 @@ export function AdminClientesTab({ pedidos = [], user }) {
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState('')
   const [documento, setDocumento] = useState(''); const [endereco, setEndereco] = useState(''); const [cnpj, setCnpj] = useState('')
   const [vendedorNovo, setVendedorNovo] = useState('Valois')
+  const [latitude, setLatitude] = useState(null); const [longitude, setLongitude] = useState(null)
   const [saving, setSaving] = useState(false)
   const [filtroVendedor, setFiltroVendedor] = useState('todos')
   const [modoLote, setModoLote] = useState(false)
@@ -52,9 +54,9 @@ export function AdminClientesTab({ pedidos = [], user }) {
     if (!vendedorNovo) { alert('Selecione o vendedor responsável'); return }
     setSaving(true)
     const docLimpo = documento.replace(/\D/g, '') || null
-    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, documento: docLimpo, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo })
+    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, documento: docLimpo, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo, latitude: latitude || null, longitude: longitude || null })
     if (error) { alert(error.code === '23505' ? 'CNPJ já cadastrado' : 'Erro: ' + error.message); setSaving(false); return }
-    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setDocumento(''); setEndereco(''); setCnpj(''); setVendedorNovo('Valois')
+    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setDocumento(''); setEndereco(''); setCnpj(''); setVendedorNovo('Valois'); setLatitude(null); setLongitude(null)
     await load(); setSaving(false)
   }
 
@@ -86,7 +88,8 @@ export function AdminClientesTab({ pedidos = [], user }) {
           <select value={cidade} onChange={e => setCidade(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', color: cidade ? '#0A1628' : '#94A3B8' }}><option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}</select>
         </div>
         <input value={cnpj} onChange={e => setCnpj(fmtCnpj(e.target.value))} placeholder="CNPJ *" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
-        <input value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Endereço *" style={{ ...inputStyle, marginBottom: 10 }} />
+        <EnderecoAutocomplete value={endereco} onChange={setEndereco} placeholder="Endereço *" style={{ marginBottom: 10 }}
+          onSelect={({ endereco: end, cidade: cid, latitude: lat, longitude: lng }) => { setEndereco(end); if (cid) setCidade(cid); setLatitude(lat); setLongitude(lng) }} />
         <input value={documento} onChange={e => setDocumento(fmtDoc(e.target.value))} placeholder="CPF (opcional)" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={inputStyle} />
