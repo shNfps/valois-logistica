@@ -1,0 +1,218 @@
+import { useState, useEffect, useRef } from 'react'
+import { inputStyle, btnPrimary, btnSmall, card, fmtMoney, fmt } from './db.js'
+import { filtrarPedidosPorPeriodo, executarLote, salvarLogLote, fetchLogsLote } from './batch-extractor-logic.js'
+
+const PERIODOS = [
+  { key: 'hoje', label: 'Apenas pedidos de hoje' },
+  { key: 'semana', label: 'Pedidos da semana atual' },
+  { key: 'mes', label: 'Pedidos do m\u00eas' },
+  { key: 'pendentes', label: 'Todos os pedidos pendentes (sem itens)' },
+  { key: 'custom', label: 'Selecionar per\u00edodo personalizado' },
+]
+
+function PeriodoModal({ pedidos, modo, onClose, onStart }) {
+  const [periodo, setPeriodo] = useState('hoje')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const customRange = periodo === 'custom' && dateFrom && dateTo ? [dateFrom, dateTo] : null
+  const filtered = filtrarPedidosPorPeriodo(pedidos, periodo, customRange)
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ ...card, maxWidth: 460, width: '100%', padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Quais pedidos processar?</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#94A3B8' }}>{'\u2715'}</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+          {PERIODOS.map(p => (
+            <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: periodo === p.key ? '#EFF6FF' : '#F8FAFC', border: `1px solid ${periodo === p.key ? '#BFDBFE' : '#E2E8F0'}`, cursor: 'pointer', fontSize: 13 }}>
+              <input type="radio" name="periodo" checked={periodo === p.key} onChange={() => setPeriodo(p.key)} />
+              <span style={{ fontWeight: periodo === p.key ? 600 : 400 }}>{p.label}</span>
+            </label>
+          ))}
+        </div>
+        {periodo === 'custom' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
+          </div>
+        )}
+        <div style={{ background: '#F1F5F9', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+          <span style={{ fontWeight: 700, color: '#334155' }}>{filtered.length} pedidos ser\u00e3o processados</span>
+          <span style={{ color: '#64748B' }}>~{filtered.length} requisi\u00e7\u00f5es \u00e0 API Claude</span>
+        </div>
+        <button onClick={() => onStart(filtered, modo)} disabled={filtered.length === 0} style={{ ...btnPrimary, width: '100%', opacity: filtered.length === 0 ? 0.5 : 1 }}>
+          Iniciar processamento
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const STATUS_ICONS = { processing: '\u23F3', success: '\u2705', error: '\u274C', skipped: '\u23ED\uFE0F' }
+
+function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed, onPause, onCancel, paused }) {
+  const listRef = useRef(null)
+  useEffect(() => { listRef.current?.scrollTo(0, listRef.current.scrollHeight) }, [progressItems])
+  const pct = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ ...card, maxWidth: 600, width: '100%', padding: 24, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{finished ? 'Extração concluída' : 'Processando...'}</h3>
+          {finished && <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#94A3B8' }}>{'\u2715'}</button>}
+        </div>
+        {!finished && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Pedido {stats.done} de {stats.total}</div>
+            <div style={{ height: 8, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(to right,#2563EB,#10B981)', borderRadius: 4, transition: 'width 0.3s' }} />
+            </div>
+          </div>
+        )}
+        <div ref={listRef} style={{ flex: 1, overflowY: 'auto', maxHeight: 320, marginBottom: 14, border: '1px solid #E2E8F0', borderRadius: 8 }}>
+          {progressItems.map((item, i) => (
+            <div key={i} style={{ padding: '8px 12px', borderBottom: '1px solid #F1F5F9', fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span>{STATUS_ICONS[item.status] || '\u2B1C'}</span>
+              <span style={{ fontWeight: 600, color: '#0A1628', minWidth: 80 }}>NF {item.ref}</span>
+              <span style={{ color: '#64748B', flex: 1 }}>({item.cliente})</span>
+              {item.status === 'success' && <span style={{ color: '#059669', fontWeight: 600 }}>{item.itensCount} itens</span>}
+              {item.status === 'error' && <span style={{ color: '#EF4444', fontSize: 11 }}>{item.error}</span>}
+              {item.status === 'skipped' && <span style={{ color: '#94A3B8' }}>j\u00e1 processado</span>}
+              {item.status === 'processing' && <span style={{ color: '#2563EB' }}>processando...</span>}
+            </div>
+          ))}
+        </div>
+        <div style={{ background: '#F1F5F9', borderRadius: 8, padding: '10px 14px', fontSize: 12, display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+          <span>Processados: <b>{stats.done}/{stats.total}</b></span>
+          <span>Sucesso: <b style={{ color: '#059669' }}>{stats.sucessos}</b></span>
+          <span>Falhas: <b style={{ color: '#EF4444' }}>{stats.falhas}</b></span>
+          <span>Itens: <b>{stats.totalItens}</b></span>
+          {stats.totalNovos > 0 && <span>Novos produtos: <b style={{ color: '#7C3AED' }}>{stats.totalNovos}</b></span>}
+        </div>
+        {finished ? (
+          <FinishedFooter stats={stats} onRetryFailed={onRetryFailed} onClose={onClose} />
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onPause} style={{ ...btnSmall, flex: 1, justifyContent: 'center' }}>{paused ? '\u25B6 Retomar' : '\u23F8 Pausar'}</button>
+            <button onClick={onCancel} style={{ ...btnSmall, flex: 1, justifyContent: 'center', color: '#EF4444' }}>{'\u2715'} Cancelar</button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FinishedFooter({ stats, onRetryFailed, onClose }) {
+  const tempoMin = stats.tempoSeg ? (stats.tempoSeg / 60).toFixed(1) : '0'
+  return (
+    <div>
+      <div style={{ background: '#D1FAE5', borderRadius: 8, padding: '12px 14px', marginBottom: 10, fontSize: 13 }}>
+        <div>{'\u2705'} <b>{stats.sucessos}</b> pedidos processados com sucesso</div>
+        {stats.falhas > 0 && <div>{'\u274C'} <b>{stats.falhas}</b> pedidos com erro</div>}
+        {stats.totalNovos > 0 && <div>{'\uD83D\uDCE6'} <b>{stats.totalNovos}</b> novos produtos adicionados ao cat\u00e1logo</div>}
+        <div>{'\uD83D\uDCB0'} Valor total: <b>{fmtMoney(stats.totalValor)}</b></div>
+        <div>{'\u23F1'} Tempo total: <b>{tempoMin} minutos</b></div>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {stats.falhas > 0 && <button onClick={onRetryFailed} style={{ ...btnSmall, flex: 1, justifyContent: 'center', color: '#F59E0B' }}>Tentar novamente os que falharam</button>}
+        <button onClick={onClose} style={{ ...btnPrimary, flex: 1 }}>Fechar</button>
+      </div>
+    </div>
+  )
+}
+
+export function BatchExtractorButtons({ pedidos, refresh, userName }) {
+  const [modo, setModo] = useState(null) // 'pedidos' | 'catalogo' | 'tudo'
+  const [showProgress, setShowProgress] = useState(false)
+  const [progressItems, setProgressItems] = useState([])
+  const [stats, setStats] = useState({ done: 0, total: 0, sucessos: 0, falhas: 0, totalItens: 0, totalNovos: 0, totalValor: 0 })
+  const [finished, setFinished] = useState(false)
+  const [failedPedidos, setFailedPedidos] = useState([])
+  const signalRef = useRef({ paused: false, cancelled: false })
+  const [paused, setPaused] = useState(false)
+  const [logs, setLogs] = useState(null)
+  const startTime = useRef(0)
+
+  const loadLogs = async () => { setLogs(await fetchLogsLote()) }
+
+  const handleStart = async (filtered, modoVal) => {
+    setModo(null)
+    setShowProgress(true)
+    setProgressItems([])
+    setFinished(false)
+    setPaused(false)
+    signalRef.current = { paused: false, cancelled: false }
+    startTime.current = Date.now()
+    setStats({ done: 0, total: filtered.length, sucessos: 0, falhas: 0, totalItens: 0, totalNovos: 0, totalValor: 0 })
+
+    const result = await executarLote(filtered, modoVal, (ev) => {
+      if (ev.type === 'skipped') setProgressItems(p => [...p, ev])
+      else if (ev.type === 'processing') setProgressItems(p => [...p, ev])
+      else if (ev.type === 'done') {
+        setProgressItems(p => p.map(x => x.ref === ev.ref && x.status === 'processing' ? ev : x))
+        setStats(s => ({ ...s, done: ev.done, sucessos: ev.status === 'success' ? s.sucessos + 1 : s.sucessos, falhas: ev.status === 'error' ? s.falhas + 1 : s.falhas, totalItens: s.totalItens + (ev.itensCount || 0), totalNovos: s.totalNovos + (ev.novosProdutos || 0), totalValor: s.totalValor + (ev.valorTotal || 0) }))
+      }
+    }, signalRef.current)
+
+    const tempoSeg = Math.round((Date.now() - startTime.current) / 1000)
+    setStats(s => ({ ...s, done: s.total, tempoSeg }))
+    setFailedPedidos(result.erros.map(e => filtered.find(p => p.id === e.pedidoId)).filter(Boolean))
+    setFinished(true)
+    refresh?.()
+    await salvarLogLote({ total_pedidos: filtered.length, sucesso: result.sucessos, falhas: result.falhas, novos_produtos: result.totalNovos, iniciado_por: userName || 'admin', concluido_em: new Date().toISOString(), detalhes: { modo: modoVal, skipped: result.skippedCount, totalItens: result.totalItens, totalValor: result.totalValor, tempoSeg, erros: result.erros.map(e => ({ ref: e.ref, error: e.error })) } })
+  }
+
+  const handlePause = () => { signalRef.current.paused = !signalRef.current.paused; if (signalRef.current._resume) signalRef.current._resume(); setPaused(p => !p) }
+  const handleCancel = () => { signalRef.current.cancelled = true; setFinished(true); setStats(s => ({ ...s, tempoSeg: Math.round((Date.now() - startTime.current) / 1000) })) }
+
+  const btnStyle = { ...btnSmall, fontSize: 12, padding: '6px 14px', fontWeight: 600 }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        <button onClick={() => setModo('pedidos')} style={{ ...btnStyle, color: '#7C3AED', borderColor: '#DDD6FE' }}>{'🤖'} Extrair tudo e salvar nos pedidos</button>
+        <button onClick={() => setModo('catalogo')} style={{ ...btnStyle, color: '#059669', borderColor: '#A7F3D0' }}>{'📦'} Extrair e adicionar ao cat\u00e1logo</button>
+        <button onClick={() => setModo('tudo')} style={{ ...btnStyle, color: '#0EA5E9', borderColor: '#BAE6FD' }}>{'⚡'} Processar tudo (pedidos + cat\u00e1logo)</button>
+        <button onClick={loadLogs} style={{ ...btnStyle, color: '#64748B' }}>{'📋'} Hist\u00f3rico</button>
+      </div>
+      {logs && <LogsPanel logs={logs} onClose={() => setLogs(null)} />}
+      {modo && <PeriodoModal pedidos={pedidos} modo={modo} onClose={() => setModo(null)} onStart={handleStart} />}
+      {showProgress && <ProgressModal onClose={() => setShowProgress(false)} progressItems={progressItems} stats={stats} finished={finished} onRetryFailed={() => { setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} onPause={handlePause} onCancel={handleCancel} paused={paused} />}
+    </div>
+  )
+}
+
+function LogsPanel({ logs, onClose }) {
+  return (
+    <div style={{ ...card, padding: 16, marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Hist\u00f3rico de extra\u00e7\u00f5es em lote</h4>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#94A3B8' }}>{'\u2715'}</button>
+      </div>
+      {logs.length === 0 && <div style={{ fontSize: 13, color: '#94A3B8' }}>Nenhuma extra\u00e7\u00e3o em lote realizada ainda.</div>}
+      {logs.map(l => (
+        <div key={l.id} style={{ padding: '8px 12px', borderBottom: '1px solid #F1F5F9', fontSize: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span style={{ color: '#64748B', minWidth: 120 }}>{fmt(l.iniciado_em)}</span>
+          <span style={{ fontWeight: 600 }}>{l.iniciado_por}</span>
+          <span style={{ color: '#059669' }}>{'\u2705'} {l.sucesso}</span>
+          {l.falhas > 0 && <span style={{ color: '#EF4444' }}>{'\u274C'} {l.falhas}</span>}
+          <span style={{ color: '#64748B' }}>{l.total_pedidos} pedidos</span>
+          {l.novos_produtos > 0 && <span style={{ color: '#7C3AED' }}>+{l.novos_produtos} produtos</span>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Mini indicador para o header
+export function BatchIndicator({ done, total, visible }) {
+  if (!visible) return null
+  return (
+    <span style={{ background: '#EFF6FF', color: '#2563EB', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20, marginLeft: 8 }}>
+      {'🤖'} Processando {done}/{total}...
+    </span>
+  )
+}

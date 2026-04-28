@@ -13,6 +13,7 @@ import { ReajusteModal } from './reajuste-precos.jsx'
 import { AdminEditRotaScreen } from './views7.jsx'
 import { fmtRelativo } from './notificacoes-ui.jsx'
 import { AdminManutencaoCard } from './admin-manutencao.jsx'
+import { BatchExtractorButtons } from './batch-extractor.jsx'
 
 // ─── ADMIN VIEW ───
 export function AdminView({ pedidos, refresh, user, notifs=[] }) {
@@ -210,6 +211,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
 
     {tab==='clientes'&&<AdminClientesTab pedidos={pedidos} user={user}/>}
     {tab==='pedidos'&&(<div>
+      <BatchExtractorButtons pedidos={pedidos} refresh={refresh} userName={user?.nome}/>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade, funcionário..."/>
       {pipelineFilter&&<div style={{background:'#F1F5F9',borderRadius:8,padding:'8px 12px',marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:12}}>
         <span style={{fontWeight:700,color:'#334155'}}>Filtrado por: {STATUS_MAP[pipelineFilter].label} ({pedidosFiltrados.length} pedidos)</span>
