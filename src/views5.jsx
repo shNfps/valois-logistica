@@ -8,14 +8,12 @@ import { MontarRotaScreen } from './views5-montar.jsx'
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
 
 // ─── ROTA CARD (colapsável, pedidos dentro) ───
-function RotaCard({ rota, pedidosRota, totalVinculos, onAssinar, onVerPedido, onFechar }) {
+function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
   const [expanded, setExpanded] = useState(true)
   const fin = rota.status === 'finalizada'
   const emRota = pedidosRota.filter(p => p.status === 'EM_ROTA')
   const entregues = pedidosRota.filter(p => p.status === 'ENTREGUE')
-  // Usar totalVinculos (do rota_pedidos) para contagem real, pedidosRota.length pode ser menor se há órfãos
-  const total = totalVinculos ?? pedidosRota.length; const ec = entregues.length
-  const todosEntreguesReal = ec === total && total > 0
+  const total = pedidosRota.length; const ec = entregues.length
   return (
     <div style={{ borderRadius: 14, marginBottom: 16, overflow: 'hidden', border: `1px solid ${fin ? '#A7F3D0' : '#1E293B'}` }}>
       <style>{`@keyframes truck-move{0%,100%{transform:translateX(0)}50%{transform:translateX(18px)}}@keyframes blink-red{0%,100%{opacity:1}50%{opacity:0.15}}`}</style>
@@ -42,7 +40,7 @@ function RotaCard({ rota, pedidosRota, totalVinculos, onAssinar, onVerPedido, on
       {expanded && (
         <div style={{ padding: '12px 14px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {emRota.length === 0 && entregues.length === 0 && <div style={{ textAlign: 'center', padding: 16, color: '#94A3B8', fontSize: 13 }}>Nenhum pedido nesta rota</div>}
-          {todosEntreguesReal && <div style={{ textAlign: 'center', padding: 10, color: '#059669', fontWeight: 600, fontSize: 13 }}>Todos os pedidos foram entregues ✅</div>}
+          {emRota.length === 0 && entregues.length > 0 && <div style={{ textAlign: 'center', padding: 10, color: '#059669', fontWeight: 600, fontSize: 13 }}>Todos os pedidos foram entregues ✅</div>}
           {emRota.map(p => (
             <div key={p.id} style={{ borderLeft: '3px solid #3B82F6', borderRadius: 8, padding: '10px 12px', background: '#F8FAFC' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }} onClick={() => onVerPedido(p.id)}>
@@ -72,7 +70,7 @@ function RotaCard({ rota, pedidosRota, totalVinculos, onAssinar, onVerPedido, on
 export function MotoristaView({ pedidos, refresh, user }) {
   const [viewing, setViewing] = useState(null); const [signing, setSigning] = useState(false); const [saving, setSaving] = useState(false)
   const [montarRota, setMontarRota] = useState(false)
-  const [rotasAtivas, setRotasAtivas] = useState([]); const [rotasPedidos, setRotasPedidos] = useState({}); const [vincCount, setVincCount] = useState({})
+  const [rotasAtivas, setRotasAtivas] = useState([]); const [rotasPedidos, setRotasPedidos] = useState({})
   const [rotasFinalizadas, setRotasFinalizadas] = useState([]); const [finColapsado, setFinColapsado] = useState(true)
   const [toast, setToast] = useState(null)
 
@@ -80,44 +78,25 @@ export function MotoristaView({ pedidos, refresh, user }) {
 
   const loadRotas = useCallback(async () => {
     const rs = await fetchRotasAtivas()
-    const map = {}; const vc = {}; const ativas = []
+    const map = {}; const ativas = []
     for (const r of rs || []) {
+      // Busca pedidos da rota diretamente via supabase para evitar cache
       const { data: rpRows } = await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id', r.id)
       const ids = (rpRows || []).map(x => x.pedido_id)
-      vc[r.id] = ids.length
+      map[r.id] = ids
       if (ids.length > 0) {
         const { data: pedidosDB } = await supabase.from('pedidos').select('id, status').in('id', ids)
-        const existentes = pedidosDB || []
-        const orfaos = ids.length - existentes.length
-
-        // Limpar vínculos órfãos automaticamente
-        if (orfaos > 0) {
-          const idsExistentes = existentes.map(p => p.id)
-          const idsOrfaos = ids.filter(id => !idsExistentes.includes(id))
-          for (const oid of idsOrfaos) {
-            await supabase.from('rota_pedidos').delete().eq('rota_id', r.id).eq('pedido_id', oid)
-          }
-          console.log(`[loadRotas] Rota ${r.id.slice(0,8)}: removidos ${orfaos} vínculos órfãos`)
-          vc[r.id] = existentes.length
-        }
-
-        const allEntregue = existentes.length > 0 && existentes.every(p => p.status === 'ENTREGUE')
-        console.log(`[loadRotas] Rota ${r.id.slice(0,8)}: ${existentes.length} pedidos, ${existentes.filter(p=>p.status==='ENTREGUE').length} entregues, finalizar=${allEntregue}`)
+        const allEntregue = pedidosDB && pedidosDB.length > 0 && pedidosDB.every(p => p.status === 'ENTREGUE')
+        console.log(`[loadRotas] Rota ${r.id.slice(0,8)}: ${pedidosDB?.length} pedidos, ${pedidosDB?.filter(p=>p.status==='ENTREGUE').length} entregues, finalizar=${allEntregue}`)
         if (allEntregue) {
           await supabase.from('rotas').update({ status: 'finalizada' }).eq('id', r.id)
           console.log('[loadRotas] ROTA FINALIZADA:', r.id)
           continue
         }
-        map[r.id] = existentes.map(p => p.id)
-      } else {
-        // Rota sem pedidos — finalizar
-        await supabase.from('rotas').update({ status: 'finalizada' }).eq('id', r.id)
-        console.log('[loadRotas] ROTA SEM PEDIDOS FINALIZADA:', r.id)
-        continue
       }
       ativas.push(r)
     }
-    setRotasAtivas(ativas); setRotasPedidos(map); setVincCount(vc)
+    setRotasAtivas(ativas); setRotasPedidos(map)
     setRotasFinalizadas(await fetchRotasFinalizadasHoje() || [])
   }, [])
 
@@ -133,33 +112,21 @@ export function MotoristaView({ pedidos, refresh, user }) {
     setSaving(true)
     await updatePedido(id, { status: 'ENTREGUE', entrega_assinatura: assinatura, entrega_cpf: cpf, entrega_data: new Date().toISOString(), entregue_por: user.nome })
 
-    // Verificar se a rota pode ser finalizada (tratando pedidos órfãos)
+    // Verificar se a rota pode ser finalizada (usando supabase direto, sem funções intermediárias)
     const { data: rotaPedido } = await supabase.from('rota_pedidos').select('rota_id').eq('pedido_id', id).maybeSingle()
     if (rotaPedido && rotaPedido.rota_id) {
       const { data: todosRp } = await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id', rotaPedido.rota_id)
       if (todosRp && todosRp.length > 0) {
         const pedidoIds = todosRp.map(rp => rp.pedido_id)
         const { data: pedidosRota } = await supabase.from('pedidos').select('id, status').in('id', pedidoIds)
-        const existentes = pedidosRota || []
-
-        // Limpar vínculos órfãos
-        if (existentes.length < pedidoIds.length) {
-          const idsExistentes = existentes.map(p => p.id)
-          const idsOrfaos = pedidoIds.filter(pid => !idsExistentes.includes(pid))
-          for (const oid of idsOrfaos) {
-            await supabase.from('rota_pedidos').delete().eq('rota_id', rotaPedido.rota_id).eq('pedido_id', oid)
-          }
-          console.log(`Removidos ${idsOrfaos.length} vínculos órfãos da rota`)
-        }
-
-        const todosEntregues = existentes.length > 0 && existentes.every(p => p.status === 'ENTREGUE')
-        console.log(`Verificando rota: ${existentes.length} pedidos existentes, ${existentes.filter(p => p.status === 'ENTREGUE').length} entregues`)
+        const todosEntregues = pedidosRota && pedidosRota.every(p => p.status === 'ENTREGUE')
+        console.log(`Verificando rota: ${pedidosRota?.length} pedidos total, ${pedidosRota?.filter(p => p.status === 'ENTREGUE').length} entregues`)
         if (todosEntregues) {
           await supabase.from('rotas').update({ status: 'finalizada' }).eq('id', rotaPedido.rota_id)
           console.log('ROTA FINALIZADA:', rotaPedido.rota_id)
           showToast('🎉 Rota finalizada! Todas as entregas concluídas.')
         } else {
-          console.log('Rota ainda tem pedidos pendentes:', existentes.filter(p => p.status !== 'ENTREGUE').length)
+          console.log('Rota ainda tem pedidos pendentes:', pedidosRota?.filter(p => p.status !== 'ENTREGUE').length)
         }
       }
     }
@@ -230,7 +197,7 @@ export function MotoristaView({ pedidos, refresh, user }) {
       : rotasAtivas.map(rota => {
           const ids = rotasPedidos[rota.id] || []
           const pedidosRota = pedidos.filter(p => ids.includes(p.id))
-          return <RotaCard key={rota.id} rota={rota} pedidosRota={pedidosRota} totalVinculos={vincCount[rota.id] ?? ids.length}
+          return <RotaCard key={rota.id} rota={rota} pedidosRota={pedidosRota}
             onAssinar={id => { setViewing(id); setSigning(true) }}
             onVerPedido={setViewing}
             onFechar={rota.status === 'finalizada' ? () => setRotasAtivas(prev => prev.filter(r => r.id !== rota.id)) : null} />
