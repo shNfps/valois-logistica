@@ -211,7 +211,7 @@ export function BatchExtractorButtons({ pedidos, refresh, userName }) {
       {logs && <LogsPanel logs={logs} onClose={() => setLogs(null)} />}
       {modo && <PeriodoModal pedidos={pedidos} modo={modo} onClose={() => setModo(null)} onStart={handleStart} />}
       {showProgress && <ProgressModal onClose={() => setShowProgress(false)} progressItems={progressItems} stats={stats} finished={finished} onRetryFailed={() => { setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} onPause={handlePause} onCancel={handleCancel} paused={paused} startTime={startTime.current} onViewFailed={() => setShowFailed(true)} />}
-      {showFailed && <FailedListModal items={failedPedidos} onClose={() => setShowFailed(false)} onRetry={() => { setShowFailed(false); setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} />}
+      {showFailed && <FailedListModal items={failedPedidos} onClose={() => setShowFailed(false)} onRetry={() => { setShowFailed(false); setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} onRetryOne={(p) => { setShowFailed(false); setShowProgress(false); handleStart([p], modo || 'pedidos') }} />}
     </div>
   )
 }

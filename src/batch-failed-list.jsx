@@ -7,7 +7,7 @@ const ERR_LABELS = {
   other: 'outro erro',
 }
 
-export function FailedListModal({ items, onClose, onRetry }) {
+export function FailedListModal({ items, onClose, onRetry, onRetryOne }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ ...card, maxWidth: 720, width: '100%', padding: 24, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
@@ -16,7 +16,7 @@ export function FailedListModal({ items, onClose, onRetry }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#94A3B8' }}>{'✕'}</button>
         </div>
         <div style={{ fontSize: 12, color: '#64748B', marginBottom: 10 }}>
-          Clique em "Abrir NF" para visualizar o PDF e lançar os itens manualmente no pedido.
+          Geralmente uma nova tentativa resolve (rate limit). Clique em ↻ para reprocessar individualmente ou em "Tentar todos" no rodapé.
         </div>
         <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: 8, marginBottom: 12 }}>
           {items.map(p => (
@@ -25,13 +25,13 @@ export function FailedListModal({ items, onClose, onRetry }) {
               <span style={{ flex: 1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.cliente}</span>
               {p.criado_em && <span style={{ color: '#94A3B8', fontSize: 11, whiteSpace: 'nowrap' }}>{fmt(p.criado_em)}</span>}
               <span style={{ color: '#EF4444', fontSize: 11, whiteSpace: 'nowrap' }}>{ERR_LABELS[p._errorType] || p._error || 'erro'}</span>
-              {p.nf_url && <a href={p.nf_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', fontSize: 11, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>Abrir NF ↗</a>}
+              <button onClick={() => onRetryOne?.(p)} title="Tentar extrair de novo" style={{ ...btnSmall, padding: '4px 10px', fontSize: 11, color: '#7C3AED', borderColor: '#DDD6FE' }}>↻ Extrair</button>
             </div>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {onRetry && items.length > 0 && <button onClick={onRetry} style={{ ...btnSmall, flex: 1, justifyContent: 'center', color: '#F59E0B' }}>Tentar novamente com IA</button>}
-          <button onClick={onClose} style={{ ...btnPrimary, flex: 1 }}>Fechar</button>
+          {onRetry && items.length > 0 && <button onClick={onRetry} style={{ ...btnPrimary, flex: 1 }}>↻ Tentar todos novamente ({items.length})</button>}
+          <button onClick={onClose} style={{ ...btnSmall, flex: 1, justifyContent: 'center' }}>Fechar</button>
         </div>
       </div>
     </div>
