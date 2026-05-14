@@ -20,7 +20,12 @@ async function callClaude(pdfUrl, prompt, model = 'claude-sonnet-4-20250514', ma
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }, { type: 'text', text: prompt }] }] })
   })
-  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `Erro ${res.status}`) }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const e = new Error(err.error?.message || `Erro ${res.status}`)
+    e.status = res.status
+    throw e
+  }
   const data = await res.json()
   const text = data.content?.[0]?.text?.trim() || ''
   const match = text.match(/\[[\s\S]*\]/)

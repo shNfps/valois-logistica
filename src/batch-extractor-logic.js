@@ -4,7 +4,24 @@ import { supabase } from './supabase.js'
 
 const STATUS_COM_NF = new Set(['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE'])
 const CONCURRENCY = 5
-const RETRY_ATTEMPTS = 2 // 1 tentativa inicial + 1 retry automático
+const MAX_ATTEMPTS = 3 // 1 inicial + 2 retries com backoff
+
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+export function classifyError(e) {
+  if (e?.status === 429) return 'rate_limit'
+  const msg = (e?.message || '').toLowerCase()
+  if (msg.includes('rate') || msg.includes('limit') || msg.includes('overload')) return 'rate_limit'
+  if (msg.includes('pdf') || msg.includes('baixar') || msg.includes('download')) return 'pdf_fetch'
+  if (msg.includes('json')) return 'parse'
+  return 'other'
+}
+
+// Backoff: rate_limit espera mais para dar tempo da janela TPM resetar
+function backoffMs(attempt, errType) {
+  if (errType === 'rate_limit') return [3000, 12000][attempt - 1] || 12000
+  return [800, 2000][attempt - 1] || 2000
+}
 
 const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
@@ -44,7 +61,7 @@ async function processInBatches(items, fn, concurrency, onResult, signal) {
 async function processarPedido(pedido, produtos, modo) {
   const ref = pedido.numero_ref || pedido.id.slice(0, 8)
   let lastError = null
-  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const raw = await extractItemsFromNf(pedido.nf_url)
       const itens = raw.map(i => {
@@ -71,9 +88,12 @@ async function processarPedido(pedido, produtos, modo) {
       return { pedidoId: pedido.id, ref, cliente: pedido.cliente, status: 'success', itensCount: itens.length, novosProdutos, atualizados, valorTotal }
     } catch (e) {
       lastError = e
+      const errType = classifyError(e)
+      console.warn(`[lote] NF ${ref} tentativa ${attempt}/${MAX_ATTEMPTS} falhou (${errType}):`, e?.message)
+      if (attempt < MAX_ATTEMPTS) await sleep(backoffMs(attempt, errType))
     }
   }
-  return { pedidoId: pedido.id, ref, cliente: pedido.cliente, status: 'error', error: lastError?.message || 'Erro desconhecido', itensCount: 0, novosProdutos: 0, atualizados: 0, valorTotal: 0 }
+  return { pedidoId: pedido.id, ref, cliente: pedido.cliente, status: 'error', error: lastError?.message || 'Erro desconhecido', errorType: classifyError(lastError), itensCount: 0, novosProdutos: 0, atualizados: 0, valorTotal: 0 }
 }
 
 // Filtra pedidos por período — apenas pedidos com NF emitida

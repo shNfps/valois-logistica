@@ -51,6 +51,7 @@ function PeriodoModal({ pedidos, modo, onClose, onStart }) {
 }
 
 const STATUS_ICONS = { processing: '\u23F3', success: '\u2705', error: '\u274C', skipped: '\u23ED\uFE0F' }
+const ERR_LABELS = { rate_limit: 'rate limit (429) \u2014 API saturada', pdf_fetch: 'erro ao baixar PDF', parse: 'IA retornou JSON inv\u00E1lido', other: 'outros erros' }
 
 function formatDuration(seg) {
   if (!seg || seg < 0) return '0s'
@@ -124,11 +125,18 @@ function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed,
 
 function FinishedFooter({ stats, onRetryFailed, onClose }) {
   const tempoMin = stats.tempoSeg ? (stats.tempoSeg / 60).toFixed(1) : '0'
+  const errosPorTipo = stats.errosPorTipo || {}
+  const tiposOrdenados = Object.entries(errosPorTipo).sort((a, b) => b[1] - a[1])
   return (
     <div>
       <div style={{ background: '#D1FAE5', borderRadius: 8, padding: '12px 14px', marginBottom: 10, fontSize: 13 }}>
         <div>{'\u2705'} <b>{stats.sucessos}</b> pedidos processados com sucesso</div>
         {stats.falhas > 0 && <div>{'\u274C'} <b>{stats.falhas}</b> pedidos com erro</div>}
+        {tiposOrdenados.length > 0 && (
+          <div style={{ marginLeft: 22, marginTop: 2, fontSize: 12, color: '#475569' }}>
+            {tiposOrdenados.map(([tipo, n]) => <div key={tipo}>{'\u2022'} <b>{n}</b> {ERR_LABELS[tipo] || tipo}</div>)}
+          </div>
+        )}
         {stats.totalNovos > 0 && <div>{'\uD83D\uDCE6'} <b>{stats.totalNovos}</b> novos produtos adicionados ao cat\u00e1logo</div>}
         <div>{'\uD83D\uDCB0'} Valor total: <b>{fmtMoney(stats.totalValor)}</b></div>
         <div>{'\u23F1'} Tempo total: <b>{tempoMin} minutos</b></div>
@@ -163,14 +171,14 @@ export function BatchExtractorButtons({ pedidos, refresh, userName }) {
     setPaused(false)
     signalRef.current = { paused: false, cancelled: false }
     startTime.current = Date.now()
-    setStats({ done: 0, total: filtered.length, sucessos: 0, falhas: 0, totalItens: 0, totalNovos: 0, totalValor: 0 })
+    setStats({ done: 0, total: filtered.length, sucessos: 0, falhas: 0, totalItens: 0, totalNovos: 0, totalValor: 0, errosPorTipo: {} })
 
     const result = await executarLote(filtered, modoVal, (ev) => {
       if (ev.type === 'skipped') setProgressItems(p => [...p, ev])
       else if (ev.type === 'processing') setProgressItems(p => [...p, ev])
       else if (ev.type === 'done') {
         setProgressItems(p => p.map(x => x.ref === ev.ref && x.status === 'processing' ? ev : x))
-        setStats(s => ({ ...s, done: ev.done, sucessos: ev.status === 'success' ? s.sucessos + 1 : s.sucessos, falhas: ev.status === 'error' ? s.falhas + 1 : s.falhas, totalItens: s.totalItens + (ev.itensCount || 0), totalNovos: s.totalNovos + (ev.novosProdutos || 0), totalValor: s.totalValor + (ev.valorTotal || 0) }))
+        setStats(s => ({ ...s, done: ev.done, sucessos: ev.status === 'success' ? s.sucessos + 1 : s.sucessos, falhas: ev.status === 'error' ? s.falhas + 1 : s.falhas, totalItens: s.totalItens + (ev.itensCount || 0), totalNovos: s.totalNovos + (ev.novosProdutos || 0), totalValor: s.totalValor + (ev.valorTotal || 0), errosPorTipo: ev.status === 'error' && ev.errorType ? { ...(s.errosPorTipo || {}), [ev.errorType]: ((s.errosPorTipo || {})[ev.errorType] || 0) + 1 } : (s.errosPorTipo || {}) }))
         // Atualização incremental: mostra valor_total na tela à medida que processa
         if (ev.status === 'success') refresh?.()
       }
