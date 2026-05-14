@@ -47,3 +47,14 @@ export function extractCodesFromPdf(pdfUrl) {
     1024
   )
 }
+
+// Extração rápida de itens a partir da NF para o lote.
+// Usa Haiku + prompt mínimo + max_tokens reduzido para minimizar latência.
+export function extractItemsFromNf(pdfUrl) {
+  return callClaude(
+    pdfUrl,
+    'Extraia os itens deste PDF de nota fiscal. Retorne APENAS um JSON válido, sem nenhum texto adicional, no formato: [{"codigo":"123","nome_produto":"Produto X","quantidade":10,"unidade":"UN","preco_unitario":15.50,"preco_total":155.00}]\n\nREGRAS:\n- codigo: número sem pontos (ex: 1842, não 1.842); null se ausente\n- quantidade: número\n- preco_unitario: número decimal\n- preco_total: número decimal (quantidade × preço unitário)\n- Sem texto antes ou depois do JSON',
+    'claude-haiku-4-5-20251001',
+    4000
+  )
+}

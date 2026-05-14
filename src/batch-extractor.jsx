@@ -39,7 +39,7 @@ function PeriodoModal({ pedidos, modo, onClose, onStart }) {
           </div>
         )}
         <div style={{ background: '#F1F5F9', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-          <span style={{ fontWeight: 700, color: '#334155' }}>{filtered.length} pedidos ser\u00e3o processados</span>
+          <span style={{ fontWeight: 700, color: '#334155' }}>{filtered.length} pedidos com NF para processar</span>
           <span style={{ color: '#64748B' }}>~{filtered.length} requisi\u00e7\u00f5es \u00e0 API Claude</span>
         </div>
         <button onClick={() => onStart(filtered, modo)} disabled={filtered.length === 0} style={{ ...btnPrimary, width: '100%', opacity: filtered.length === 0 ? 0.5 : 1 }}>
@@ -52,10 +52,27 @@ function PeriodoModal({ pedidos, modo, onClose, onStart }) {
 
 const STATUS_ICONS = { processing: '\u23F3', success: '\u2705', error: '\u274C', skipped: '\u23ED\uFE0F' }
 
-function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed, onPause, onCancel, paused }) {
+function formatDuration(seg) {
+  if (!seg || seg < 0) return '0s'
+  const s = Math.round(seg)
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60), r = s % 60
+  return r === 0 ? `${m}min` : `${m}min ${r}s`
+}
+
+function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed, onPause, onCancel, paused, startTime }) {
   const listRef = useRef(null)
+  const [, tick] = useState(0)
   useEffect(() => { listRef.current?.scrollTo(0, listRef.current.scrollHeight) }, [progressItems])
+  useEffect(() => {
+    if (finished) return
+    const id = setInterval(() => tick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [finished])
   const pct = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0
+  const elapsedSeg = startTime ? (Date.now() - startTime) / 1000 : 0
+  const avgPerItem = stats.done > 0 ? elapsedSeg / stats.done : 0
+  const etaSeg = stats.done > 0 && stats.done < stats.total ? (stats.total - stats.done) * avgPerItem : 0
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -66,7 +83,7 @@ function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed,
         </div>
         {!finished && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Pedido {stats.done} de {stats.total}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Processando {stats.done}/{stats.total} | Tempo: {formatDuration(elapsedSeg)}{stats.done > 0 && <> | ETA: ~{formatDuration(etaSeg)} | ~{Math.round(avgPerItem)}s por pedido</>}</div>
             <div style={{ height: 8, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(to right,#2563EB,#10B981)', borderRadius: 4, transition: 'width 0.3s' }} />
             </div>
@@ -154,6 +171,8 @@ export function BatchExtractorButtons({ pedidos, refresh, userName }) {
       else if (ev.type === 'done') {
         setProgressItems(p => p.map(x => x.ref === ev.ref && x.status === 'processing' ? ev : x))
         setStats(s => ({ ...s, done: ev.done, sucessos: ev.status === 'success' ? s.sucessos + 1 : s.sucessos, falhas: ev.status === 'error' ? s.falhas + 1 : s.falhas, totalItens: s.totalItens + (ev.itensCount || 0), totalNovos: s.totalNovos + (ev.novosProdutos || 0), totalValor: s.totalValor + (ev.valorTotal || 0) }))
+        // Atualização incremental: mostra valor_total na tela à medida que processa
+        if (ev.status === 'success') refresh?.()
       }
     }, signalRef.current)
 
@@ -173,14 +192,14 @@ export function BatchExtractorButtons({ pedidos, refresh, userName }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-        <button onClick={() => setModo('pedidos')} style={{ ...btnStyle, color: '#7C3AED', borderColor: '#DDD6FE' }}>{'🤖'} Extrair tudo e salvar nos pedidos</button>
-        <button onClick={() => setModo('catalogo')} style={{ ...btnStyle, color: '#059669', borderColor: '#A7F3D0' }}>{'📦'} Extrair e adicionar ao cat\u00e1logo</button>
-        <button onClick={() => setModo('tudo')} style={{ ...btnStyle, color: '#0EA5E9', borderColor: '#BAE6FD' }}>{'⚡'} Processar tudo (pedidos + cat\u00e1logo)</button>
+        <button onClick={() => setModo('pedidos')} style={{ ...btnStyle, color: '#7C3AED', borderColor: '#DDD6FE' }}>{'🤖'} Extrair tudo das NFs e salvar nos pedidos</button>
+        <button onClick={() => setModo('catalogo')} style={{ ...btnStyle, color: '#059669', borderColor: '#A7F3D0' }}>{'📦'} Extrair das NFs e adicionar ao cat\u00e1logo</button>
+        <button onClick={() => setModo('tudo')} style={{ ...btnStyle, color: '#0EA5E9', borderColor: '#BAE6FD' }}>{'⚡'} Processar NFs (pedidos + cat\u00e1logo)</button>
         <button onClick={loadLogs} style={{ ...btnStyle, color: '#64748B' }}>{'📋'} Hist\u00f3rico</button>
       </div>
       {logs && <LogsPanel logs={logs} onClose={() => setLogs(null)} />}
       {modo && <PeriodoModal pedidos={pedidos} modo={modo} onClose={() => setModo(null)} onStart={handleStart} />}
-      {showProgress && <ProgressModal onClose={() => setShowProgress(false)} progressItems={progressItems} stats={stats} finished={finished} onRetryFailed={() => { setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} onPause={handlePause} onCancel={handleCancel} paused={paused} />}
+      {showProgress && <ProgressModal onClose={() => setShowProgress(false)} progressItems={progressItems} stats={stats} finished={finished} onRetryFailed={() => { setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} onPause={handlePause} onCancel={handleCancel} paused={paused} startTime={startTime.current} />}
     </div>
   )
 }

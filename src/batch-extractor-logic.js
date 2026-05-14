@@ -1,6 +1,10 @@
-import { extractItemsFromPdf } from './ai.js'
+import { extractItemsFromNf } from './ai.js'
 import { fetchProdutos, savePedidoItens, updateProduto, createProduto } from './db.js'
 import { supabase } from './supabase.js'
+
+const STATUS_COM_NF = new Set(['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE'])
+const CONCURRENCY = 5
+const RETRY_ATTEMPTS = 2 // 1 tentativa inicial + 1 retry automático
 
 const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
@@ -36,45 +40,49 @@ async function processInBatches(items, fn, concurrency, onResult, signal) {
   return results
 }
 
-// Processa um pedido individual
+// Processa um pedido individual (lê o PDF da NF, não o do orçamento)
 async function processarPedido(pedido, produtos, modo) {
   const ref = pedido.numero_ref || pedido.id.slice(0, 8)
-  try {
-    const raw = await extractItemsFromPdf(pedido.orcamento_url)
-    const itens = raw.map(i => {
-      const cod = i.codigo ? String(i.codigo).replace(/\./g, '') : null
-      const match = matchItem({ ...i, codigo: cod }, produtos)
-      return { ...i, codigo: match?.codigo || cod || '', _catalogProd: match || null, _status: match ? 'catalogo' : 'novo' }
-    })
-    // Salvar itens no pedido
-    await savePedidoItens(pedido.id, itens)
+  let lastError = null
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      const raw = await extractItemsFromNf(pedido.nf_url)
+      const itens = raw.map(i => {
+        const cod = i.codigo ? String(i.codigo).replace(/\./g, '') : null
+        const match = matchItem({ ...i, codigo: cod }, produtos)
+        return { ...i, codigo: match?.codigo || cod || '', _catalogProd: match || null, _status: match ? 'catalogo' : 'novo' }
+      })
+      await savePedidoItens(pedido.id, itens)
 
-    let novosProdutos = 0, atualizados = 0
-    if (modo === 'catalogo' || modo === 'tudo') {
-      for (const it of itens) {
-        const preco = Number(it.preco_unitario) || 0
-        const cod = it.codigo ? String(it.codigo).replace(/\./g, '') : null
-        if (it._status === 'catalogo' && it._catalogProd) {
-          if (preco > Number(it._catalogProd.preco)) { await updateProduto(it._catalogProd.id, { preco }); atualizados++ }
-        } else if (cod) {
-          await createProduto({ nome: it.nome_produto, preco, categoria: 'Outros', codigo: cod })
-          novosProdutos++
+      let novosProdutos = 0, atualizados = 0
+      if (modo === 'catalogo' || modo === 'tudo') {
+        for (const it of itens) {
+          const preco = Number(it.preco_unitario) || 0
+          const cod = it.codigo ? String(it.codigo).replace(/\./g, '') : null
+          if (it._status === 'catalogo' && it._catalogProd) {
+            if (preco > Number(it._catalogProd.preco)) { await updateProduto(it._catalogProd.id, { preco }); atualizados++ }
+          } else if (cod) {
+            await createProduto({ nome: it.nome_produto, preco, categoria: 'Outros', codigo: cod })
+            novosProdutos++
+          }
         }
       }
+      const valorTotal = itens.reduce((s, i) => s + (Number(i.preco_total) || Number(i.quantidade || 0) * Number(i.preco_unitario || 0)), 0)
+      return { pedidoId: pedido.id, ref, cliente: pedido.cliente, status: 'success', itensCount: itens.length, novosProdutos, atualizados, valorTotal }
+    } catch (e) {
+      lastError = e
     }
-    const valorTotal = itens.reduce((s, i) => s + (Number(i.preco_total) || Number(i.quantidade || 0) * Number(i.preco_unitario || 0)), 0)
-    return { pedidoId: pedido.id, ref, cliente: pedido.cliente, status: 'success', itensCount: itens.length, novosProdutos, atualizados, valorTotal }
-  } catch (e) {
-    return { pedidoId: pedido.id, ref, cliente: pedido.cliente, status: 'error', error: e.message, itensCount: 0, novosProdutos: 0, atualizados: 0, valorTotal: 0 }
   }
+  return { pedidoId: pedido.id, ref, cliente: pedido.cliente, status: 'error', error: lastError?.message || 'Erro desconhecido', itensCount: 0, novosProdutos: 0, atualizados: 0, valorTotal: 0 }
 }
 
-// Filtra pedidos por período
+// Filtra pedidos por período — apenas pedidos com NF emitida
 export function filtrarPedidosPorPeriodo(pedidos, periodo, customRange) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   return pedidos.filter(p => {
-    if (!p.orcamento_url) return false
+    if (!p.nf_url) return false
+    if (!STATUS_COM_NF.has(p.status)) return false
     const d = new Date(p.criado_em)
     if (periodo === 'hoje') return d >= today
     if (periodo === 'semana') { const ws = new Date(today); ws.setDate(ws.getDate() - ws.getDay()); return d >= ws }
@@ -120,7 +128,7 @@ export async function executarLote(pedidos, modo, onProgress, signal) {
     else { falhas++; erros.push(r) }
     onProgress?.({ type: 'done', ...r, done, total: pendentes.length })
     return r
-  }, 3, null, signal)
+  }, CONCURRENCY, null, signal)
 
   return { results: [...skipped, ...results], sucessos, falhas, totalItens, totalNovos, totalValor, skippedCount: skipped.length, erros }
 }
