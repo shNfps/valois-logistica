@@ -1,21 +1,22 @@
 import { useState, useEffect, useRef } from 'react'
 import { inputStyle, btnPrimary, btnSmall, card, fmtMoney, fmt } from './db.js'
-import { filtrarPedidosPorPeriodo, executarLote, salvarLogLote, fetchLogsLote } from './batch-extractor-logic.js'
+import { filtrarPedidosPorPeriodo, executarLote, salvarLogLote, fetchLogsLote, marcarJaProcessados } from './batch-extractor-logic.js'
+import { FailedListModal } from './batch-failed-list.jsx'
 
-const PERIODOS = [
-  { key: 'hoje', label: 'Apenas pedidos de hoje' },
-  { key: 'semana', label: 'Pedidos da semana atual' },
-  { key: 'mes', label: 'Pedidos do m\u00eas' },
-  { key: 'pendentes', label: 'Todos os pedidos pendentes (sem itens)' },
-  { key: 'custom', label: 'Selecionar per\u00edodo personalizado' },
-]
+const PERIODOS = [{ key: 'hoje', label: 'Apenas pedidos de hoje' }, { key: 'semana', label: 'Pedidos da semana atual' }, { key: 'mes', label: 'Pedidos do m\u00eas' }, { key: 'pendentes', label: 'Todos os pedidos pendentes (sem itens)' }, { key: 'custom', label: 'Selecionar per\u00edodo personalizado' }]
 
 function PeriodoModal({ pedidos, modo, onClose, onStart }) {
   const [periodo, setPeriodo] = useState('hoje')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [jaProcessadosSet, setJaProcessadosSet] = useState(null)
+  useEffect(() => {
+    marcarJaProcessados(pedidos.map(p => p.id)).then(setJaProcessadosSet).catch(() => setJaProcessadosSet(new Set()))
+  }, [pedidos])
   const customRange = periodo === 'custom' && dateFrom && dateTo ? [dateFrom, dateTo] : null
   const filtered = filtrarPedidosPorPeriodo(pedidos, periodo, customRange)
+  const pendentes = jaProcessadosSet ? filtered.filter(p => !jaProcessadosSet.has(p.id)) : filtered
+  const loading = jaProcessadosSet === null
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -38,12 +39,14 @@ function PeriodoModal({ pedidos, modo, onClose, onStart }) {
             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
           </div>
         )}
-        <div style={{ background: '#F1F5F9', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-          <span style={{ fontWeight: 700, color: '#334155' }}>{filtered.length} pedidos com NF para processar</span>
-          <span style={{ color: '#64748B' }}>~{filtered.length} requisi\u00e7\u00f5es \u00e0 API Claude</span>
+        <div style={{ background: '#F1F5F9', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+          {loading ? <span style={{ color: '#64748B' }}>Verificando pedidos j\u00e1 processados...</span> : <>
+            <span style={{ fontWeight: 700, color: '#334155' }}>{pendentes.length} pedidos a extrair</span>
+            <span style={{ color: '#94A3B8', fontSize: 12 }}>{filtered.length - pendentes.length} j\u00e1 processados ser\u00e3o pulados</span>
+          </>}
         </div>
-        <button onClick={() => onStart(filtered, modo)} disabled={filtered.length === 0} style={{ ...btnPrimary, width: '100%', opacity: filtered.length === 0 ? 0.5 : 1 }}>
-          Iniciar processamento
+        <button onClick={() => onStart(pendentes, modo)} disabled={loading || pendentes.length === 0} style={{ ...btnPrimary, width: '100%', opacity: (loading || pendentes.length === 0) ? 0.5 : 1 }}>
+          {loading ? 'Carregando...' : 'Iniciar processamento'}
         </button>
       </div>
     </div>
@@ -55,13 +58,11 @@ const ERR_LABELS = { rate_limit: 'rate limit (429) \u2014 API saturada', pdf_fet
 
 function formatDuration(seg) {
   if (!seg || seg < 0) return '0s'
-  const s = Math.round(seg)
-  if (s < 60) return `${s}s`
-  const m = Math.floor(s / 60), r = s % 60
-  return r === 0 ? `${m}min` : `${m}min ${r}s`
+  const s = Math.round(seg), m = Math.floor(s / 60), r = s % 60
+  return s < 60 ? `${s}s` : r === 0 ? `${m}min` : `${m}min ${r}s`
 }
 
-function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed, onPause, onCancel, paused, startTime }) {
+function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed, onPause, onCancel, paused, startTime, onViewFailed }) {
   const listRef = useRef(null)
   const [, tick] = useState(0)
   useEffect(() => { listRef.current?.scrollTo(0, listRef.current.scrollHeight) }, [progressItems])
@@ -111,7 +112,7 @@ function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed,
           {stats.totalNovos > 0 && <span>Novos produtos: <b style={{ color: '#7C3AED' }}>{stats.totalNovos}</b></span>}
         </div>
         {finished ? (
-          <FinishedFooter stats={stats} onRetryFailed={onRetryFailed} onClose={onClose} />
+          <FinishedFooter stats={stats} onRetryFailed={onRetryFailed} onClose={onClose} onViewFailed={onViewFailed} />
         ) : (
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onPause} style={{ ...btnSmall, flex: 1, justifyContent: 'center' }}>{paused ? '\u25B6 Retomar' : '\u23F8 Pausar'}</button>
@@ -123,7 +124,7 @@ function ProgressModal({ onClose, progressItems, stats, finished, onRetryFailed,
   )
 }
 
-function FinishedFooter({ stats, onRetryFailed, onClose }) {
+function FinishedFooter({ stats, onRetryFailed, onClose, onViewFailed }) {
   const tempoMin = stats.tempoSeg ? (stats.tempoSeg / 60).toFixed(1) : '0'
   const errosPorTipo = stats.errosPorTipo || {}
   const tiposOrdenados = Object.entries(errosPorTipo).sort((a, b) => b[1] - a[1])
@@ -141,8 +142,9 @@ function FinishedFooter({ stats, onRetryFailed, onClose }) {
         <div>{'\uD83D\uDCB0'} Valor total: <b>{fmtMoney(stats.totalValor)}</b></div>
         <div>{'\u23F1'} Tempo total: <b>{tempoMin} minutos</b></div>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        {stats.falhas > 0 && <button onClick={onRetryFailed} style={{ ...btnSmall, flex: 1, justifyContent: 'center', color: '#F59E0B' }}>Tentar novamente os que falharam</button>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {stats.falhas > 0 && onViewFailed && <button onClick={onViewFailed} style={{ ...btnSmall, flex: 1, justifyContent: 'center', color: '#2563EB' }}>Ver lista de falhas</button>}
+        {stats.falhas > 0 && <button onClick={onRetryFailed} style={{ ...btnSmall, flex: 1, justifyContent: 'center', color: '#F59E0B' }}>Tentar novamente com IA</button>}
         <button onClick={onClose} style={{ ...btnPrimary, flex: 1 }}>Fechar</button>
       </div>
     </div>
@@ -159,6 +161,7 @@ export function BatchExtractorButtons({ pedidos, refresh, userName }) {
   const signalRef = useRef({ paused: false, cancelled: false })
   const [paused, setPaused] = useState(false)
   const [logs, setLogs] = useState(null)
+  const [showFailed, setShowFailed] = useState(false)
   const startTime = useRef(0)
 
   const loadLogs = async () => { setLogs(await fetchLogsLote()) }
@@ -186,7 +189,7 @@ export function BatchExtractorButtons({ pedidos, refresh, userName }) {
 
     const tempoSeg = Math.round((Date.now() - startTime.current) / 1000)
     setStats(s => ({ ...s, done: s.total, tempoSeg }))
-    setFailedPedidos(result.erros.map(e => filtered.find(p => p.id === e.pedidoId)).filter(Boolean))
+    setFailedPedidos(result.erros.map(e => { const p = filtered.find(p => p.id === e.pedidoId); return p ? { ...p, _error: e.error, _errorType: e.errorType } : null }).filter(Boolean))
     setFinished(true)
     refresh?.()
     await salvarLogLote({ total_pedidos: filtered.length, sucesso: result.sucessos, falhas: result.falhas, novos_produtos: result.totalNovos, iniciado_por: userName || 'admin', concluido_em: new Date().toISOString(), detalhes: { modo: modoVal, skipped: result.skippedCount, totalItens: result.totalItens, totalValor: result.totalValor, tempoSeg, erros: result.erros.map(e => ({ ref: e.ref, error: e.error })) } })
@@ -207,7 +210,8 @@ export function BatchExtractorButtons({ pedidos, refresh, userName }) {
       </div>
       {logs && <LogsPanel logs={logs} onClose={() => setLogs(null)} />}
       {modo && <PeriodoModal pedidos={pedidos} modo={modo} onClose={() => setModo(null)} onStart={handleStart} />}
-      {showProgress && <ProgressModal onClose={() => setShowProgress(false)} progressItems={progressItems} stats={stats} finished={finished} onRetryFailed={() => { setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} onPause={handlePause} onCancel={handleCancel} paused={paused} startTime={startTime.current} />}
+      {showProgress && <ProgressModal onClose={() => setShowProgress(false)} progressItems={progressItems} stats={stats} finished={finished} onRetryFailed={() => { setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} onPause={handlePause} onCancel={handleCancel} paused={paused} startTime={startTime.current} onViewFailed={() => setShowFailed(true)} />}
+      {showFailed && <FailedListModal items={failedPedidos} onClose={() => setShowFailed(false)} onRetry={() => { setShowFailed(false); setShowProgress(false); handleStart(failedPedidos, modo || 'pedidos') }} />}
     </div>
   )
 }
