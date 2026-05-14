@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { inputStyle, btnPrimary, btnSmall, card, fmtMoney, fmt } from './db.js'
-import { filtrarPedidosPorPeriodo, executarLote, salvarLogLote, fetchLogsLote, marcarJaProcessados } from './batch-extractor-logic.js'
+import { filtrarPedidosPorPeriodo, executarLote, salvarLogLote, fetchLogsLote } from './batch-extractor-logic.js'
 import { FailedListModal } from './batch-failed-list.jsx'
 
 const PERIODOS = [{ key: 'hoje', label: 'Apenas pedidos de hoje' }, { key: 'semana', label: 'Pedidos da semana atual' }, { key: 'mes', label: 'Pedidos do m\u00eas' }, { key: 'pendentes', label: 'Todos os pedidos pendentes (sem itens)' }, { key: 'custom', label: 'Selecionar per\u00edodo personalizado' }]
@@ -9,14 +9,8 @@ function PeriodoModal({ pedidos, modo, onClose, onStart }) {
   const [periodo, setPeriodo] = useState('hoje')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [jaProcessadosSet, setJaProcessadosSet] = useState(null)
-  useEffect(() => {
-    marcarJaProcessados(pedidos.map(p => p.id)).then(setJaProcessadosSet).catch(() => setJaProcessadosSet(new Set()))
-  }, [pedidos])
   const customRange = periodo === 'custom' && dateFrom && dateTo ? [dateFrom, dateTo] : null
-  const filtered = filtrarPedidosPorPeriodo(pedidos, periodo, customRange)
-  const pendentes = jaProcessadosSet ? filtered.filter(p => !jaProcessadosSet.has(p.id)) : filtered
-  const loading = jaProcessadosSet === null
+  const pendentes = filtrarPedidosPorPeriodo(pedidos, periodo, customRange)
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -40,13 +34,11 @@ function PeriodoModal({ pedidos, modo, onClose, onStart }) {
           </div>
         )}
         <div style={{ background: '#F1F5F9', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-          {loading ? <span style={{ color: '#64748B' }}>Verificando pedidos j\u00e1 processados...</span> : <>
-            <span style={{ fontWeight: 700, color: '#334155' }}>{pendentes.length} pedidos a extrair</span>
-            <span style={{ color: '#94A3B8', fontSize: 12 }}>{filtered.length - pendentes.length} j\u00e1 processados ser\u00e3o pulados</span>
-          </>}
+          <span style={{ fontWeight: 700, color: '#334155' }}>{pendentes.length}{' pedidos a extrair'}</span>
+          <span style={{ color: '#94A3B8', fontSize: 12 }}>{'(pedidos com valor j\u00e1 extra\u00eddo s\u00e3o ignorados)'}</span>
         </div>
-        <button onClick={() => onStart(pendentes, modo)} disabled={loading || pendentes.length === 0} style={{ ...btnPrimary, width: '100%', opacity: (loading || pendentes.length === 0) ? 0.5 : 1 }}>
-          {loading ? 'Carregando...' : 'Iniciar processamento'}
+        <button onClick={() => onStart(pendentes, modo)} disabled={pendentes.length === 0} style={{ ...btnPrimary, width: '100%', opacity: pendentes.length === 0 ? 0.5 : 1 }}>
+          Iniciar processamento
         </button>
       </div>
     </div>

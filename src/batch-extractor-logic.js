@@ -96,13 +96,15 @@ async function processarPedido(pedido, produtos, modo) {
   return { pedidoId: pedido.id, ref, cliente: pedido.cliente, status: 'error', error: lastError?.message || 'Erro desconhecido', errorType: classifyError(lastError), itensCount: 0, novosProdutos: 0, atualizados: 0, valorTotal: 0 }
 }
 
-// Filtra pedidos por período — apenas pedidos com NF emitida
+// Filtra pedidos por período — apenas pedidos com NF emitida e sem valor extraído
 export function filtrarPedidosPorPeriodo(pedidos, periodo, customRange) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   return pedidos.filter(p => {
     if (!p.nf_url) return false
     if (!STATUS_COM_NF.has(p.status)) return false
+    // Pedido com valor_total > 0 já foi extraído (savePedidoItens atualiza valor_total)
+    if (Number(p.valor_total) > 0) return false
     const d = new Date(p.criado_em)
     if (periodo === 'hoje') return d >= today
     if (periodo === 'semana') { const ws = new Date(today); ws.setDate(ws.getDate() - ws.getDay()); return d >= ws }
