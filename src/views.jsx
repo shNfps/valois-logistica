@@ -22,7 +22,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
   const [search,setSearch]=useState('');const [searchProd,setSearchProd]=useState('');const [searchUser,setSearchUser]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
-  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false);const [showReajuste,setShowReajuste]=useState(false)
+  const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCusto,setPCusto]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false);const [showReajuste,setShowReajuste]=useState(false)
   const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null);const [expandedAdminId,setExpandedAdminId]=useState(null)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
@@ -44,10 +44,10 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
     if(!pImg){alert('A foto do produto é obrigatória');return}
     setPUploading(true)
     const img_url=await uploadImage(pImg)
-    const r=await upsertProduto({nome:pNome.trim(),preco:parseFloat(pPreco),categoria:pCat,fabricante:pFab||null,img_url,codigo:pCodigo.trim().replace(/\./g,'')||null,diluicao:pCat==='Químicos'?pDiluicao.trim()||null:null})
+    const r=await upsertProduto({nome:pNome.trim(),preco:parseFloat(pPreco),custo:pCusto?parseFloat(pCusto):0,categoria:pCat,fabricante:pFab||null,img_url,codigo:pCodigo.trim().replace(/\./g,'')||null,diluicao:pCat==='Químicos'?pDiluicao.trim()||null:null})
     if(r?._action==='skipped')alert('Produto já existe com preço igual ou maior. Nenhuma alteração feita.')
     else if(r?._action==='updated')alert('Preço atualizado pois o novo valor é maior.')
-    setPNome('');setPPreco('');setPCat('Descartáveis');setPFab('');setPImg(null);setPCodigo('');setPDiluicao('');await loadProdutos();setPUploading(false)
+    setPNome('');setPPreco('');setPCusto('');setPCat('Descartáveis');setPFab('');setPImg(null);setPCodigo('');setPDiluicao('');await loadProdutos();setPUploading(false)
   }
   const handleDeleteProd=async(id,n)=>{if(!confirm(`Deletar ${n}?`))return;await deleteProduto(id);await loadProdutos()}
   const pedBase=pipelineFilter?pedidos.filter(p=>p.status===pipelineFilter):pedidos
@@ -149,8 +149,9 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
           <input value={pCodigo} onChange={e=>setPCodigo(e.target.value)} placeholder="Código (ex: VAL001)" style={inputStyle}/>
           <input value={pNome} onChange={e=>setPNome(e.target.value)} placeholder="Nome do produto *" style={inputStyle}/>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
-          <input value={pPreco} onChange={e=>setPPreco(e.target.value.replace(/[^0-9.]/g,''))} placeholder="Preço (ex: 12.50)" inputMode="decimal" style={inputStyle}/>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
+          <input value={pPreco} onChange={e=>setPPreco(e.target.value.replace(/[^0-9.]/g,''))} placeholder="Preço de venda *" inputMode="decimal" style={inputStyle}/>
+          <input value={pCusto} onChange={e=>setPCusto(e.target.value.replace(/[^0-9.]/g,''))} placeholder="Custo (CMV)" inputMode="decimal" style={inputStyle}/>
           <select value={pCat} onChange={e=>setPCat(e.target.value)} style={{...inputStyle,cursor:'pointer'}}>{CATEGORIAS_PRODUTO.map(c=><option key={c} value={c}>{c}</option>)}</select>
         </div>
         {pCat==='Químicos'&&<input value={pDiluicao} onChange={e=>setPDiluicao(e.target.value)} placeholder="Diluição (ex: 1:10, Puro)" style={{...inputStyle,marginBottom:10}}/>}

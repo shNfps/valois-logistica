@@ -167,7 +167,11 @@ export async function updateConfigRanking(updates){const{error}=await supabase.f
 
 export async function savePedidoItens(pedidoId,itens){
   await supabase.from('pedido_itens').delete().eq('pedido_id',pedidoId)
-  const rows=itens.map(i=>{const qtd=Number(i.quantidade)||0;const unit=Number(i.preco_unitario)||0;const total=Number(i.preco_total)||qtd*unit;const cod=i.codigo?String(i.codigo).replace(/\./g,''):null;return{pedido_id:pedidoId,codigo:cod,nome_produto:i.nome_produto,quantidade:qtd,unidade:i.unidade||'un',preco_unitario:unit,preco_total:total}})
+  // snapshot do custo dos produtos no momento da venda (preserva margem histórica)
+  const codigos=itens.map(i=>i.codigo?String(i.codigo).replace(/\./g,''):null).filter(Boolean)
+  const custoMap={}
+  if(codigos.length){const{data}=await supabase.from('produtos').select('codigo,custo').in('codigo',codigos);(data||[]).forEach(p=>{custoMap[p.codigo]=Number(p.custo||0)})}
+  const rows=itens.map(i=>{const qtd=Number(i.quantidade)||0;const unit=Number(i.preco_unitario)||0;const total=Number(i.preco_total)||qtd*unit;const cod=i.codigo?String(i.codigo).replace(/\./g,''):null;return{pedido_id:pedidoId,codigo:cod,nome_produto:i.nome_produto,quantidade:qtd,unidade:i.unidade||'un',preco_unitario:unit,preco_total:total,custo_unitario:cod?(custoMap[cod]??null):null}})
   if(rows.length>0){const{error}=await supabase.from('pedido_itens').insert(rows);if(error){console.error(error);return false}}
   const total=rows.reduce((s,r)=>s+r.preco_total,0)
   await supabase.from('pedidos').update({valor_total:total,atualizado_em:new Date().toISOString()}).eq('id',pedidoId)

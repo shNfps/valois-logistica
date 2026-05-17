@@ -97,15 +97,42 @@ function AlertasSection() {
   useEffect(() => { fetchConfigFinanceiro().then(setCfg) }, [])
   if (!cfg) return null
   const salvar = async () => { setSaving(true); await updateConfigFinanceiro(cfg); setSaving(false); alert('Configurações salvas') }
+  const upd = (k, v) => setCfg(c => ({ ...c, [k]: v }))
   return (
     <div style={{ ...card, padding: 18, marginBottom: 16 }}>
       <h4 style={{ margin: '0 0 12px', fontSize: 14, color: '#0A1628' }}>🔔 Alertas automáticos</h4>
       <label style={{ display: 'block', fontSize: 12, color: '#64748B', marginBottom: 4 }}>Avisar X dias antes do vencimento</label>
-      <input type="number" min="1" max="30" value={cfg.dias_alerta_vencimento} onChange={e => setCfg(c => ({ ...c, dias_alerta_vencimento: Number(e.target.value) }))} style={{ ...inputStyle, width: 120, marginBottom: 10 }} />
+      <input type="number" min="1" max="30" value={cfg.dias_alerta_vencimento} onChange={e => upd('dias_alerta_vencimento', Number(e.target.value))} style={{ ...inputStyle, width: 120, marginBottom: 10 }} />
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, cursor: 'pointer' }}>
-        <input type="checkbox" checked={cfg.alertar_inadimplencia} onChange={e => setCfg(c => ({ ...c, alertar_inadimplencia: e.target.checked }))} />
+        <input type="checkbox" checked={cfg.alertar_inadimplencia} onChange={e => upd('alertar_inadimplencia', e.target.checked)} />
         <span style={{ fontSize: 13 }}>Notificar comercial sobre clientes inadimplentes</span>
       </label>
+
+      <h4 style={{ margin: '16px 0 12px', fontSize: 14, color: '#0A1628' }}>📊 DRE — taxas e visão</h4>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div>
+          <label style={{ fontSize: 11, color: '#64748B' }}>Impostos sobre venda (%)</label>
+          <input type="number" step="0.5" min="0" max="50" value={cfg.taxa_imposto_venda ?? 12} onChange={e => upd('taxa_imposto_venda', Number(e.target.value))} style={inputStyle} />
+          <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>ICMS, PIS, COFINS</div>
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: '#64748B' }}>Impostos sobre lucro (%)</label>
+          <input type="number" step="0.5" min="0" max="50" value={cfg.taxa_imposto_lucro ?? 6} onChange={e => upd('taxa_imposto_lucro', Number(e.target.value))} style={inputStyle} />
+          <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>Simples Nacional</div>
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: '#64748B' }}>Comissão (%)</label>
+          <input type="number" step="0.5" min="0" max="20" value={cfg.taxa_comissao ?? 5} onChange={e => upd('taxa_comissao', Number(e.target.value))} style={inputStyle} />
+          <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>Sobre receita bruta</div>
+        </div>
+      </div>
+      <label style={{ display: 'block', fontSize: 11, color: '#64748B', marginBottom: 4 }}>Visão do DRE</label>
+      <select value={cfg.dre_visao || 'completo'} onChange={e => upd('dre_visao', e.target.value)} style={{ ...inputStyle, width: 220, marginBottom: 10, cursor: 'pointer' }}>
+        <option value="completo">Completo (com cascata)</option>
+        <option value="simplificado">Simplificado</option>
+      </select>
+      <div style={{ fontSize: 11, color: '#0EA5E9', marginBottom: 14 }}>💡 Cadastre o custo dos produtos em <b>Admin → Produtos</b> para o CMV calcular corretamente.</div>
+
       <button onClick={salvar} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Salvando...' : 'Salvar'}</button>
     </div>
   )

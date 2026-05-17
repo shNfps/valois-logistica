@@ -119,6 +119,7 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
   const [eNome, setENome] = useState(prod.nome)
   const [eCodigo, setECodigo] = useState(prod.codigo || '')
   const [ePreco, setEPreco] = useState(String(prod.preco))
+  const [eCusto, setECusto] = useState(prod.custo != null ? String(prod.custo) : '')
   const [eCat, setECat] = useState(prod.categoria)
   const [eDiluicao, setEDiluicao] = useState(prod.diluicao || '')
   const [eFab, setEFab] = useState(prod.fabricante || '')
@@ -134,7 +135,7 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
     let img_url = prod.img_url
     if (eImg) img_url = await uploadImage(eImg)
     else if (eImgUrl.trim()) img_url = eImgUrl.trim()
-    await updateProduto(prod.id, { nome: eNome.trim(), codigo: eCodigo.trim().replace(/\./g, '') || null, preco: parseFloat(ePreco), categoria: eCat, fabricante: eFab || null, img_url, diluicao: eCat === 'Químicos' ? eDiluicao.trim() || null : null })
+    await updateProduto(prod.id, { nome: eNome.trim(), codigo: eCodigo.trim().replace(/\./g, '') || null, preco: parseFloat(ePreco), custo: eCusto ? parseFloat(eCusto) : 0, categoria: eCat, fabricante: eFab || null, img_url, diluicao: eCat === 'Químicos' ? eDiluicao.trim() || null : null })
     setUploading(false); onSaved(); onClose()
   }
 
@@ -160,8 +161,9 @@ export function EditProdutoModal({ prod, onClose, onSaved }) {
           <input value={eCodigo} onChange={e => setECodigo(e.target.value)} placeholder="Código" style={inputStyle} />
           <input value={eNome} onChange={e => setENome(e.target.value)} placeholder="Nome *" style={inputStyle} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
           <input value={ePreco} onChange={e => setEPreco(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Preço" inputMode="decimal" style={inputStyle} />
+          <input value={eCusto} onChange={e => setECusto(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Custo" inputMode="decimal" style={inputStyle} />
           <select value={eCat} onChange={e => setECat(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
             {CATEGORIAS_PRODUTO.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
