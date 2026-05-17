@@ -15,6 +15,7 @@ import { fmtRelativo } from './notificacoes-ui.jsx'
 import { AdminManutencaoCard } from './admin-manutencao.jsx'
 import { BatchExtractorButtons } from './batch-extractor.jsx'
 import { ObsComercialInline } from './obs-comercial.jsx'
+import { RoteirosTab } from './roteiros-tab.jsx'
 
 // ─── ADMIN VIEW ───
 export function AdminView({ pedidos, refresh, user, notifs=[] }) {
@@ -58,9 +59,10 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
 
   return(<div>
     <div style={{display:'flex',gap:6,marginBottom:20,flexWrap:'wrap'}}>
-      {[{key:'dashboard',label:'Dashboard'},{key:'ranking',label:'🏆 Ranking'},{key:'usuarios',label:'Funcionários'},{key:'produtos',label:'Produtos'},{key:'pedidos',label:'Pedidos'},{key:'clientes',label:'Clientes'},{key:'comissoes',label:'Comissões'},{key:'metas',label:'Metas'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>{t.label}</button>))}
+      {[{key:'dashboard',label:'Dashboard'},{key:'ranking',label:'🏆 Ranking'},{key:'usuarios',label:'Funcionários'},{key:'produtos',label:'Produtos'},{key:'pedidos',label:'Pedidos'},{key:'roteiros',label:'🗺️ Roteiros'},{key:'clientes',label:'Clientes'},{key:'comissoes',label:'Comissões'},{key:'metas',label:'Metas'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>{t.label}</button>))}
     </div>
 
+    {tab==='roteiros'&&<RoteirosTab pedidos={pedidos} user={user}/>}
     {tab==='ranking'&&<RankingPage pedidos={pedidos} usuarios={usuarios} isAdmin={true}/>}
     {tab==='comissoes'&&<ComissoesTab pedidos={pedidos}/>}
     {tab==='metas'&&<MetasTab pedidos={pedidos}/>}

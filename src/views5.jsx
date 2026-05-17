@@ -3,7 +3,8 @@ import { supabase } from './supabase.js'
 import { fmt, groupByCidade, VEICULOS, btnPrimary, btnSmall, card, updatePedido, addHistorico, fetchRotasAtivas, fetchRotaPedidoIds, finalizarRota, fetchPedidosByIds, fetchRotasFinalizadasHoje, fetchRotaByPedido } from './db.js'
 import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
-import { MontarRotaScreen } from './views5-montar.jsx'
+import { RoteiroBuilder } from './roteiro-builder.jsx'
+import { RoteirosTab } from './roteiros-tab.jsx'
 import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
 import { ObsComercialInline } from './obs-comercial.jsx'
 
@@ -143,7 +144,7 @@ export function MotoristaView({ pedidos, refresh, user }) {
     await loadRotas(); refresh(); setSigning(false); setViewing(null); setSaving(false)
   }
 
-  if (montarRota) return <MontarRotaScreen pedidos={pedidos.filter(p => p.status === 'NF_EMITIDA')} user={user} onRotaCriada={onRotaCriada} onCancel={() => setMontarRota(false)} />
+  if (montarRota) return <RoteiroBuilder pedidos={pedidos} user={user} onClose={() => setMontarRota(false)} onConcluido={onRotaCriada} />
 
   if (viewing) {
     const p = pedidos.find(x => x.id === viewing); if (!p) { setViewing(null); return null }
@@ -158,7 +159,7 @@ export function MotoristaView({ pedidos, refresh, user }) {
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         {p.status === 'EM_ROTA' && <button onClick={() => setSigning(true)} style={{ ...btnPrimary, flex: 1, background: '#059669' }}>✍ Coletar Assinatura</button>}
-        {p.status === 'NF_EMITIDA' && <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', width: '100%', padding: 10 }}>Use "Montar Rota" para incluir este pedido em uma rota.</div>}
+        {p.status === 'NF_EMITIDA' && <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', width: '100%', padding: 10 }}>Use "Montar Roteiro" para incluir este pedido em uma rota.</div>}
       </div>
       <PedidoDetail pedido={p} /><HistoricoView pedidoId={p.id} />
     </div>)
@@ -192,14 +193,16 @@ export function MotoristaView({ pedidos, refresh, user }) {
     {toast && <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: '#059669', color: '#fff', padding: '12px 24px', borderRadius: 12, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,.3)', whiteSpace: 'nowrap' }}>{toast}</div>}
     <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid #E2E8F0', paddingBottom: 0 }}>
       <button onClick={() => setTab('rotas')} style={motTabBtn(tab === 'rotas')}>🚛 Rotas</button>
+      <button onClick={() => setTab('roteiros')} style={motTabBtn(tab === 'roteiros')}>🗺️ Meus Roteiros</button>
       <button onClick={() => setTab('reembolsos')} style={motTabBtn(tab === 'reembolsos')}>💸 Reembolsos</button>
     </div>
     {tab === 'reembolsos' && <ReembolsosFuncionarioTab user={user} />}
+    {tab === 'roteiros' && <RoteirosTab pedidos={pedidos} user={user} somenteMotorista={user.nome} />}
     {tab === 'rotas' && <>
     {secH('📋', 'Pedidos para roteirizar', nfEmitida.length)}
     {minhaRotaAtiva
       ? <div style={{ background: '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#92400E', fontWeight: 600 }}>⚠️ Você já tem uma rota ativa. Finalize a rota atual para criar uma nova.</div>
-      : <button onClick={() => setMontarRota(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 14, background: '#3B82F6' }}>🗺️ Montar Rota</button>}
+      : <button onClick={() => setMontarRota(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 14, background: '#3B82F6' }}>🗺️ Montar Roteiro</button>}
     {nfEmitida.length === 0
       ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12, marginBottom: 4 }}>Nenhum pedido aguardando roteirização ✓</div>
       : nfPorCidade.map(g => <CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}><div className="nf-grid">{g.items.map(renderCard)}</div></CidadeGroup>)}

@@ -15,6 +15,7 @@ import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
 import { criarContaReceberDoPedido } from './financeiro-db.js'
 import { InadimplenciaReadonly } from './financeiro-inadimplencia.jsx'
 import { ObsComercialInput, ObsComercialBanner, ObsComercialInline, ObsEditModal, isUrgente } from './obs-comercial.jsx'
+import { RoteirosTab } from './roteiros-tab.jsx'
 
 const FORMAS_PAGAMENTO_PEDIDO = [
   { v: 'a_vista', l: 'À vista', dias: 0 },
@@ -104,12 +105,14 @@ export function ComercialView({ pedidos, refresh, user }) {
   return(<div>
     <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
       <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
+      <button onClick={()=>setTab('roteiros')} style={tabBtn(tab==='roteiros')}>🗺️ Roteiros</button>
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
       <button onClick={()=>setTab('manutencao')} style={tabBtn(tab==='manutencao')}>🔧 Manutenção</button>
       <button onClick={()=>setTab('reembolsos')} style={tabBtn(tab==='reembolsos')}>💸 Reembolsos</button>
       <button onClick={()=>setTab('inadimplencia')} style={tabBtn(tab==='inadimplencia')}>🚨 Inadimplência</button>
       <button onClick={()=>setTab('performance')} style={tabBtn(tab==='performance')}>📊 Performance</button>
     </div>
+    {tab==='roteiros'&&<RoteirosTab pedidos={pedidos} user={user}/>}
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
     {tab==='manutencao'&&<SolicitarManutencaoTab user={user}/>}
     {tab==='reembolsos'&&<ReembolsosFuncionarioTab user={user}/>}
