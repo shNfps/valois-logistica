@@ -67,7 +67,7 @@ export function ObsComercialInput({ value, onChange }) {
   }
   return (
     <div style={{ marginBottom: 12 }}>
-      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#64748B', marginBottom: 6 }}>📢 Observação para o galpão (opcional)</label>
+      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>📢 Observação para o galpão (opcional)</label>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
         {CHIPS.map(c => <ChipBtn key={c.label} chip={c} onClick={() => append(c.text)} />)}
       </div>
