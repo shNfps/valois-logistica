@@ -67,7 +67,7 @@ export function ObsComercialInput({ value, onChange }) {
   }
   return (
     <div style={{ marginBottom: 12 }}>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#78350F', marginBottom: 6 }}>📢 Observação para o galpão (opcional)</label>
+      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#64748B', marginBottom: 6 }}>📢 Observação para o galpão (opcional)</label>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
         {CHIPS.map(c => <ChipBtn key={c.label} chip={c} onClick={() => append(c.text)} />)}
       </div>
@@ -77,7 +77,7 @@ export function ObsComercialInput({ value, onChange }) {
         rows={3}
         maxLength={MAX_OBS}
         placeholder="Ex: separar rápido, produto X já foi, urgente..."
-        style={{ ...inputStyle, height: 'auto', padding: '10px 12px', background: '#FEF3C7', borderColor: '#FDE68A', resize: 'vertical', fontFamily: 'inherit' }}
+        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: '#F8FAFC', border: '2px solid #E2E8F0', borderRadius: 10, fontSize: 14, color: '#0F172A', outline: 'none', resize: 'vertical', fontFamily: "'Inter',sans-serif" }}
       />
       <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'right', marginTop: 2 }}>{value.length}/{MAX_OBS}</div>
     </div>
