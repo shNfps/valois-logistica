@@ -38,7 +38,7 @@ export function filterPedidos(pedidos, search) {
 
 export const STATUS_MAP={PENDENTE:{label:'Pendente',color:'#B45309',bg:'#FEF3C7',border:'#FDE68A'},CONFERIDO:{label:'Conferido',color:'#065F46',bg:'#D1FAE5',border:'#A7F3D0'},INCOMPLETO:{label:'Incompleto',color:'#B91C1C',bg:'#FEE2E2',border:'#FECACA'},NF_EMITIDA:{label:'NF Emitida',color:'#1D4ED8',bg:'#DBEAFE',border:'#BFDBFE'},EM_ROTA:{label:'Em Rota',color:'#5B21B6',bg:'#EDE9FE',border:'#DDD6FE'},ENTREGUE:{label:'Entregue',color:'#065F46',bg:'#D1FAE5',border:'#A7F3D0'}}
 
-export const SETOR_MAP={admin:{label:'Admin',icon:'👑',color:'#F59E0B'},comercial:{label:'Comercial',icon:'📋',color:'#3B82F6'},galpao:{label:'Galpão',icon:'📦',color:'#10B981'},motorista:{label:'Motorista',icon:'🚛',color:'#8B5CF6'},vendedor:{label:'Vendedor',icon:'💰',color:'#0EA5E9'},manutencao:{label:'Manutenção',icon:'🔧',color:'#F97316'}}
+export const SETOR_MAP={admin:{label:'Admin',icon:'👑',color:'#F59E0B'},comercial:{label:'Comercial',icon:'📋',color:'#3B82F6'},galpao:{label:'Galpão',icon:'📦',color:'#10B981'},motorista:{label:'Motorista',icon:'🚛',color:'#8B5CF6'},vendedor:{label:'Vendedor',icon:'💰',color:'#0EA5E9'},manutencao:{label:'Manutenção',icon:'🔧',color:'#F97316'},financeiro:{label:'Financeiro',icon:'💰',color:'#059669'}}
 
 export const TIPOS_EQUIPAMENTO=['Dispenser de Sabonete','Dispenser de Papel Toalha','Dispenser de Papel Higiênico','Diluidor','Foamer','Saboneteira','Lixeira','Suporte','Outro']
 
@@ -71,10 +71,10 @@ export async function uploadImage(file){
   const{data:urlData}=supabase.storage.from('documentos').getPublicUrl(filename);return urlData.publicUrl
 }
 
-export async function createPedido(cliente,motorista,cidade,orcamentoUrl,criadoPor,numeroRefCustom,clienteId){
+export async function createPedido(cliente,motorista,cidade,orcamentoUrl,criadoPor,numeroRefCustom,clienteId,formaPagamento,prazoDias){
   const now=new Date();const prefix=String(now.getDate()).padStart(2,'0')+String(now.getMonth()+1).padStart(2,'0')
   const numero_ref=numeroRefCustom?.trim()||`${prefix}-${String(Math.floor(Math.random()*9000)+1000)}`
-  const{data,error}=await supabase.from('pedidos').insert({cliente,motorista,cidade,orcamento_url:orcamentoUrl,status:'PENDENTE',criado_por:criadoPor,numero_ref,cliente_id:clienteId||null}).select().single()
+  const{data,error}=await supabase.from('pedidos').insert({cliente,motorista,cidade,orcamento_url:orcamentoUrl,status:'PENDENTE',criado_por:criadoPor,numero_ref,cliente_id:clienteId||null,forma_pagamento:formaPagamento||'a_vista',prazo_pagamento_dias:prazoDias||0}).select().single()
   if(error){console.error(error);return null};return data
 }
 

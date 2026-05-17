@@ -11,6 +11,18 @@ import { PopupMetaDia, ConfetesMetaBatida, semanaKey, mesKey } from './vendedor-
 import { PerformanceVendedorTab } from './performance-vendedor.jsx'
 import { PerformanceComercialTab } from './performance-comercial.jsx'
 import { SolicitarManutencaoTab } from './manutencao-solicit.jsx'
+import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
+import { criarContaReceberDoPedido } from './financeiro-db.js'
+import { InadimplenciaReadonly } from './financeiro-inadimplencia.jsx'
+
+const FORMAS_PAGAMENTO_PEDIDO = [
+  { v: 'a_vista', l: 'À vista', dias: 0 },
+  { v: 'boleto_7', l: 'Boleto 7 dias', dias: 7 },
+  { v: 'boleto_14', l: 'Boleto 14 dias', dias: 14 },
+  { v: 'boleto_28', l: 'Boleto 28 dias', dias: 28 },
+  { v: 'cartao', l: 'Cartão', dias: 0 },
+  { v: 'pix', l: 'PIX', dias: 0 }
+]
 
 const tabBtn=(active)=>({padding:'8px 16px',borderRadius:'8px 8px 0 0',border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:13,background:active?'#0A1628':'transparent',color:active?'#fff':'#64748B'})
 
@@ -42,6 +54,7 @@ export function ComercialView({ pedidos, refresh, user }) {
   const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('');const [nfNumeros,setNfNumeros]=useState({})
   const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
   const [novoClienteNome,setNovoClienteNome]=useState(null);const [expandedId,setExpandedId]=useState(null)
+  const [formaPagamento,setFormaPagamento]=useState('a_vista')
   const fileRef=useRef(null);const nfFileRefs=useRef({});const orcCorrigidoRefs=useRef({})
   useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
@@ -50,14 +63,14 @@ export function ComercialView({ pedidos, refresh, user }) {
     if(!cidade){alert('Selecione a cidade');return}
     if(!arquivo){alert('Selecione o PDF do orçamento');return}
     setUploading(true)
-    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId);if(pedido){await addHistorico(pedido.id,user.nome,'Criou o pedido');await criarNotificacao('galpao',`📦 Novo pedido de ${cliente.trim()} - ${cidade}`,`Aguardando conferência · Por: ${user.nome}`,pedido.id)}setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
+    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const fp=FORMAS_PAGAMENTO_PEDIDO.find(x=>x.v===formaPagamento);const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId,formaPagamento,fp?.dias||0);if(pedido){await addHistorico(pedido.id,user.nome,'Criou o pedido');await criarNotificacao('galpao',`📦 Novo pedido de ${cliente.trim()} - ${cidade}`,`Aguardando conferência · Por: ${user.nome}`,pedido.id)}setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);setFormaPagamento('a_vista');if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
   }
   const handleNf=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return
     const numero_nf=(nfNumeros[pedidoId]||'').trim()
     if(!numero_nf){alert('Informe o número da NF');e.target.value='';return}
     setUploading(true)
-    try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA',numero_nf});await addHistorico(pedidoId,user.nome,`Anexou NF nº ${numero_nf}`);const _pnf=pedidos.find(x=>x.id===pedidoId);await criarNotificacao('motorista',`🚛 NF ${numero_nf} de ${_pnf?.cliente||''} - ${_pnf?.cidade||''}`,`Pronta para entrega · Por: ${user.nome}`,pedidoId);setNfNumeros(prev=>{const n={...prev};delete n[pedidoId];return n});refresh()}}finally{setUploading(false);e.target.value=''}
+    try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA',numero_nf});await addHistorico(pedidoId,user.nome,`Anexou NF nº ${numero_nf}`);const _pnf=pedidos.find(x=>x.id===pedidoId);await criarNotificacao('motorista',`🚛 NF ${numero_nf} de ${_pnf?.cliente||''} - ${_pnf?.cidade||''}`,`Pronta para entrega · Por: ${user.nome}`,pedidoId);if(_pnf){const cr=await criarContaReceberDoPedido({..._pnf,numero_nf});if(cr)await criarNotificacao('financeiro',`📥 Nova conta a receber: ${_pnf.cliente}`,`NF ${numero_nf} · ${fmtMoney(_pnf.valor_total||0)} · venc. ${cr.data_vencimento}`,pedidoId)}setNfNumeros(prev=>{const n={...prev};delete n[pedidoId];return n});refresh()}}finally{setUploading(false);e.target.value=''}
   }
   const handleOrcamentoCorrigido=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return;setUploading(true)
@@ -88,10 +101,14 @@ export function ComercialView({ pedidos, refresh, user }) {
       <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
       <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
       <button onClick={()=>setTab('manutencao')} style={tabBtn(tab==='manutencao')}>🔧 Manutenção</button>
+      <button onClick={()=>setTab('reembolsos')} style={tabBtn(tab==='reembolsos')}>💸 Reembolsos</button>
+      <button onClick={()=>setTab('inadimplencia')} style={tabBtn(tab==='inadimplencia')}>🚨 Inadimplência</button>
       <button onClick={()=>setTab('performance')} style={tabBtn(tab==='performance')}>📊 Performance</button>
     </div>
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
     {tab==='manutencao'&&<SolicitarManutencaoTab user={user}/>}
+    {tab==='reembolsos'&&<ReembolsosFuncionarioTab user={user}/>}
+    {tab==='inadimplencia'&&<InadimplenciaReadonly user={user} role="comercial"/>}
     {tab==='performance'&&<PerformanceComercialTab user={user} pedidos={pedidos}/>}
     {tab==='pedidos'&&<>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
@@ -101,8 +118,11 @@ export function ComercialView({ pedidos, refresh, user }) {
           <input value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Nº" style={inputStyle}/>
           <ClienteCombobox clientes={clientes} value={cliente} onChange={v=>{setCliente(v);setClienteId(null)}} onSelect={c=>{if(c){setCliente(c.nome);setClienteId(c.id)}}} onCreateNew={nome=>setNovoClienteNome(nome)}/>
         </div>
-        <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
+        <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:10,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
           <option value="">Selecione a cidade...</option>{CIDADES.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={formaPagamento} onChange={e=>setFormaPagamento(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer'}}>
+          {FORMAS_PAGAMENTO_PEDIDO.map(f=><option key={f.v} value={f.v}>💳 {f.l}</option>)}
         </select>
         <input type="file" accept=".pdf" ref={fileRef} onChange={handleFileSelect} style={{display:'none'}}/>
         <button onClick={()=>fileRef.current.click()} style={{...btnSmall,width:'100%',justifyContent:'center',marginBottom:12,borderColor:arquivo?'#10B981':'#CBD5E1',color:arquivo?'#10B981':'#64748B'}}>
@@ -120,6 +140,7 @@ export function ComercialView({ pedidos, refresh, user }) {
 
 // ─── GALPÃO VIEW ───
 export function GalpaoView({ pedidos, refresh, user }) {
+  const [tab,setTab]=useState('conferencia')
   const [viewing,setViewing]=useState(null);const [obs,setObs]=useState('');const [saving,setSaving]=useState(false)
   const relevantes=pedidos.filter(p=>['PENDENTE','INCOMPLETO'].includes(p.status))
   const aprovar=async(id)=>{setSaving(true);await updatePedido(id,{status:'CONFERIDO',conferido_por:user.nome});await addHistorico(id,user.nome,'Conferiu e aprovou');const _pa=pedidos.find(x=>x.id===id);await criarNotificacao('comercial',`✅ Pedido ${_pa?.numero_ref||id.slice(0,8).toUpperCase()} de ${_pa?.cliente||''} conferido`,`Anexe a NF · Galpão: ${user.nome}`,id);refresh();setViewing(null);setSaving(false)}
@@ -144,16 +165,23 @@ export function GalpaoView({ pedidos, refresh, user }) {
       </div>
     </div>)}
   return(<div>
-    <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Conferência ({relevantes.length})</h3>
-    {relevantes.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido para conferir 👍</div>}
-    <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>
-    {relevantes.map(p=>(<div key={p.id} onClick={()=>setViewing(p.id)} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='#fff'} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer'}}>
-      <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
-      {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>
-      <span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmt(p.criado_em)}</span>
-      {p.obs&&<span style={{fontSize:11,color:'#EF4444',marginLeft:4}}>⚠</span>}
-    </div>))}
+    <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
+      <button onClick={()=>setTab('conferencia')} style={tabBtn(tab==='conferencia')}>📦 Conferência</button>
+      <button onClick={()=>setTab('reembolsos')} style={tabBtn(tab==='reembolsos')}>💸 Reembolsos</button>
     </div>
+    {tab==='reembolsos' && <ReembolsosFuncionarioTab user={user}/>}
+    {tab==='conferencia' && <>
+      <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Conferência ({relevantes.length})</h3>
+      {relevantes.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido para conferir 👍</div>}
+      <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>
+      {relevantes.map(p=>(<div key={p.id} onClick={()=>setViewing(p.id)} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='#fff'} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer'}}>
+        <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
+        {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>
+        <span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmt(p.criado_em)}</span>
+        {p.obs&&<span style={{fontSize:11,color:'#EF4444',marginLeft:4}}>⚠</span>}
+      </div>))}
+      </div>
+    </>}
   </div>)
 }
 
@@ -204,12 +232,16 @@ export function VendedorView({ user, pedidos=[] }) {
       <button onClick={()=>setTab('comissao')} style={tabBtn(tab==='comissao')}>💰 Comissão</button>
       <button onClick={()=>setTab('rotas')} style={tabBtn(tab==='rotas')}>🗺️ Rotas</button>
       <button onClick={()=>setTab('manutencao')} style={tabBtn(tab==='manutencao')}>🔧 Manutenção</button>
+      <button onClick={()=>setTab('reembolsos')} style={tabBtn(tab==='reembolsos')}>💸 Reembolsos</button>
+      <button onClick={()=>setTab('inadimplencia')} style={tabBtn(tab==='inadimplencia')}>🚨 Inadimplência</button>
       <button onClick={()=>setTab('performance')} style={tabBtn(tab==='performance')}>📊 Performance</button>
     </div>
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
     {tab==='comissao'&&<VendedorDashboardTab user={user} pedidos={pedidos}/>}
     {tab==='rotas'&&<VendedorRotasTab/>}
     {tab==='manutencao'&&<SolicitarManutencaoTab user={user}/>}
+    {tab==='reembolsos'&&<ReembolsosFuncionarioTab user={user}/>}
+    {tab==='inadimplencia'&&<InadimplenciaReadonly user={user} role="vendedor"/>}
     {tab==='performance'&&<PerformanceVendedorTab user={user} pedidos={pedidos}/>}
     {tab==='catalogo'&&<>
     <SearchBar value={search} onChange={setSearch} placeholder="Buscar produto..."/>

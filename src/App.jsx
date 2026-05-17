@@ -6,6 +6,7 @@ import { AdminView } from './views.jsx'
 import { ComercialView, GalpaoView, VendedorView } from './views2.jsx'
 import { MotoristaView } from './views5.jsx'
 import { ManutencaoView } from './manutencao.jsx'
+import { FinanceiroView } from './financeiro.jsx'
 import { useNotificacoes, NotifBell, NotifToast } from './notificacoes-ui.jsx'
 import { AvatarCircle, AvatarPickerModal } from './avatar.jsx'
 import { EloBadgeAuto } from './performance-rank.jsx'
@@ -74,7 +75,11 @@ export default function App() {
 
   if (!user) return <LoginScreen onLogin={handleLogin} />
 
-  const userSetores = user.setores || [user.setor]
+  const baseSetores = user.setores || [user.setor]
+  // Admins veem automaticamente o módulo financeiro.
+  const userSetores = baseSetores.includes('admin') && !baseSetores.includes('financeiro')
+    ? [...baseSetores, 'financeiro']
+    : baseSetores
 
   const SETOR_ICONS = {
     admin: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>,
@@ -83,6 +88,7 @@ export default function App() {
     motorista: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16,8 20,8 23,11 23,16 16,16 16,8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
     vendedor: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
     manutencao: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>,
+    financeiro: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
   }
 
   return (
@@ -146,6 +152,7 @@ export default function App() {
             {activeTab === 'motorista' && <MotoristaView pedidos={pedidos} refresh={loadData} user={user} />}
             {activeTab === 'vendedor' && <VendedorView user={user} pedidos={pedidos} />}
             {activeTab === 'manutencao' && <ManutencaoView user={user} />}
+            {activeTab === 'financeiro' && <FinanceiroView user={user} />}
           </>
         )}
       </div>

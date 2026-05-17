@@ -4,6 +4,9 @@ import { fmt, groupByCidade, VEICULOS, btnPrimary, btnSmall, card, updatePedido,
 import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { MontarRotaScreen } from './views5-montar.jsx'
+import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
+
+const motTabBtn = (active) => ({ padding: '8px 16px', borderRadius: '8px 8px 0 0', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, background: active ? '#0A1628' : 'transparent', color: active ? '#fff' : '#64748B' })
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
 
@@ -68,6 +71,7 @@ function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
 
 // ─── MOTORISTA VIEW ───
 export function MotoristaView({ pedidos, refresh, user }) {
+  const [tab, setTab] = useState('rotas')
   const [viewing, setViewing] = useState(null); const [signing, setSigning] = useState(false); const [saving, setSaving] = useState(false)
   const [montarRota, setMontarRota] = useState(false)
   const [rotasAtivas, setRotasAtivas] = useState([]); const [rotasPedidos, setRotasPedidos] = useState({})
@@ -183,6 +187,12 @@ export function MotoristaView({ pedidos, refresh, user }) {
   return (<div>
     <style>{`.nf-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(max-width:640px){.nf-grid{grid-template-columns:1fr}}`}</style>
     {toast && <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: '#059669', color: '#fff', padding: '12px 24px', borderRadius: 12, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,.3)', whiteSpace: 'nowrap' }}>{toast}</div>}
+    <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid #E2E8F0', paddingBottom: 0 }}>
+      <button onClick={() => setTab('rotas')} style={motTabBtn(tab === 'rotas')}>🚛 Rotas</button>
+      <button onClick={() => setTab('reembolsos')} style={motTabBtn(tab === 'reembolsos')}>💸 Reembolsos</button>
+    </div>
+    {tab === 'reembolsos' && <ReembolsosFuncionarioTab user={user} />}
+    {tab === 'rotas' && <>
     {secH('📋', 'Pedidos para roteirizar', nfEmitida.length)}
     {minhaRotaAtiva
       ? <div style={{ background: '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#92400E', fontWeight: 600 }}>⚠️ Você já tem uma rota ativa. Finalize a rota atual para criar uma nova.</div>
@@ -216,5 +226,6 @@ export function MotoristaView({ pedidos, refresh, user }) {
         </div>
       ))}
     </>)}
+    </>}
   </div>)
 }
