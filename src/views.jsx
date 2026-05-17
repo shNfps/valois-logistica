@@ -14,6 +14,7 @@ import { AdminEditRotaScreen } from './views7.jsx'
 import { fmtRelativo } from './notificacoes-ui.jsx'
 import { AdminManutencaoCard } from './admin-manutencao.jsx'
 import { BatchExtractorButtons } from './batch-extractor.jsx'
+import { ObsComercialInline } from './obs-comercial.jsx'
 
 // ─── ADMIN VIEW ───
 export function AdminView({ pedidos, refresh, user, notifs=[] }) {
@@ -92,6 +93,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
         </div>
         <div style={{fontSize:11,color:'#94A3B8'}}>{[p.criado_por&&`📋${p.criado_por}`,p.conferido_por&&`📦${p.conferido_por}`,p.entregue_por&&`🚛${p.entregue_por}`].filter(Boolean).join(' → ')} · {fmt(p.atualizado_em||p.criado_em)}</div>
         {p.valor_total>0&&<div style={{fontSize:11,fontWeight:700,color:'#059669',marginTop:2}}>💰 {fmtMoney(p.valor_total)}</div>}
+        {p.obs_comercial&&<div style={{marginTop:6}}><ObsComercialInline texto={p.obs_comercial}/></div>}
         <PedidoDetail pedido={p}/>
         <div style={{marginTop:6,display:'flex',gap:6,flexWrap:'wrap'}}>
           {p.orcamento_url&&<button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#7C3AED'}}>🤖 Extrair itens</button>}
@@ -228,7 +230,8 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
           </div>
           {isExp&&(<div style={{padding:'10px 14px',background:'#F8FAFC',borderBottom:'1px solid #F1F5F9'}}>
             <div style={{fontSize:11,color:'#64748B',marginBottom:6}}>{[p.criado_por&&`📋${p.criado_por}`,p.conferido_por&&`📦${p.conferido_por}`,p.entregue_por&&`🚛${p.entregue_por}`].filter(Boolean).join(' → ')}</div>
-            {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:8}}>Obs: {p.obs}</div>}
+            <ObsComercialInline texto={p.obs_comercial}/>
+            {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:8}}>Obs galpão: {p.obs}</div>}
             <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
             <div style={{marginTop:8,display:'flex',gap:6}}>{p.orcamento_url&&<button onClick={e=>{e.stopPropagation();setExtractingPedido(p)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button>}<button onClick={e=>{e.stopPropagation();handleDeletePedido(p.id,p.cliente)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444'}}>🗑 Deletar pedido</button></div>
           </div>)}

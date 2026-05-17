@@ -14,6 +14,7 @@ import { SolicitarManutencaoTab } from './manutencao-solicit.jsx'
 import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
 import { criarContaReceberDoPedido } from './financeiro-db.js'
 import { InadimplenciaReadonly } from './financeiro-inadimplencia.jsx'
+import { ObsComercialInput, ObsComercialBanner, ObsComercialInline, ObsEditModal, isUrgente } from './obs-comercial.jsx'
 
 const FORMAS_PAGAMENTO_PEDIDO = [
   { v: 'a_vista', l: 'À vista', dias: 0 },
@@ -55,6 +56,8 @@ export function ComercialView({ pedidos, refresh, user }) {
   const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
   const [novoClienteNome,setNovoClienteNome]=useState(null);const [expandedId,setExpandedId]=useState(null)
   const [formaPagamento,setFormaPagamento]=useState('a_vista')
+  const [obsComercial,setObsComercial]=useState('')
+  const [editObsPedido,setEditObsPedido]=useState(null)
   const fileRef=useRef(null);const nfFileRefs=useRef({});const orcCorrigidoRefs=useRef({})
   useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
@@ -63,7 +66,7 @@ export function ComercialView({ pedidos, refresh, user }) {
     if(!cidade){alert('Selecione a cidade');return}
     if(!arquivo){alert('Selecione o PDF do orçamento');return}
     setUploading(true)
-    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const fp=FORMAS_PAGAMENTO_PEDIDO.find(x=>x.v===formaPagamento);const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId,formaPagamento,fp?.dias||0);if(pedido){await addHistorico(pedido.id,user.nome,'Criou o pedido');await criarNotificacao('galpao',`📦 Novo pedido de ${cliente.trim()} - ${cidade}`,`Aguardando conferência · Por: ${user.nome}`,pedido.id)}setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);setFormaPagamento('a_vista');if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
+    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const fp=FORMAS_PAGAMENTO_PEDIDO.find(x=>x.v===formaPagamento);const obsTxt=obsComercial.trim();const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId,formaPagamento,fp?.dias||0,obsTxt||null);if(pedido){const acaoCriar=obsTxt?`Criou o pedido com observação: ${obsTxt}`:'Criou o pedido';await addHistorico(pedido.id,user.nome,acaoCriar);const msgObs=obsTxt?(isUrgente(obsTxt)?` · 📢 ${obsTxt}`:` · 📢 Obs do comercial`):'';await criarNotificacao('galpao',`📦 Novo pedido de ${cliente.trim()} - ${cidade}`,`Aguardando conferência · Por: ${user.nome}${msgObs}`,pedido.id)}setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);setFormaPagamento('a_vista');setObsComercial('');if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
   }
   const handleNf=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return
@@ -87,6 +90,8 @@ export function ComercialView({ pedidos, refresh, user }) {
         <span style={{fontSize:10,color:'#94A3B8',transition:'transform 0.2s',display:'inline-block',transform:isExp?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
       </div>
       {isExp&&(<div style={{padding:'10px 14px',background:'#F8FAFC',borderBottom:'1px solid #F1F5F9'}}>
+        <ObsComercialInline texto={p.obs_comercial}/>
+        {p.status==='PENDENTE'&&<div style={{marginBottom:8}}><button onClick={e=>{e.stopPropagation();setEditObsPedido(p)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#92400E',borderColor:'#FDE68A'}}>✏️ {p.obs_comercial?'Editar':'Adicionar'} observação</button></div>}
         {p.obs&&p.status==='INCOMPLETO'&&<div style={{background:'#FEE2E2',padding:'8px 12px',borderRadius:8,fontSize:13,color:'#991B1B',marginBottom:8,fontWeight:600,border:'1px solid #FECACA'}}>⚠️ Galpão: {p.obs}</div>}
         {p.obs&&p.status!=='INCOMPLETO'&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:8}}>📋 {p.obs}</div>}
         {p.status==='INCOMPLETO'&&(<div style={{marginBottom:8}}><input type="file" accept=".pdf" ref={el=>orcCorrigidoRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleOrcamentoCorrigido(p.id,e)}/><button onClick={e=>{e.stopPropagation();orcCorrigidoRefs.current[p.id]?.click()}} disabled={uploading} style={{...btnSmall,background:'#F59E0B',color:'#fff',border:'none'}}>📄 Enviar orçamento corrigido</button></div>)}
@@ -124,6 +129,7 @@ export function ComercialView({ pedidos, refresh, user }) {
         <select value={formaPagamento} onChange={e=>setFormaPagamento(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer'}}>
           {FORMAS_PAGAMENTO_PEDIDO.map(f=><option key={f.v} value={f.v}>💳 {f.l}</option>)}
         </select>
+        <ObsComercialInput value={obsComercial} onChange={setObsComercial}/>
         <input type="file" accept=".pdf" ref={fileRef} onChange={handleFileSelect} style={{display:'none'}}/>
         <button onClick={()=>fileRef.current.click()} style={{...btnSmall,width:'100%',justifyContent:'center',marginBottom:12,borderColor:arquivo?'#10B981':'#CBD5E1',color:arquivo?'#10B981':'#64748B'}}>
           {arquivo?`✓ ${arquivo.name}`:'📎 Selecionar PDF do Orçamento *'}
@@ -135,6 +141,7 @@ export function ComercialView({ pedidos, refresh, user }) {
       {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
     </>}
     {novoClienteNome&&<NovoClienteRapidoModal nomeInicial={novoClienteNome} user={user} onClose={()=>setNovoClienteNome(null)} onCriado={c=>{if(c){setCliente(c.nome);setClienteId(c.id);setClientes(prev=>[...prev,c])}}}/>}
+    {editObsPedido&&<ObsEditModal pedido={editObsPedido} user={user} onClose={()=>setEditObsPedido(null)} onSaved={refresh}/>}
   </div>)
 }
 
@@ -152,9 +159,10 @@ export function GalpaoView({ pedidos, refresh, user }) {
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><h3 style={{margin:0,fontSize:17,color:'#0A1628'}}>{p.cliente}</h3><Badge status={p.status}/></div>
         {p.cidade&&<div style={{fontSize:12,color:'#94A3B8',marginBottom:6}}>📍 {p.cidade}</div>}
         {p.criado_por&&<div style={{fontSize:12,color:'#94A3B8',marginBottom:10}}>Criado por: <b>{p.criado_por}</b></div>}
+        <ObsComercialBanner texto={p.obs_comercial} large/>
         <PdfViewer url={p.orcamento_url} title="PDF do Orçamento"/>
       </div>
-      {p.obs&&<div style={{background:'#FEF3C7',padding:'12px 16px',borderRadius:10,fontSize:14,color:'#92400E',marginBottom:16}}>Obs anterior: {p.obs}</div>}
+      {p.obs&&<div style={{background:'#FEE2E2',padding:'12px 16px',borderRadius:10,fontSize:14,color:'#991B1B',marginBottom:16,border:'1px solid #FECACA'}}>⚠️ Obs anterior do galpão: {p.obs}</div>}
       <div style={{...card,padding:20}}>
         <label style={{display:'block',fontSize:13,fontWeight:600,color:'#334155',marginBottom:8}}>Observação (se faltar itens)</label>
         <textarea value={obs} onChange={e=>setObs(e.target.value)} rows={3} placeholder="Ex: Faltam 2 caixas de luva P..." style={{...inputStyle,resize:'vertical'}}/>
@@ -174,12 +182,16 @@ export function GalpaoView({ pedidos, refresh, user }) {
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Conferência ({relevantes.length})</h3>
       {relevantes.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido para conferir 👍</div>}
       <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>
-      {relevantes.map(p=>(<div key={p.id} onClick={()=>setViewing(p.id)} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='#fff'} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer'}}>
-        <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
-        {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>
-        <span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmt(p.criado_em)}</span>
-        {p.obs&&<span style={{fontSize:11,color:'#EF4444',marginLeft:4}}>⚠</span>}
-      </div>))}
+      {relevantes.map(p=>{const urg=isUrgente(p.obs_comercial);return(<div key={p.id} onClick={()=>setViewing(p.id)} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background=p.obs_comercial?'#FFFBEB':'#fff'} style={{display:'block',padding:'10px 14px',borderBottom:'1px solid #F1F5F9',borderLeft:p.obs_comercial?'4px solid #F59E0B':'4px solid transparent',cursor:'pointer',background:p.obs_comercial?'#FFFBEB':'#fff',animation:urg?'obs-pulse 1.4s ease-in-out infinite':'none'}}>
+        <style>{`@keyframes obs-pulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(245,158,11,0.45)}50%{box-shadow:inset 0 0 0 4px rgba(245,158,11,0.18)}}`}</style>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
+          {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>
+          <span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmt(p.criado_em)}</span>
+          {p.obs&&<span style={{fontSize:11,color:'#EF4444',marginLeft:4}}>⚠</span>}
+        </div>
+        {p.obs_comercial&&<div style={{marginTop:6,fontSize:12,color:'#78350F',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>📢 {p.obs_comercial}</div>}
+      </div>)})}
       </div>
     </>}
   </div>)

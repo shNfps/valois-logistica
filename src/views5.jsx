@@ -5,6 +5,7 @@ import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { MontarRotaScreen } from './views5-montar.jsx'
 import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
+import { ObsComercialInline } from './obs-comercial.jsx'
 
 const motTabBtn = (active) => ({ padding: '8px 16px', borderRadius: '8px 8px 0 0', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, background: active ? '#0A1628' : 'transparent', color: active ? '#fff' : '#64748B' })
 
@@ -50,6 +51,7 @@ function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
                 <RefBadge pedido={p}/><span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
                 {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
               </div>
+              {p.obs_comercial && <div style={{ marginBottom: 8 }}><ObsComercialInline texto={p.obs_comercial}/></div>}
               <button onClick={() => onAssinar(p.id)} style={{ ...btnPrimary, background: '#059669', padding: '8px 14px', fontSize: 13, width: '100%' }}>✍ Coletar Assinatura</button>
             </div>
           ))}
@@ -151,6 +153,7 @@ export function MotoristaView({ pedidos, refresh, user }) {
       <div style={{ ...card, padding: 20, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}><h3 style={{ margin: 0, fontSize: 17, color: '#0A1628' }}>{p.cliente}</h3><Badge status={p.status} /></div>
         {p.cidade && <div style={{ fontSize: 13, color: '#64748B', marginBottom: 10 }}>📍 {p.cidade}</div>}
+        <ObsComercialInline texto={p.obs_comercial}/>
         {p.nf_url && <PdfViewer url={p.nf_url} title="Nota Fiscal" />}
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
