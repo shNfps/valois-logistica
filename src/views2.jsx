@@ -139,7 +139,7 @@ export function ComercialView({ pedidos, refresh, user }) {
         </button>
         <button onClick={handleSubmit} disabled={uploading} style={{...btnPrimary,width:'100%',opacity:uploading?0.6:1}}>{uploading?'Enviando...':'+ Criar Pedido'}</button>
       </div>
-      {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} valor={g.items.reduce((s,p)=>s+(Number(p.valor_total)||0),0)} defaultOpen={g.label==='Hoje'}><div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>{g.items.map(renderRow)}</div></DateGroup>)}
+      {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} valor={g.items.reduce((s,p)=>s+(Number(p.valor_total)||0),0)} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}><div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>{g.items.map(renderRow)}</div></DateGroup>)}
       {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
       {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
     </>}

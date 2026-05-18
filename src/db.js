@@ -15,15 +15,67 @@ export const ROTA_ORDEM = {'Saquarema':0,'Araruama':1,'São Pedro':2,'Cabo Frio'
 export const CATEGORIAS_PRODUTO = ['Descartáveis','Químicos','Higiene Pessoal','Limpeza Geral','Equipamentos','Papel','Outros']
 export const FABRICANTES = ['Sevengel','Tork','Ipel','Maranso','Renko','Stork','Riosampa','Nobre','Frilca']
 
+// Agrupa pedidos com granularidade decrescente:
+// - últimos 7 dias: cada dia separadamente (Hoje, Ontem, "Sex 16/05", ...)
+// - 3 semanas anteriores (Mon-Sun): "Semana passada de 06/05 a 12/05", "Há 2 semanas - ...", "Há 3 semanas - ..."
+// - meses: "Este Mês - Maio/2026", "Mês passado - Abril/2026", "Há 2 meses - Março/2026", depois apenas "Mês/AAAA"
+// - "Mais antigos": acima de 6 meses
 export function groupByDate(pedidos) {
-  const now=new Date(); const today=new Date(now.getFullYear(),now.getMonth(),now.getDate())
-  const yesterday=new Date(today);yesterday.setDate(yesterday.getDate()-1)
-  const weekStart=new Date(today);weekStart.setDate(weekStart.getDate()-today.getDay())
-  const lastWeekStart=new Date(weekStart);lastWeekStart.setDate(lastWeekStart.getDate()-7)
-  const monthStart=new Date(now.getFullYear(),now.getMonth(),1)
-  const groups=[];const b={'Hoje':[],'Ontem':[],'Esta Semana':[],'Semana Passada':[],'Este Mês':[],'Anteriores':[]}
-  pedidos.forEach(p=>{const d=new Date(p.criado_em);if(d>=today)b['Hoje'].push(p);else if(d>=yesterday)b['Ontem'].push(p);else if(d>=weekStart)b['Esta Semana'].push(p);else if(d>=lastWeekStart)b['Semana Passada'].push(p);else if(d>=monthStart)b['Este Mês'].push(p);else b['Anteriores'].push(p)})
-  Object.entries(b).forEach(([l,items])=>{if(items.length>0)groups.push({label:l,items})});return groups
+  const now=new Date()
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate())
+  const startOfDay=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate())
+  const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x}
+  const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+  const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+  const fmtDM=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')
+  const dayLabel=d=>DIAS[d.getDay()]+' '+fmtDM(d)
+
+  const dayBuckets=[]
+  for(let i=0;i<7;i++){const d=addDays(today,-i);dayBuckets.push({time:d.getTime(),label:i===0?'Hoje':i===1?'Ontem':dayLabel(d),items:[]})}
+  const dayWindowStart=addDays(today,-6)
+
+  // Mon-Sun semanal: pega o domingo mais recente antes da janela diária e volta 3 semanas
+  const sundayOnOrBefore=d=>addDays(d,-d.getDay())
+  const lastWeekEnd=sundayOnOrBefore(addDays(dayWindowStart,-1))
+  const weekBuckets=[]
+  for(let w=0;w<3;w++){
+    const end=addDays(lastWeekEnd,-7*w);const start=addDays(end,-6)
+    const label=w===0?`Semana passada de ${fmtDM(start)} a ${fmtDM(end)}`:`Há ${w+1} semanas - ${fmtDM(start)} a ${fmtDM(end)}`
+    weekBuckets.push({start,end,label,items:[]})
+  }
+  const weekWindowStart=weekBuckets[weekBuckets.length-1].start
+  const weekWindowEnd=weekBuckets[0].end
+
+  const sixMonthsCutoff=new Date(today.getFullYear(),today.getMonth()-6,today.getDate())
+  const monthLabel=d=>{
+    const m=d.getMonth(),y=d.getFullYear()
+    const diff=(today.getFullYear()-y)*12+(today.getMonth()-m)
+    const base=`${MESES[m]}/${y}`
+    if(diff===0)return `Este Mês - ${base}`
+    if(diff===1)return `Mês passado - ${base}`
+    if(diff===2)return `Há 2 meses - ${base}`
+    return base
+  }
+
+  const monthMap={};const oldest=[]
+  pedidos.forEach(p=>{
+    const d=startOfDay(new Date(p.criado_em))
+    if(d.getTime()>today.getTime()){dayBuckets[0].items.push(p);return}
+    if(d<sixMonthsCutoff){oldest.push(p);return}
+    if(d>=dayWindowStart){const b=dayBuckets.find(b=>b.time===d.getTime());if(b){b.items.push(p);return}}
+    if(d>=weekWindowStart&&d<=weekWindowEnd){const wb=weekBuckets.find(b=>d>=b.start&&d<=b.end);if(wb){wb.items.push(p);return}}
+    const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+    if(!monthMap[mk])monthMap[mk]={monthDate:new Date(d.getFullYear(),d.getMonth(),1),label:monthLabel(d),items:[]}
+    monthMap[mk].items.push(p)
+  })
+
+  const monthBuckets=Object.values(monthMap).sort((a,b)=>b.monthDate-a.monthDate)
+  const groups=[]
+  dayBuckets.forEach(b=>{if(b.items.length)groups.push({label:b.label,items:b.items})})
+  weekBuckets.forEach(b=>{if(b.items.length)groups.push({label:b.label,items:b.items})})
+  monthBuckets.forEach(b=>{if(b.items.length)groups.push({label:b.label,items:b.items})})
+  if(oldest.length)groups.push({label:'Mais antigos',items:oldest})
+  return groups
 }
 
 export function groupByCidade(pedidos) {
@@ -122,35 +174,8 @@ export async function fetchPedidosByIds(ids){if(!ids||!ids.length)return[];const
 export async function removeRotaPedido(rotaId,pedidoId){const{error}=await supabase.from('rota_pedidos').delete().eq('rota_id',rotaId).eq('pedido_id',pedidoId);if(error)console.error(error)}
 export async function fetchRotaByPedido(pedidoId){const{data,error}=await supabase.from('rota_pedidos').select('rota_id').eq('pedido_id',pedidoId).maybeSingle();if(error){console.error(error);return null};return data?.rota_id||null}
 
-// Agrupamento por dia para a view comercial
-export function groupByDateDetalhado(pedidos){
-  const now=new Date();const today=new Date(now.getFullYear(),now.getMonth(),now.getDate())
-  const yesterday=new Date(today);yesterday.setDate(today.getDate()-1)
-  const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay())
-  const lastWeekStart=new Date(weekStart);lastWeekStart.setDate(weekStart.getDate()-7)
-  const monthStart=new Date(now.getFullYear(),now.getMonth(),1)
-  const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
-  const lbl=d=>DIAS[d.getDay()]+', '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')
-  const key=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
-  const hoje=[],ontem=[],weekMap={},lwMap={},mes=[],ant=[]
-  pedidos.forEach(p=>{
-    const d=new Date(p.criado_em);const day=new Date(d.getFullYear(),d.getMonth(),d.getDate())
-    if(day>=today){hoje.push(p);return}
-    if(day>=yesterday){ontem.push(p);return}
-    if(day>=weekStart){const k=key(day);if(!weekMap[k])weekMap[k]={day,items:[]};weekMap[k].items.push(p);return}
-    if(day>=lastWeekStart){const k=key(day);if(!lwMap[k])lwMap[k]={day,items:[]};lwMap[k].items.push(p);return}
-    if(day>=monthStart){mes.push(p);return}
-    ant.push(p)
-  })
-  const groups=[]
-  if(hoje.length)groups.push({label:'Hoje',items:hoje})
-  if(ontem.length)groups.push({label:'Ontem',items:ontem})
-  Object.entries(weekMap).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([,{day,items}])=>groups.push({label:lbl(day),items}))
-  Object.entries(lwMap).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([,{day,items}])=>groups.push({label:lbl(day),items}))
-  if(mes.length)groups.push({label:'Este Mês',items:mes})
-  if(ant.length)groups.push({label:'Anteriores',items:ant})
-  return groups
-}
+// Alias mantido para compatibilidade; usa o mesmo agrupamento da view admin.
+export const groupByDateDetalhado=groupByDate
 
 // Pedido Itens
 export async function fetchPedidoItens(pedidoId){const{data,error}=await supabase.from('pedido_itens').select('*').eq('pedido_id',pedidoId).order('criado_em');if(error){console.error(error);return[]};return data||[]}
