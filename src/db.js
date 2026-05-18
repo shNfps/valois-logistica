@@ -78,6 +78,53 @@ export function groupByDate(pedidos) {
   return groups
 }
 
+// Prazos de entrega por cidade.
+// tipo='dias': X dias úteis a partir da criação.
+// tipo='dias_semana': próximo dia da semana válido (0=Dom..6=Sáb) após a criação.
+export const PRAZOS_CIDADE = {
+  'Cabo Frio': { tipo: 'dias', dias: 2 },
+  'Búzios': { tipo: 'dias', dias: 2 },
+  'Arraial do Cabo': { tipo: 'dias', dias: 2 },
+  'São Pedro da Aldeia': { tipo: 'dias', dias: 2 },
+  'São Pedro': { tipo: 'dias', dias: 2 },
+  'Araruama': { tipo: 'dias', dias: 5 },
+  'Macaé': { tipo: 'dias_semana', dias_semana: [3, 5] },
+  'Rio das Ostras': { tipo: 'dias_semana', dias_semana: [3, 5] },
+  'Nova Friburgo': { tipo: 'dias_semana', dias_semana: [1] },
+  'Campos': { tipo: 'dias_semana', dias_semana: [1] }
+}
+
+export function calcularPrazoEntrega(pedido) {
+  if (!pedido?.cidade || !PRAZOS_CIDADE[pedido.cidade]) return null
+  const cfg = PRAZOS_CIDADE[pedido.cidade]
+  const base = new Date(pedido.criado_em)
+  if (isNaN(base.getTime())) return null
+  if (cfg.tipo === 'dias') {
+    const prazo = new Date(base); let add = 0
+    while (add < cfg.dias) { prazo.setDate(prazo.getDate() + 1); const dow = prazo.getDay(); if (dow !== 0 && dow !== 6) add++ }
+    return prazo
+  }
+  if (cfg.tipo === 'dias_semana') {
+    const prazo = new Date(base)
+    for (let i = 1; i <= 14; i++) { prazo.setDate(prazo.getDate() + 1); if (cfg.dias_semana.includes(prazo.getDay())) return prazo }
+  }
+  return null
+}
+
+// Retorna {nivel,dias,texto} para pedidos perto/passando do prazo, ou null.
+// Só considera CONFERIDO/NF_EMITIDA (ENTREGUE/EM_ROTA/PENDENTE/INCOMPLETO ficam fora).
+export function statusAtraso(pedido) {
+  if (!pedido || !['NF_EMITIDA', 'CONFERIDO'].includes(pedido.status)) return null
+  const prazo = calcularPrazoEntrega(pedido); if (!prazo) return null
+  const hoje = new Date(); const today0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+  const prazo0 = new Date(prazo.getFullYear(), prazo.getMonth(), prazo.getDate())
+  const diff = Math.round((prazo0 - today0) / 86400000)
+  if (diff < 0) { const d = Math.abs(diff); return { nivel: 'atrasado', dias: d, texto: d === 1 ? 'Atrasado 1 dia' : `Atrasado ${d} dias` } }
+  if (diff === 0) return { nivel: 'hoje', dias: 0, texto: 'Entregar hoje' }
+  if (diff === 1) return { nivel: 'amanha', dias: 1, texto: 'Entregar amanhã' }
+  return null
+}
+
 export function groupByCidade(pedidos) {
   const groups={};pedidos.forEach(p=>{const c=p.cidade||'Sem cidade';if(!groups[c])groups[c]=[];groups[c].push(p)})
   return Object.entries(groups).sort((a,b)=>(ROTA_ORDEM[a[0]]??99)-(ROTA_ORDEM[b[0]]??99)).map(([cidade,items])=>({cidade,items}))

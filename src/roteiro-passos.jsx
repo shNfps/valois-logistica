@@ -1,8 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
-import { card, btnPrimary, btnSmall, ROTA_ORDEM, fetchClientes } from './db.js'
+import { card, btnPrimary, btnSmall, ROTA_ORDEM, fetchClientes, statusAtraso } from './db.js'
 import { RefBadge } from './components.jsx'
 import { ObsComercialInline, isUrgente } from './obs-comercial.jsx'
+import { AtrasoBadge, atrasoKeyframes } from './alertas-entrega.jsx'
 import { ORIGEM_VALOIS, otimizarRotaGoogle, otimizarLocal, fmtDuracao, labelVeiculo } from './roteiro-db.js'
+
+// Atrasados primeiro (atrasado > hoje > amanha > sem alerta).
+const ATRASO_PRIO = { atrasado: 0, hoje: 1, amanha: 2 }
+const ordemAtraso = (p) => { const s = statusAtraso(p); return s ? ATRASO_PRIO[s.nivel] : 99 }
 
 // ─── PASSO 2: Selecionar pedidos ───
 export function PassoSelecionarPedidos({ pedidos, selecionados, setSelecionados, onOtimizado, onVoltar, onProximo }) {
@@ -17,6 +22,7 @@ export function PassoSelecionarPedidos({ pedidos, selecionados, setSelecionados,
     .sort((a, b) => (ROTA_ORDEM[a] ?? 99) - (ROTA_ORDEM[b] ?? 99)), [pedidos])
 
   const filtrados = pedidos.filter(p => cidadeFiltro.size === 0 || cidadeFiltro.has(p.cidade))
+    .slice().sort((a, b) => ordemAtraso(a) - ordemAtraso(b))
 
   const toggleCidade = (c) => setCidadeFiltro(prev => { const s = new Set(prev); s.has(c) ? s.delete(c) : s.add(c); return s })
   const toggle = (id) => setSelecionados(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -52,6 +58,7 @@ export function PassoSelecionarPedidos({ pedidos, selecionados, setSelecionados,
 
   return (
     <div style={{ ...card, padding: 22 }}>
+      <style>{atrasoKeyframes}</style>
       <h4 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: '#0A1628' }}>2. Selecionar pedidos</h4>
       <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Filtrar por cidade</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -75,11 +82,15 @@ export function PassoSelecionarPedidos({ pedidos, selecionados, setSelecionados,
         {filtrados.length === 0 && <div style={{ padding: 20, color: '#94A3B8', textAlign: 'center', fontSize: 13 }}>Nenhum pedido disponível com NF emitida</div>}
         {filtrados.map(p => {
           const checked = selecionados.includes(p.id)
+          const sAtr = statusAtraso(p)
+          const urgenteBg = sAtr?.nivel === 'atrasado' ? '#FEF2F2' : null
           return (
-            <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid #F1F5F9', cursor: 'pointer', background: checked ? '#F0F9FF' : '#fff' }}>
+            <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid #F1F5F9', cursor: 'pointer', background: checked ? '#F0F9FF' : urgenteBg || '#fff', borderLeft: sAtr ? `4px solid ${sAtr.nivel === 'atrasado' ? '#DC2626' : sAtr.nivel === 'hoje' ? '#EA580C' : '#CA8A04'}` : '4px solid transparent', animation: sAtr?.nivel === 'atrasado' ? 'atraso-pulse 1.6s ease-in-out infinite' : 'none' }}>
               <input type="checkbox" checked={checked} onChange={() => toggle(p.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
               <RefBadge pedido={p} />
+              {sAtr && <span style={{ background: '#DC2626', color: '#fff', fontWeight: 800, fontSize: 9, padding: '2px 6px', borderRadius: 4, letterSpacing: 0.5 }}>URGENTE</span>}
               <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.cliente}</span>
+              <AtrasoBadge pedido={p} compact />
               <span style={{ fontSize: 11, color: '#64748B', whiteSpace: 'nowrap' }}>📍 {p.cidade}</span>
               {p.obs_comercial && <span style={{ fontSize: 11, color: isUrgente(p.obs_comercial) ? '#B91C1C' : '#92400E', fontWeight: 600 }}>📢</span>}
             </label>

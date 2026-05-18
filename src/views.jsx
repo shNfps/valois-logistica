@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, fmtMoney, groupByDate, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
+import { fmt, fmtMoney, groupByDate, groupByCidade, filterPedidos, statusAtraso, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
+import { AtrasoBadge, AlertasDashboardCard, atrasoRowStyle, atrasoKeyframes, filtrarAtrasos } from './alertas-entrega.jsx'
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
 import { MetasProgressSection, ComissoesTab, MetasTab } from './comissoes-metas.jsx'
@@ -25,7 +26,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
   const [search,setSearch]=useState('');const [searchProd,setSearchProd]=useState('');const [searchUser,setSearchUser]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
   const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCusto,setPCusto]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false);const [showReajuste,setShowReajuste]=useState(false)
-  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null);const [expandedAdminId,setExpandedAdminId]=useState(null)
+  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null);const [expandedAdminId,setExpandedAdminId]=useState(null);const [atrasoFilter,setAtrasoFilter]=useState(false)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
   const loadRotas=useCallback(async()=>{setRotasAtivas(await fetchRotasAtivas())},[])
@@ -52,12 +53,14 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
     setPNome('');setPPreco('');setPCusto('');setPCat('Descartáveis');setPFab('');setPImg(null);setPCodigo('');setPDiluicao('');await loadProdutos();setPUploading(false)
   }
   const handleDeleteProd=async(id,n)=>{if(!confirm(`Deletar ${n}?`))return;await deleteProduto(id);await loadProdutos()}
-  const pedBase=pipelineFilter?pedidos.filter(p=>p.status===pipelineFilter):pedidos
+  let pedBase=pipelineFilter?pedidos.filter(p=>p.status===pipelineFilter):pedidos
+  if(atrasoFilter)pedBase=filtrarAtrasos(pedBase,['atrasado','hoje'])
   const pedidosFiltrados=filterPedidos(pedBase,search);const pedidosAgrupados=groupByDate(pedidosFiltrados)
   const counts={};Object.keys(STATUS_MAP).forEach(s=>{counts[s]=pedidos.filter(p=>p.status===s).length})
   const imgRef=useRef(null)
 
   return(<div>
+    <style>{atrasoKeyframes}</style>
     <div style={{display:'flex',gap:6,marginBottom:20,flexWrap:'wrap'}}>
       {[{key:'dashboard',label:'Dashboard'},{key:'ranking',label:'🏆 Ranking'},{key:'usuarios',label:'Funcionários'},{key:'produtos',label:'Produtos'},{key:'pedidos',label:'Pedidos'},{key:'roteiros',label:'🗺️ Roteiros'},{key:'clientes',label:'Clientes'},{key:'comissoes',label:'Comissões'},{key:'metas',label:'Metas'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>{t.label}</button>))}
     </div>
@@ -67,6 +70,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
     {tab==='comissoes'&&<ComissoesTab pedidos={pedidos}/>}
     {tab==='metas'&&<MetasTab pedidos={pedidos}/>}
     {tab==='dashboard'&&(<div>
+      <AlertasDashboardCard pedidos={pedidos}/>
       <MetasProgressSection pedidos={pedidos}/>
       <AdminVendasSection pedidos={pedidos} rotasAtivas={rotasAtivas} onEditRota={setEditRota}/>
       <AdminManutencaoCard/>
@@ -218,6 +222,9 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
     {tab==='pedidos'&&(<div>
       <BatchExtractorButtons pedidos={pedidos} refresh={refresh} userName={user?.nome}/>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade, funcionário..."/>
+      {(()=>{const n=filtrarAtrasos(pedidos,['atrasado','hoje']).length;if(n===0&&!atrasoFilter)return null;return(<div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+        <button onClick={()=>setAtrasoFilter(v=>!v)} style={{padding:'6px 12px',borderRadius:999,border:`2px solid ${atrasoFilter?'#DC2626':'#FECACA'}`,background:atrasoFilter?'#FEE2E2':'#fff',color:'#991B1B',fontFamily:'inherit',fontSize:12,fontWeight:700,cursor:'pointer'}}>⚠️ Atrasados ({n})</button>
+      </div>)})()}
       {pipelineFilter&&<div style={{background:'#F1F5F9',borderRadius:8,padding:'8px 12px',marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:12}}>
         <span style={{fontWeight:700,color:'#334155'}}>Filtrado por: {STATUS_MAP[pipelineFilter].label} ({pedidosFiltrados.length} pedidos)</span>
         <button onClick={()=>setPipelineFilter(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#64748B',fontSize:13,fontFamily:'inherit'}}>✕ Limpar</button>
@@ -225,9 +232,9 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
       {pedidosAgrupados.map(g=>(<DateGroup key={g.label} label={g.label} count={g.items.length} valor={g.items.reduce((s,p)=>s+(Number(p.valor_total)||0),0)} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}>
         <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>
         {g.items.map(p=>{const isExp=expandedAdminId===p.id;return(<div key={p.id}>
-          <div onClick={()=>setExpandedAdminId(v=>v===p.id?null:p.id)} onMouseEnter={e=>{if(!isExp)e.currentTarget.style.background='#F8FAFC'}} onMouseLeave={e=>{if(!isExp)e.currentTarget.style.background='#fff'}} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:isExp?'#F8FAFC':'#fff'}}>
+          <div onClick={()=>setExpandedAdminId(v=>v===p.id?null:p.id)} onMouseEnter={e=>{if(!isExp)e.currentTarget.style.background='#F8FAFC'}} onMouseLeave={e=>{if(!isExp)e.currentTarget.style.background='#fff'}} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:isExp?'#F8FAFC':'#fff',...atrasoRowStyle(p)}}>
             <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
-            {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>{p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669',whiteSpace:'nowrap'}}>{fmtMoney(p.valor_total)}</span>}
+            {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<AtrasoBadge pedido={p} compact/><Badge status={p.status}/>{p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669',whiteSpace:'nowrap'}}>{fmtMoney(p.valor_total)}</span>}
             <span style={{fontSize:10,color:'#94A3B8',transition:'transform 0.2s',display:'inline-block',transform:isExp?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
           </div>
           {isExp&&(<div style={{padding:'10px 14px',background:'#F8FAFC',borderBottom:'1px solid #F1F5F9'}}>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, fetchMetas, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
+import { AtrasoBadge, ResumoComercialAtrasos, atrasoRowStyle, atrasoKeyframes } from './alertas-entrega.jsx'
 import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { CarrinhoFlutuante } from './carrinho-panel.jsx'
@@ -83,9 +84,9 @@ export function ComercialView({ pedidos, refresh, user }) {
   const filtrados=filterPedidos(pedidos,search);const agrupados=groupByDateDetalhado(filtrados)
   const renderRow=(p)=>{const isExp=expandedId===p.id
     return(<div key={p.id}>
-      <div onClick={()=>setExpandedId(v=>v===p.id?null:p.id)} onMouseEnter={e=>{if(!isExp)e.currentTarget.style.background='#F8FAFC'}} onMouseLeave={e=>{if(!isExp)e.currentTarget.style.background='#fff'}} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:isExp?'#F8FAFC':'#fff'}}>
+      <div onClick={()=>setExpandedId(v=>v===p.id?null:p.id)} onMouseEnter={e=>{if(!isExp)e.currentTarget.style.background='#F8FAFC'}} onMouseLeave={e=>{if(!isExp)e.currentTarget.style.background='#fff'}} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:isExp?'#F8FAFC':'#fff',...atrasoRowStyle(p)}}>
         <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
-        {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<Badge status={p.status}/>
+        {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<AtrasoBadge pedido={p} compact/><Badge status={p.status}/>
         {p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669',whiteSpace:'nowrap'}}>{fmtMoney(p.valor_total)}</span>}
         <span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmt(p.criado_em)}</span>
         <span style={{fontSize:10,color:'#94A3B8',transition:'transform 0.2s',display:'inline-block',transform:isExp?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
@@ -119,7 +120,9 @@ export function ComercialView({ pedidos, refresh, user }) {
     {tab==='inadimplencia'&&<InadimplenciaReadonly user={user} role="comercial"/>}
     {tab==='performance'&&<PerformanceComercialTab user={user} pedidos={pedidos}/>}
     {tab==='pedidos'&&<>
+      <style>{atrasoKeyframes}</style>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar nº, cliente, cidade..."/>
+      <ResumoComercialAtrasos pedidos={pedidos}/>
       <div style={{...card,padding:24,marginBottom:20}}>
         <h3 style={{margin:'0 0 16px',fontSize:16,fontWeight:700,color:'#0A1628'}}>Novo Pedido</h3>
         <div style={{display:'grid',gridTemplateColumns:'90px 1fr',gap:12,marginBottom:10}}>

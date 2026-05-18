@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './supabase.js'
 import { SETOR_MAP, fetchPedidos } from './db.js'
+import { notificarAtrasos } from './alertas-entrega.jsx'
 import { Loader, LoginScreen } from './components.jsx'
 import { AdminView } from './views.jsx'
 import { ComercialView, GalpaoView, VendedorView } from './views2.jsx'
@@ -62,6 +63,15 @@ export default function App() {
   }, [])
 
   useEffect(() => { if (user) loadData() }, [user, loadData])
+
+  // Dispara notificações de pedidos atrasados/de hoje 1x por sessão.
+  // notificarAtrasos já tem dedup diário por localStorage.
+  const notifAtrasoFired = useRef(false)
+  useEffect(() => {
+    if (!user || notifAtrasoFired.current || pedidos.length === 0) return
+    notifAtrasoFired.current = true
+    notificarAtrasos(pedidos)
+  }, [user, pedidos])
 
   useEffect(() => {
     if (!user) return
