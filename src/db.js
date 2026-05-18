@@ -9,9 +9,9 @@ export const getRef = (p) => {
   return String(d.getDate()).padStart(2,'0') + String(d.getMonth()+1).padStart(2,'0') + '-' + p.id.slice(0,4).toUpperCase()
 }
 
-export const CIDADES = ['Araruama','Saquarema','Cabo Frio','São Pedro','Búzios','Macaé','Rio das Ostras','Nova Friburgo','Campos']
+export const CIDADES = ['Araruama','São Pedro da Aldeia','Cabo Frio','Arraial do Cabo','Búzios','Rio das Ostras','Macaé','Campos','Nova Friburgo']
 export const VEICULOS = [{key:'van',label:'Van',icon:'🚐'},{key:'kombi',label:'Kombi',icon:'🚌'},{key:'carro',label:'Carro',icon:'🚗'},{key:'moto',label:'Moto',icon:'🏍️'}]
-export const ROTA_ORDEM = {'Saquarema':0,'Araruama':1,'São Pedro':2,'Cabo Frio':3,'Búzios':4,'Rio das Ostras':5,'Macaé':6,'Campos':7,'Nova Friburgo':8}
+export const ROTA_ORDEM = {'Araruama':1,'São Pedro da Aldeia':2,'Cabo Frio':3,'Arraial do Cabo':4,'Búzios':5,'Rio das Ostras':6,'Macaé':7,'Campos':8,'Nova Friburgo':9}
 export const CATEGORIAS_PRODUTO = ['Descartáveis','Químicos','Higiene Pessoal','Limpeza Geral','Equipamentos','Papel','Outros']
 export const FABRICANTES = ['Sevengel','Tork','Ipel','Maranso','Renko','Stork','Riosampa','Nobre','Frilca']
 
@@ -86,7 +86,6 @@ export const PRAZOS_CIDADE = {
   'Búzios': { tipo: 'dias', dias: 2 },
   'Arraial do Cabo': { tipo: 'dias', dias: 2 },
   'São Pedro da Aldeia': { tipo: 'dias', dias: 2 },
-  'São Pedro': { tipo: 'dias', dias: 2 },
   'Araruama': { tipo: 'dias', dias: 5 },
   'Macaé': { tipo: 'dias_semana', dias_semana: [3, 5] },
   'Rio das Ostras': { tipo: 'dias_semana', dias_semana: [3, 5] },
