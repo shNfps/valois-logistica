@@ -138,3 +138,28 @@ export function fmtDuracao(min) {
   const h = Math.floor(min / 60); const m = min % 60
   return h > 0 ? `${h}h ${String(m).padStart(2,'0')}min` : `${m}min`
 }
+
+// Rotas atribuídas ao motorista que ainda não foram aceitas (aguardando aceite).
+export async function fetchRotasPendentesMotorista(motoristaNome) {
+  const { data, error } = await supabase.from('rotas').select('*')
+    .eq('motorista_nome', motoristaNome).eq('status', 'ativa').is('aceita_em', null)
+    .order('criado_em', { ascending: false })
+  if (error) { console.error('fetchRotasPendentes', error); return [] }
+  return data || []
+}
+
+export async function aceitarRota(rotaId) {
+  const { error } = await supabase.from('rotas').update({ aceita_em: new Date().toISOString() }).eq('id', rotaId)
+  if (error) console.error('aceitarRota', error)
+}
+
+// Recusa: marca rota como 'recusada', salva motivo, devolve pedidos pra NF_EMITIDA.
+export async function recusarRota(rotaId, motivo) {
+  const { error } = await supabase.from('rotas').update({ status: 'recusada', motivo_recusa: motivo || null }).eq('id', rotaId)
+  if (error) { console.error('recusarRota', error); return }
+  const { data: rps } = await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id', rotaId)
+  const ids = (rps || []).map(x => x.pedido_id)
+  if (ids.length) {
+    await supabase.from('pedidos').update({ status: 'NF_EMITIDA', entregue_por: null }).in('id', ids)
+  }
+}

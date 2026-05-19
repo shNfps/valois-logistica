@@ -34,14 +34,21 @@ export function DateGroup({label,count,valor,defaultOpen,children}){
   </div>)
 }
 
-export function CidadeGroup({cidade,count,children}){
-  const[open,setOpen]=useState(true)
+// persistKey opcional: salva estado expandido/fechado no localStorage.
+export function CidadeGroup({cidade,count,children,defaultOpen=true,persistKey}){
+  const initial=()=>{
+    if(persistKey){try{const v=window.localStorage.getItem(persistKey);if(v==='1')return true;if(v==='0')return false}catch{}}
+    return defaultOpen
+  }
+  const[open,setOpen]=useState(initial)
+  useEffect(()=>{if(persistKey)try{window.localStorage.setItem(persistKey,open?'1':'0')}catch{}},[open,persistKey])
   return(<div style={{marginBottom:12}}>
-    <button onClick={()=>setOpen(!open)} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'10px 14px',background:'linear-gradient(135deg,#1E293B,#334155)',border:'none',borderRadius:12,cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:700,color:'#fff',marginBottom:open?10:0}}>
+    <style>{`@keyframes cidade-expand{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    <button onClick={()=>setOpen(!open)} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'10px 14px',background:'linear-gradient(135deg,#1E293B,#334155)',border:'none',borderRadius:12,cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:700,color:'#fff',marginBottom:open?10:0,transition:'margin-bottom 0.2s'}}>
       <span style={{fontSize:12}}>📍</span>{cidade}
       <span style={{background:'rgba(255,255,255,0.2)',fontSize:11,fontWeight:700,padding:'2px 10px',borderRadius:10,marginLeft:'auto'}}>{count}</span>
       <span style={{fontSize:10,transform:open?'rotate(90deg)':'rotate(0deg)',transition:'transform 0.2s'}}>▶</span>
-    </button>{open&&<div>{children}</div>}
+    </button>{open&&<div style={{animation:'cidade-expand 0.18s ease-out'}}>{children}</div>}
   </div>)
 }
 

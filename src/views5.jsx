@@ -1,83 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, groupByCidade, VEICULOS, btnPrimary, btnSmall, card, updatePedido, addHistorico, fetchRotasAtivas, fetchRotaPedidoIds, finalizarRota, fetchPedidosByIds, fetchRotasFinalizadasHoje, fetchRotaByPedido } from './db.js'
+import { fmt, groupByCidade, btnPrimary, btnSmall, card, updatePedido, addHistorico, fetchRotasAtivas, fetchRotasFinalizadasHoje } from './db.js'
+import { fetchRotasPendentesMotorista } from './roteiro-db.js'
 import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
-import { RoteiroBuilder } from './roteiro-builder.jsx'
 import { RoteirosTab } from './roteiros-tab.jsx'
 import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
 import { ObsComercialInline } from './obs-comercial.jsx'
+import { PendenteCard, ResumoRapidoMotorista, RotaCard, pendenteKeyframes } from './motorista-extras.jsx'
 
 const motTabBtn = (active) => ({ padding: '8px 16px', borderRadius: '8px 8px 0 0', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, background: active ? '#0A1628' : 'transparent', color: active ? '#fff' : '#64748B' })
 
-const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
-
-// ─── ROTA CARD (colapsável, pedidos dentro) ───
-function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }) {
-  const [expanded, setExpanded] = useState(true)
-  const fin = rota.status === 'finalizada'
-  const emRota = pedidosRota.filter(p => p.status === 'EM_ROTA')
-  const entregues = pedidosRota.filter(p => p.status === 'ENTREGUE')
-  const total = pedidosRota.length; const ec = entregues.length
-  return (
-    <div style={{ borderRadius: 14, marginBottom: 16, overflow: 'hidden', border: `1px solid ${fin ? '#A7F3D0' : '#1E293B'}` }}>
-      <style>{`@keyframes truck-move{0%,100%{transform:translateX(0)}50%{transform:translateX(18px)}}@keyframes blink-red{0%,100%{opacity:1}50%{opacity:0.15}}`}</style>
-      <div onClick={() => setExpanded(e => !e)} style={{ padding: '14px 18px', background: fin ? '#D1FAE5' : '#0A1628', color: fin ? '#065F46' : '#fff', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 24, display: 'inline-block', animation: fin ? 'none' : 'truck-move 1.2s ease-in-out infinite' }}>{fin ? '✅' : vIcon(rota.veiculo)}</span>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: 0.5 }}>{fin ? 'ROTA FINALIZADA' : 'ROTA ATIVA'}</div>
-              <div style={{ fontSize: 12, color: fin ? '#059669' : '#94A3B8' }}>{rota.cidades?.length > 0 ? rota.cidades.join(', ') : rota.cidade} · {vIcon(rota.veiculo)} · {rota.motorista_nome}</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {!fin && <><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#EF4444', display: 'inline-block', animation: 'blink-red 1s infinite' }} /><span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', letterSpacing: 1 }}>AO VIVO</span></>}
-            {fin && onFechar && <button onClick={e => { e.stopPropagation(); onFechar() }} style={{ ...btnSmall, background: '#10B981', color: '#fff', border: 'none', fontSize: 11 }}>Fechar</button>}
-            <span style={{ fontSize: 13, opacity: 0.6, color: fin ? '#065F46' : '#fff' }}>{expanded ? '▲' : '▼'}</span>
-          </div>
-        </div>
-        <div style={{ background: fin ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '7px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: fin ? '#059669' : '#CBD5E1' }}>Entregas realizadas</span>
-          <span style={{ fontWeight: 800, fontSize: 16 }}>{ec} <span style={{ fontWeight: 400, fontSize: 12, color: fin ? '#059669' : '#94A3B8' }}>de {total}</span></span>
-        </div>
-      </div>
-      {expanded && (
-        <div style={{ padding: '12px 14px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {emRota.length === 0 && entregues.length === 0 && <div style={{ textAlign: 'center', padding: 16, color: '#94A3B8', fontSize: 13 }}>Nenhum pedido nesta rota</div>}
-          {emRota.length === 0 && entregues.length > 0 && <div style={{ textAlign: 'center', padding: 10, color: '#059669', fontWeight: 600, fontSize: 13 }}>Todos os pedidos foram entregues ✅</div>}
-          {emRota.map(p => (
-            <div key={p.id} style={{ borderLeft: '3px solid #3B82F6', borderRadius: 8, padding: '10px 12px', background: '#F8FAFC' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }} onClick={() => onVerPedido(p.id)}>
-                <RefBadge pedido={p}/><span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
-                {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
-              </div>
-              {p.obs_comercial && <div style={{ marginBottom: 8 }}><ObsComercialInline texto={p.obs_comercial}/></div>}
-              <button onClick={() => onAssinar(p.id)} style={{ ...btnPrimary, background: '#059669', padding: '8px 14px', fontSize: 13, width: '100%' }}>✍ Coletar Assinatura</button>
-            </div>
-          ))}
-          {entregues.map(p => (
-            <div key={p.id} style={{ borderLeft: '3px solid #10B981', borderRadius: 8, padding: '10px 12px', background: '#F0FDF4' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <RefBadge pedido={p}/><span style={{ fontWeight: 700, color: '#0A1628', flex: 1 }}>{p.cliente}</span>
-                {p.cidade && <span style={{ fontSize: 11, color: '#94A3B8' }}>📍{p.cidade}</span>}
-                <span>✅</span>
-              </div>
-              {p.entrega_cpf && <div style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>CPF: {p.entrega_cpf} · {fmt(p.entrega_data)}</div>}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+// RotaCard, PendenteCard e ResumoRapidoMotorista vivem em motorista-extras.jsx.
 
 // ─── MOTORISTA VIEW ───
 export function MotoristaView({ pedidos, refresh, user }) {
   const [tab, setTab] = useState('rotas')
   const [viewing, setViewing] = useState(null); const [signing, setSigning] = useState(false); const [saving, setSaving] = useState(false)
-  const [montarRota, setMontarRota] = useState(false)
   const [rotasAtivas, setRotasAtivas] = useState([]); const [rotasPedidos, setRotasPedidos] = useState({})
+  const [rotasPendentes, setRotasPendentes] = useState([])
   const [rotasFinalizadas, setRotasFinalizadas] = useState([]); const [finColapsado, setFinColapsado] = useState(true)
   const [toast, setToast] = useState(null)
 
@@ -105,15 +46,14 @@ export function MotoristaView({ pedidos, refresh, user }) {
     }
     setRotasAtivas(ativas); setRotasPedidos(map)
     setRotasFinalizadas(await fetchRotasFinalizadasHoje() || [])
-  }, [])
+    setRotasPendentes(await fetchRotasPendentesMotorista(user.nome) || [])
+  }, [user.nome])
 
   useEffect(() => { loadRotas() }, [loadRotas])
   useEffect(() => {
     const sub = supabase.channel('rotas-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'rotas' }, loadRotas).subscribe()
     return () => { supabase.removeChannel(sub) }
   }, [loadRotas])
-
-  const onRotaCriada = async () => { await loadRotas(); setMontarRota(false); refresh() }
 
   const confirmarEntrega = async (id, { assinatura, cpf }) => {
     setSaving(true)
@@ -144,8 +84,6 @@ export function MotoristaView({ pedidos, refresh, user }) {
     await loadRotas(); refresh(); setSigning(false); setViewing(null); setSaving(false)
   }
 
-  if (montarRota) return <RoteiroBuilder pedidos={pedidos} user={user} onClose={() => setMontarRota(false)} onConcluido={onRotaCriada} />
-
   if (viewing) {
     const p = pedidos.find(x => x.id === viewing); if (!p) { setViewing(null); return null }
     if (signing) return <SignaturePad onSave={data => confirmarEntrega(p.id, data)} onCancel={() => setSigning(false)} />
@@ -159,13 +97,16 @@ export function MotoristaView({ pedidos, refresh, user }) {
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         {p.status === 'EM_ROTA' && <button onClick={() => setSigning(true)} style={{ ...btnPrimary, flex: 1, background: '#059669' }}>✍ Coletar Assinatura</button>}
-        {p.status === 'NF_EMITIDA' && <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', width: '100%', padding: 10 }}>Use "Montar Roteiro" para incluir este pedido em uma rota.</div>}
+        {p.status === 'NF_EMITIDA' && <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', width: '100%', padding: 10 }}>Aguarde o comercial atribuir este pedido a uma rota.</div>}
       </div>
       <PedidoDetail pedido={p} /><HistoricoView pedidoId={p.id} />
     </div>)
   }
 
-  const minhaRotaAtiva = rotasAtivas.find(r => r.status === 'ativa' && r.motorista_nome === user.nome)
+  // Pendentes (criadas pelo comercial, motorista ainda não aceitou).
+  const minhaRotaAtiva = rotasAtivas.find(r => r.status === 'ativa' && r.aceita_em && r.motorista_nome === user.nome)
+  const rotasAtivasAceitas = rotasAtivas.filter(r => r.aceita_em)
+  const pedidosRotaAtivaUser = minhaRotaAtiva ? pedidos.filter(p => (rotasPedidos[minhaRotaAtiva.id] || []).includes(p.id)) : []
   const nfEmitida = pedidos.filter(p => p.status === 'NF_EMITIDA')
   const nfPorCidade = groupByCidade(nfEmitida)
   const secH = (icon, title, count) => <h3 style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1.5 }}>{icon} {title}{count !== undefined ? ` (${count})` : ''}</h3>
@@ -199,18 +140,23 @@ export function MotoristaView({ pedidos, refresh, user }) {
     {tab === 'reembolsos' && <ReembolsosFuncionarioTab user={user} />}
     {tab === 'roteiros' && <RoteirosTab pedidos={pedidos} user={user} somenteMotorista={user.nome} />}
     {tab === 'rotas' && <>
-    {secH('📋', 'Pedidos para roteirizar', nfEmitida.length)}
-    {minhaRotaAtiva
-      ? <div style={{ background: '#FEF3C7', borderRadius: 12, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#92400E', fontWeight: 600 }}>⚠️ Você já tem uma rota ativa. Finalize a rota atual para criar uma nova.</div>
-      : <button onClick={() => setMontarRota(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 14, background: '#3B82F6' }}>🗺️ Montar Roteiro</button>}
-    {nfEmitida.length === 0
-      ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12, marginBottom: 4 }}>Nenhum pedido aguardando roteirização ✓</div>
-      : nfPorCidade.map(g => <CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length}><div className="nf-grid">{g.items.map(renderCard)}</div></CidadeGroup>)}
-    {divider}
+    <style>{pendenteKeyframes}</style>
+    <ResumoRapidoMotorista pedidos={pedidos} user={user} rotaAtiva={minhaRotaAtiva} pedidosRotaAtiva={pedidosRotaAtivaUser} />
+
+    {rotasPendentes.length > 0 && (<>
+      {secH('📋', 'Rotas Pendentes (aguardando seu aceite)', rotasPendentes.length)}
+      {rotasPendentes.map(rota => {
+        const ids = rotasPedidos[rota.id] || []
+        const pedidosRota = pedidos.filter(p => ids.includes(p.id))
+        return <PendenteCard key={rota.id} rota={rota} pedidosRota={pedidosRota} user={user} onAceito={loadRotas} onRecusado={() => { loadRotas(); refresh() }} />
+      })}
+      {divider}
+    </>)}
+
     {secH('🚛', 'Rota Ativa')}
-    {rotasAtivas.length === 0
-      ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12 }}>Nenhuma rota ativa — monte uma rota acima</div>
-      : rotasAtivas.map(rota => {
+    {rotasAtivasAceitas.length === 0
+      ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12 }}>Nenhuma rota ativa no momento.</div>
+      : rotasAtivasAceitas.map(rota => {
           const ids = rotasPedidos[rota.id] || []
           const pedidosRota = pedidos.filter(p => ids.includes(p.id))
           return <RotaCard key={rota.id} rota={rota} pedidosRota={pedidosRota}
@@ -218,6 +164,12 @@ export function MotoristaView({ pedidos, refresh, user }) {
             onVerPedido={setViewing}
             onFechar={rota.status === 'finalizada' ? () => setRotasAtivas(prev => prev.filter(r => r.id !== rota.id)) : null} />
         })}
+
+    {divider}
+    {secH('📦', 'Pedidos para roteirizar', nfEmitida.length)}
+    {nfEmitida.length === 0
+      ? <div style={{ textAlign: 'center', padding: 28, color: '#94A3B8', background: '#F8FAFC', borderRadius: 12, marginBottom: 4 }}>Nenhum pedido aguardando roteirização ✓</div>
+      : nfPorCidade.map(g => <CidadeGroup key={g.cidade} cidade={g.cidade} count={g.items.length} defaultOpen={false} persistKey={`mot-cidade-${user.nome}-${g.cidade}`}><div className="nf-grid">{g.items.map(renderCard)}</div></CidadeGroup>)}
     {rotasFinalizadas.length > 0 && (<>
       {divider}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
