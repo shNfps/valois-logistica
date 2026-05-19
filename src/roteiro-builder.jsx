@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { inputStyle, btnPrimary, btnSmall, card, addHistorico, updatePedido, addRotaPedidos } from './db.js'
+import { inputStyle, btnPrimary, btnSmall, card, addHistorico, addRotaPedidos, updatePedidosStatus } from './db.js'
 import { fetchMotoristas, fetchUltimoRoteiroDoMotorista, gerarNumeroRoteiro, createRoteiro, updateRoteiro, enriquecerComEnderecos, VEICULOS_ROTEIRO } from './roteiro-db.js'
 import { criarNotificacao } from './notificacoes.js'
 import { gerarRoteiroPdf } from './roteiro-pdf.js'
@@ -98,11 +98,14 @@ export function RoteiroBuilder({ pedidos, user, onClose, onConcluido }) {
     const rota = await createRoteiro(payload)
     if (!rota) { setSaving(false); return alert('Erro ao salvar roteiro') }
     if (status !== 'rascunho') {
-      await addRotaPedidos(rota.id, selecionados)
-      for (const p of pedidosOrdenados) {
-        await updatePedido(p.id, { status: 'EM_ROTA', entregue_por: form.motorista })
-        await addHistorico(p.id, user.nome, `Incluído no roteiro ${numero} (motorista ${form.motorista})`)
-      }
+      const { error: errVinc } = await addRotaPedidos(rota.id, selecionados)
+      if (errVinc) { setSaving(false); return alert('Erro ao vincular pedidos à rota: ' + errVinc.message) }
+      const { error: errStatus } = await updatePedidosStatus(selecionados, { status: 'EM_ROTA', entregue_por: form.motorista })
+      if (errStatus) { setSaving(false); return alert('Erro ao atualizar status dos pedidos: ' + errStatus.message) }
+      // Histórico é best-effort (não bloqueia o fluxo se falhar em algum pedido).
+      await Promise.all(pedidosOrdenados.map(p =>
+        addHistorico(p.id, user.nome, `Incluído no roteiro ${numero} (motorista ${form.motorista})`)
+      ))
       await criarNotificacao('motorista', `🚛 Novo roteiro ${numero}`,
         `${pedidosOrdenados.length} entregas · ${cidadesArr.join(', ')} · ${form.motorista}`, null)
     }

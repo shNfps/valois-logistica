@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { card, btnPrimary, btnSmall, fmt, fetchPedidosByIds, addHistorico, updatePedido, addRotaPedidos } from './db.js'
+import { card, btnPrimary, btnSmall, fmt, fetchPedidosByIds, addHistorico, addRotaPedidos, updatePedidosStatus } from './db.js'
 import { fetchRoteiros, fetchMotoristas, labelVeiculo, fmtDuracao, updateRoteiro, enriquecerComEnderecos } from './roteiro-db.js'
 import { gerarRoteiroPdf } from './roteiro-pdf.js'
 import { RoteiroBuilder } from './roteiro-builder.jsx'
@@ -48,11 +48,11 @@ export function RoteirosTab({ pedidos, user, somenteMotorista }) {
     if (!confirm('Confirmar este roteiro? Os pedidos serão movidos para EM_ROTA.')) return
     const ids = r.ordem_pedidos || []
     if (ids.length) {
-      await addRotaPedidos(r.id, ids)
-      for (const id of ids) {
-        await updatePedido(id, { status: 'EM_ROTA', entregue_por: r.motorista_nome })
-        await addHistorico(id, user.nome, `Confirmou roteiro ${r.numero_roteiro}`)
-      }
+      const { error: errVinc } = await addRotaPedidos(r.id, ids)
+      if (errVinc) return alert('Erro ao vincular pedidos: ' + errVinc.message)
+      const { error: errStatus } = await updatePedidosStatus(ids, { status: 'EM_ROTA', entregue_por: r.motorista_nome })
+      if (errStatus) return alert('Erro ao atualizar status: ' + errStatus.message)
+      await Promise.all(ids.map(id => addHistorico(id, user.nome, `Confirmou roteiro ${r.numero_roteiro}`)))
     }
     await updateRoteiro(r.id, { status: 'ativa' })
     await load()

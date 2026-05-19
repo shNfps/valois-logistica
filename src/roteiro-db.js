@@ -153,6 +153,13 @@ export async function fetchRotasPendentesMotorista(motoristaNome) {
 export async function aceitarRota(rotaId) {
   const { error } = await supabase.from('rotas').update({ aceita_em: new Date().toISOString() }).eq('id', rotaId)
   if (error) console.error('aceitarRota', error)
+  // Garante que os pedidos vinculados estejam em EM_ROTA (alguns podem ter ficado em
+  // NF_EMITIDA se o builder falhou no meio do loop de updatePedido).
+  const { data: rps } = await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id', rotaId)
+  const ids = (rps || []).map(x => x.pedido_id)
+  if (ids.length) {
+    await supabase.from('pedidos').update({ status: 'EM_ROTA' }).in('id', ids).neq('status', 'ENTREGUE')
+  }
 }
 
 // Cancela uma rota ativa: status='cancelada', devolve pedidos para NF_EMITIDA,

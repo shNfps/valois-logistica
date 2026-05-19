@@ -14,8 +14,10 @@ export function RotaCard({ rota, pedidosRota, onAssinar, onVerPedido, onFechar }
   const fin = rota.status === 'finalizada'
   const ordemIdx = (id) => { const i = (rota.ordem_pedidos || []).indexOf(id); return i < 0 ? 9999 : i }
   const ordenados = [...pedidosRota].sort((a, b) => ordemIdx(a.id) - ordemIdx(b.id))
-  const emRota = ordenados.filter(p => p.status === 'EM_ROTA')
+  // Mostra qualquer pedido vinculado e não-entregue como "em rota" — tolera status divergente
+  // (ex.: NF_EMITIDA sem promoção pra EM_ROTA) pra não esconder pedidos do motorista.
   const entregues = ordenados.filter(p => p.status === 'ENTREGUE')
+  const emRota = ordenados.filter(p => p.status !== 'ENTREGUE')
   const total = pedidosRota.length; const ec = entregues.length
   const proxima = emRota[0]
   return (

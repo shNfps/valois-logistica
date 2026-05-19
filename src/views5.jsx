@@ -87,6 +87,8 @@ export function MotoristaView({ pedidos, refresh, user }) {
   if (viewing) {
     const p = pedidos.find(x => x.id === viewing); if (!p) { setViewing(null); return null }
     if (signing) return <SignaturePad onSave={data => confirmarEntrega(p.id, data)} onCancel={() => setSigning(false)} />
+    const vinculadoARotaAtiva = Object.values(rotasPedidos).some(ids => ids.includes(p.id))
+    const podeAssinar = vinculadoARotaAtiva && p.status !== 'ENTREGUE'
     return (<div>
       <button onClick={() => { setViewing(null); setSigning(false) }} style={{ ...btnSmall, marginBottom: 16 }}>← Voltar</button>
       <div style={{ ...card, padding: 20, marginBottom: 16 }}>
@@ -96,8 +98,8 @@ export function MotoristaView({ pedidos, refresh, user }) {
         {p.nf_url && <PdfViewer url={p.nf_url} title="Nota Fiscal" />}
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
-        {p.status === 'EM_ROTA' && <button onClick={() => setSigning(true)} style={{ ...btnPrimary, flex: 1, background: '#059669' }}>✍ Coletar Assinatura</button>}
-        {p.status === 'NF_EMITIDA' && <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', width: '100%', padding: 10 }}>Aguarde o comercial atribuir este pedido a uma rota.</div>}
+        {podeAssinar && <button onClick={() => setSigning(true)} style={{ ...btnPrimary, flex: 1, background: '#059669' }}>✍ Coletar Assinatura</button>}
+        {!podeAssinar && p.status !== 'ENTREGUE' && <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', width: '100%', padding: 10 }}>Aguarde o comercial atribuir este pedido a uma rota.</div>}
       </div>
       <PedidoDetail pedido={p} /><HistoricoView pedidoId={p.id} />
     </div>)

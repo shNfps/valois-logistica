@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getRef, btnSmall, btnPrimary, card, VEICULOS, fetchRotasAtivas, fetchRotaPedidoIds, fetchPedidosByIds, removeRotaPedido, addRotaPedidos, updatePedido } from './db.js'
+import { getRef, btnSmall, btnPrimary, card, VEICULOS, fetchRotasAtivas, fetchRotaPedidoIds, fetchPedidosByIds, removeRotaPedido, addRotaPedidos, updatePedido, updatePedidosStatus } from './db.js'
 import { Badge, RefBadge } from './components.jsx'
 
 const vIcon = v => VEICULOS.find(x => x.key === v)?.icon || '🚐'
@@ -100,8 +100,11 @@ export function AdminEditRotaScreen({ rota, pedidos, onClose, onSaved }) {
   const adicionar = async () => {
     if (!selecionados.size) return
     setSaving(true)
-    await addRotaPedidos(rota.id, [...selecionados])
-    for (const id of selecionados) await updatePedido(id, { status: 'EM_ROTA' })
+    const ids = [...selecionados]
+    const { error: errVinc } = await addRotaPedidos(rota.id, ids)
+    if (errVinc) { setSaving(false); return alert('Erro ao vincular pedidos: ' + errVinc.message) }
+    const { error: errStatus } = await updatePedidosStatus(ids, { status: 'EM_ROTA' })
+    if (errStatus) { setSaving(false); return alert('Erro ao atualizar status: ' + errStatus.message) }
     setSelecionados(new Set()); await load(); onSaved(); setSaving(false)
   }
 
