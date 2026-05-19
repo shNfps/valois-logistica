@@ -1,4 +1,6 @@
 import { supabase } from './supabase.js'
+import { addHistorico } from './db.js'
+import { criarNotificacao } from './notificacoes.js'
 
 export const VEICULOS_ROTEIRO = [
   { key: 'fiorino',  label: 'Fiorino',  icon: '🚐' },
@@ -151,6 +153,35 @@ export async function fetchRotasPendentesMotorista(motoristaNome) {
 export async function aceitarRota(rotaId) {
   const { error } = await supabase.from('rotas').update({ aceita_em: new Date().toISOString() }).eq('id', rotaId)
   if (error) console.error('aceitarRota', error)
+}
+
+// Cancela uma rota ativa: status='cancelada', devolve pedidos para NF_EMITIDA,
+// remove rota_pedidos, registra histórico em cada pedido e notifica o motorista.
+export async function cancelarRota(rotaId, usuarioNome) {
+  const { data: rota } = await supabase.from('rotas')
+    .select('motorista_nome, numero_roteiro, cidades, cidade').eq('id', rotaId).maybeSingle()
+  const { data: rps } = await supabase.from('rota_pedidos').select('pedido_id').eq('rota_id', rotaId)
+  const ids = (rps || []).map(x => x.pedido_id)
+
+  const { error: e1 } = await supabase.from('rotas').update({ status: 'cancelada' }).eq('id', rotaId)
+  if (e1) { console.error('cancelarRota status', e1); return false }
+  if (ids.length) {
+    await supabase.from('pedidos').update({ status: 'NF_EMITIDA', entregue_por: null }).in('id', ids)
+  }
+  await supabase.from('rota_pedidos').delete().eq('rota_id', rotaId)
+
+  const stamp = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  for (const id of ids) {
+    await addHistorico(id, usuarioNome, `Rota cancelada por ${usuarioNome} em ${stamp}`)
+  }
+  if (rota?.motorista_nome) {
+    const numero = rota.numero_roteiro || '(sem número)'
+    const cidades = rota.cidades?.length ? rota.cidades.join(', ') : (rota.cidade || '')
+    await criarNotificacao(rota.motorista_nome,
+      `❌ Rota ${numero} foi cancelada pelo admin`,
+      `Cidades: ${cidades || '—'} · Cancelada por ${usuarioNome}`)
+  }
+  return true
 }
 
 // Recusa: marca rota como 'recusada', salva motivo, devolve pedidos pra NF_EMITIDA.

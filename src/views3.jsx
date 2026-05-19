@@ -9,7 +9,7 @@ const fmtDoc = v => { const n=v.replace(/\D/g,'').slice(0,14); if(n.length<=3)re
 // ─── ADMIN VENDAS SECTION ───
 function getDayStart(ago = 0) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ago); return d }
 
-export function AdminVendasSection({ pedidos, rotasAtivas = [], onEditRota }) {
+export function AdminVendasSection({ pedidos, rotasAtivas = [], onEditRota, onCancelRota }) {
   const [tooltip, setTooltip] = useState(null)
   const [hovered, setHovered] = useState(null)
   const pv = pedidos.filter(p => ['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE'].includes(p.status))
@@ -81,24 +81,20 @@ export function AdminVendasSection({ pedidos, rotasAtivas = [], onEditRota }) {
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {rotasAtivas.slice(0, 4).map(r => {
-                const entregues = pedidos.filter(p => p.status === 'ENTREGUE' && p.entregue_por === r.motorista_nome).length
-                const emRota = pedidos.filter(p => p.status === 'EM_ROTA' && p.entregue_por === r.motorista_nome).length
-                const total = emRota + entregues; const pct = total > 0 ? Math.round((entregues / total) * 100) : 0
-                return (
-                  <div key={r.id} style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontWeight: 600, color: '#0F172A', fontSize: 13 }}>{r.motorista_nome}</span>
+              {rotasAtivas.slice(0, 4).map(r => (
+                <div key={r.id} style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.motorista_nome}</span>
+                    <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
                       <button onClick={() => onEditRota?.(r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', fontSize: 11, fontFamily: 'inherit', fontWeight: 500, padding: 0 }}>Editar</button>
+                      {onCancelRota && (
+                        <button onClick={() => onCancelRota(r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: 11, fontFamily: 'inherit', fontWeight: 500, padding: 0 }}>🗑️ Cancelar</button>
+                      )}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748B', marginBottom: 6 }}>{r.cidades?.length > 0 ? r.cidades.join(', ') : r.cidade}</div>
-                    <div style={{ height: 4, background: '#E2E8F0', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(to right,#2563EB,#10B981)', borderRadius: 2 }} />
-                    </div>
-                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 3 }}>{entregues}/{total} entregas</div>
                   </div>
-                )
-              })}
+                  <div style={{ fontSize: 11, color: '#64748B' }}>{r.cidades?.length > 0 ? r.cidades.join(', ') : r.cidade}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}

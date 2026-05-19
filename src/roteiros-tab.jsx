@@ -3,6 +3,7 @@ import { card, btnPrimary, btnSmall, fmt, fetchPedidosByIds, addHistorico, updat
 import { fetchRoteiros, fetchMotoristas, labelVeiculo, fmtDuracao, updateRoteiro, enriquecerComEnderecos } from './roteiro-db.js'
 import { gerarRoteiroPdf } from './roteiro-pdf.js'
 import { RoteiroBuilder } from './roteiro-builder.jsx'
+import { CancelarRotaModal } from './cancelar-rota-modal.jsx'
 
 const statusCfg = {
   rascunho:      { label: 'Rascunho',     bg: '#E2E8F0', fg: '#475569' },
@@ -20,6 +21,9 @@ export function RoteirosTab({ pedidos, user, somenteMotorista }) {
   const [filtroMot, setFiltroMot] = useState(somenteMotorista || '')
   const [filtroData, setFiltroData] = useState('')
   const [reimprimindo, setReimprimindo] = useState(null)
+  const [cancelRota, setCancelRota] = useState(null)
+  const isAdmin = (user?.setores || [user?.setor]).includes('admin')
+  const CANCELAVEL = ['rascunho', 'ativa', 'confirmada', 'em_andamento']
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -106,11 +110,15 @@ export function RoteirosTab({ pedidos, user, somenteMotorista }) {
                   {r.status === 'rascunho' && !somenteMotorista && (
                     <button onClick={() => confirmarRascunho(r)} style={{ ...btnSmall, fontSize: 11, padding: '5px 10px', color: '#10B981' }}>✓ Confirmar</button>
                   )}
+                  {!somenteMotorista && CANCELAVEL.includes(r.status) && (isAdmin || r.criado_por === user?.nome) && (
+                    <button onClick={() => setCancelRota(r)} style={{ ...btnSmall, fontSize: 11, padding: '5px 10px', color: '#EF4444' }}>🗑️ Cancelar</button>
+                  )}
                 </div>
               </div>
             </div>
           )
         })}
+      {cancelRota && <CancelarRotaModal rota={cancelRota} usuario={user?.nome} onClose={() => setCancelRota(null)} onConfirmed={load} />}
     </div>
   )
 }

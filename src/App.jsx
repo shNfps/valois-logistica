@@ -85,11 +85,10 @@ export default function App() {
 
   if (!user) return <LoginScreen onLogin={handleLogin} />
 
-  const baseSetores = user.setores || [user.setor]
-  // Admins veem automaticamente o módulo financeiro.
-  const userSetores = baseSetores.includes('admin') && !baseSetores.includes('financeiro')
-    ? [...baseSetores, 'financeiro']
-    : baseSetores
+  // Financeiro é restrito: admin não recebe acesso automático.
+  // Para admins acessarem o módulo, precisam ter o setor 'financeiro' explicitamente.
+  const userSetores = user.setores || [user.setor]
+  const podeFinanceiro = userSetores.includes('financeiro')
 
   const SETOR_ICONS = {
     admin: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>,
@@ -162,7 +161,10 @@ export default function App() {
             {activeTab === 'motorista' && <MotoristaView pedidos={pedidos} refresh={loadData} user={user} />}
             {activeTab === 'vendedor' && <VendedorView user={user} pedidos={pedidos} />}
             {activeTab === 'manutencao' && <ManutencaoView user={user} />}
-            {activeTab === 'financeiro' && <FinanceiroView user={user} />}
+            {activeTab === 'financeiro' && (podeFinanceiro
+              ? <FinanceiroView user={user} />
+              : <div style={{ padding: 40, textAlign: 'center', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 12, color: '#991B1B', fontWeight: 600 }}>🔒 Acesso restrito ao setor financeiro</div>
+            )}
           </>
         )}
       </div>

@@ -17,6 +17,7 @@ import { AdminManutencaoCard } from './admin-manutencao.jsx'
 import { BatchExtractorButtons } from './batch-extractor.jsx'
 import { ObsComercialInline } from './obs-comercial.jsx'
 import { RoteirosTab } from './roteiros-tab.jsx'
+import { CancelarRotaModal } from './cancelar-rota-modal.jsx'
 
 // ─── ADMIN VIEW ───
 export function AdminView({ pedidos, refresh, user, notifs=[] }) {
@@ -26,7 +27,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
   const [search,setSearch]=useState('');const [searchProd,setSearchProd]=useState('');const [searchUser,setSearchUser]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
   // Produto state
   const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCusto,setPCusto]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false);const [showReajuste,setShowReajuste]=useState(false)
-  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null);const [expandedAdminId,setExpandedAdminId]=useState(null);const [atrasoFilter,setAtrasoFilter]=useState(false)
+  const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [cancelRota,setCancelRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null);const [expandedAdminId,setExpandedAdminId]=useState(null);const [atrasoFilter,setAtrasoFilter]=useState(false)
   const loadUsuarios=useCallback(async()=>{setUsuarios(await fetchUsuarios())},[])
   const loadProdutos=useCallback(async()=>{setProdutos(await fetchProdutos())},[])
   const loadRotas=useCallback(async()=>{setRotasAtivas(await fetchRotasAtivas())},[])
@@ -72,7 +73,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
     {tab==='dashboard'&&(<div>
       <AlertasDashboardCard pedidos={pedidos}/>
       <MetasProgressSection pedidos={pedidos}/>
-      <AdminVendasSection pedidos={pedidos} rotasAtivas={rotasAtivas} onEditRota={setEditRota}/>
+      <AdminVendasSection pedidos={pedidos} rotasAtivas={rotasAtivas} onEditRota={setEditRota} onCancelRota={setCancelRota}/>
       <AdminManutencaoCard/>
       <PerformanceFlashcard pedidos={pedidos} usuarios={usuarios}/>
       <TopVendedores pedidos={pedidos}/>
@@ -251,6 +252,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
     {extractingPedido&&<ExtractorPanel pedido={extractingPedido} onClose={()=>setExtractingPedido(null)} onSaved={refresh}/>}
     {editProd&&<EditProdutoModal prod={editProd} onClose={()=>setEditProd(null)} onSaved={()=>{loadProdutos();setEditProd(null)}}/>}
     {editRota&&<AdminEditRotaScreen rota={editRota} pedidos={pedidos} onClose={()=>setEditRota(null)} onSaved={()=>{loadRotas();refresh()}}/>}
+    {cancelRota&&<CancelarRotaModal rota={cancelRota} usuario={user?.nome} onClose={()=>setCancelRota(null)} onConfirmed={()=>{loadRotas();refresh()}}/>}
     {showReprocessar&&<ReprocessarCodigosModal pedidos={pedidos} onClose={()=>setShowReprocessar(false)} onDone={loadProdutos}/>}
     {showFotos&&<FotosProdutosModal produtos={produtos} onClose={()=>setShowFotos(false)} onSaved={loadProdutos}/>}
     {showReajuste&&<ReajusteModal produtos={produtos} onClose={()=>setShowReajuste(false)} onSaved={loadProdutos}/>}
