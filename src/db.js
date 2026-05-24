@@ -13,6 +13,21 @@ export const CIDADES = ['Araruama','São Pedro da Aldeia','Cabo Frio','Arraial d
 export const VEICULOS = [{key:'van',label:'Van',icon:'🚐'},{key:'kombi',label:'Kombi',icon:'🚌'},{key:'carro',label:'Carro',icon:'🚗'},{key:'moto',label:'Moto',icon:'🏍️'}]
 export const ROTA_ORDEM = {'Araruama':1,'São Pedro da Aldeia':2,'Cabo Frio':3,'Arraial do Cabo':4,'Búzios':5,'Rio das Ostras':6,'Macaé':7,'Campos':8,'Nova Friburgo':9}
 export const CATEGORIAS_PRODUTO = ['Descartáveis','Químicos','Higiene Pessoal','Limpeza Geral','Equipamentos','Papel','Outros']
+// Segmentos de cliente — usado em /admin-clientes (form, listagem, filtro, ordenação)
+// e no relatório de diagnóstico (mediana YoY por segmento).
+// Ordem do array é a ordem que aparece no dropdown.
+export const SEGMENTOS = [
+  { key: 'HOSPITAL',    label: 'Hospital',    icon: '🏥', color: '#DC2626' },
+  { key: 'MERCADO',     label: 'Mercado',     icon: '🛒', color: '#059669' },
+  { key: 'CLINICA',     label: 'Clínica',     icon: '🩺', color: '#EC4899' },
+  { key: 'RESTAURANTE', label: 'Restaurante', icon: '🍴', color: '#F59E0B' },
+  { key: 'HOTELARIA',   label: 'Hotelaria',   icon: '🏨', color: '#3B82F6' },
+  { key: 'CONDOMINIO',  label: 'Condomínio',  icon: '🏢', color: '#8B5CF6' },
+  { key: 'INDUSTRIA',   label: 'Indústria',   icon: '🏭', color: '#475569' },
+  { key: 'PUBLICO',     label: 'Público',     icon: '🏛️', color: '#0EA5E9' },
+  { key: 'OUTROS',      label: 'Outros',      icon: '📦', color: '#94A3B8' }
+]
+export const SEGMENTO_MAP = Object.fromEntries(SEGMENTOS.map(s => [s.key, s]))
 export const FABRICANTES = ['Sevengel','Tork','Ipel','Maranso','Renko','Stork','Riosampa','Nobre','Frilca']
 
 // Agrupa pedidos com granularidade decrescente:

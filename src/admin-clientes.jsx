@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, deleteCliente, updateCliente, updateClientesLote, fetchVendedores } from './db.js'
+import { fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, SEGMENTOS, SEGMENTO_MAP, fetchClientes, createCliente, deleteCliente, updateCliente, updateClientesLote, fetchVendedores } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
 import { ClienteBadges, calcClienteBadges, ALL_BADGE_KEYS, BADGE_DEFS } from './cliente-badges.jsx'
 import { EnderecoAutocomplete } from './endereco-autocomplete.jsx'
@@ -15,9 +15,12 @@ export function AdminClientesTab({ pedidos = [], user }) {
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState('')
   const [documento, setDocumento] = useState(''); const [endereco, setEndereco] = useState(''); const [cnpj, setCnpj] = useState('')
   const [vendedorNovo, setVendedorNovo] = useState('Valois')
+  const [segmentoNovo, setSegmentoNovo] = useState('')
   const [latitude, setLatitude] = useState(null); const [longitude, setLongitude] = useState(null)
   const [saving, setSaving] = useState(false)
   const [filtroVendedor, setFiltroVendedor] = useState('todos')
+  const [filtroSegmento, setFiltroSegmento] = useState('todos')
+  const [ordenacao, setOrdenacao] = useState('padrao') // padrao | nome | segmento | faturamento
   const [modoLote, setModoLote] = useState(false)
   const [selecionados, setSelecionados] = useState(new Set())
   const [vendedorLote, setVendedorLote] = useState('')
@@ -39,11 +42,32 @@ export function AdminClientesTab({ pedidos = [], user }) {
   const [activeFilters, setActiveFilters] = useState([])
   const toggleFilter = k => setActiveFilters(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
 
-  const displayClientes = useMemo(() => clientes.filter(c => {
-    if (filtroVendedor === 'valois') return !c.vendedor_nome || c.vendedor_nome === 'Valois'
-    if (filtroVendedor !== 'todos') return c.vendedor_nome === filtroVendedor
-    return true
-  }).filter(c => activeFilters.length === 0 || activeFilters.every(k => badgesMap[c.id]?.includes(k))), [clientes, filtroVendedor, activeFilters, badgesMap])
+  const displayClientes = useMemo(() => {
+    let arr = clientes.filter(c => {
+      if (filtroVendedor === 'valois') return !c.vendedor_nome || c.vendedor_nome === 'Valois'
+      if (filtroVendedor !== 'todos') return c.vendedor_nome === filtroVendedor
+      return true
+    }).filter(c => {
+      if (filtroSegmento === 'todos') return true
+      if (filtroSegmento === 'sem')   return !c.segmento
+      return c.segmento === filtroSegmento
+    }).filter(c => activeFilters.length === 0 || activeFilters.every(k => badgesMap[c.id]?.includes(k)))
+
+    if (ordenacao === 'nome') {
+      arr = [...arr].sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'))
+    } else if (ordenacao === 'segmento') {
+      // Sem segmento vai pro final; dentro do mesmo segmento, ordena por nome.
+      arr = [...arr].sort((a, b) => {
+        const sa = a.segmento || '￿'
+        const sb = b.segmento || '￿'
+        if (sa !== sb) return sa.localeCompare(sb, 'pt-BR')
+        return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')
+      })
+    } else if (ordenacao === 'faturamento') {
+      arr = [...arr].sort((a, b) => (valorMap[b.nome?.toLowerCase()] || 0) - (valorMap[a.nome?.toLowerCase()] || 0))
+    }
+    return arr
+  }, [clientes, filtroVendedor, filtroSegmento, activeFilters, badgesMap, ordenacao, valorMap])
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
@@ -54,9 +78,9 @@ export function AdminClientesTab({ pedidos = [], user }) {
     if (!vendedorNovo) { alert('Selecione o vendedor responsável'); return }
     setSaving(true)
     const docLimpo = documento.replace(/\D/g, '') || null
-    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, documento: docLimpo, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo, latitude: latitude || null, longitude: longitude || null })
+    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, documento: docLimpo, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo, segmento: segmentoNovo || null, latitude: latitude || null, longitude: longitude || null })
     if (error) { alert(error.code === '23505' ? 'CNPJ já cadastrado' : 'Erro: ' + error.message); setSaving(false); return }
-    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setDocumento(''); setEndereco(''); setCnpj(''); setVendedorNovo('Valois'); setLatitude(null); setLongitude(null)
+    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setDocumento(''); setEndereco(''); setCnpj(''); setVendedorNovo('Valois'); setSegmentoNovo(''); setLatitude(null); setLongitude(null)
     await load(); setSaving(false)
   }
 
@@ -95,11 +119,17 @@ export function AdminClientesTab({ pedidos = [], user }) {
           <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={inputStyle} />
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="E-mail" style={inputStyle} />
         </div>
-        <select value={vendedorNovo} onChange={e => setVendedorNovo(e.target.value)} style={{ ...inputStyle, marginBottom: 14, cursor: 'pointer', borderColor: vendedorNovo ? '#E2E8F0' : '#EF4444' }}>
-          <option value="">Vendedor responsável *</option>
-          <option value="Valois">Valois (empresa)</option>
-          {vendedores.map(v => <option key={v.id} value={v.nome}>{v.nome}</option>)}
-        </select>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+          <select value={vendedorNovo} onChange={e => setVendedorNovo(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', borderColor: vendedorNovo ? '#E2E8F0' : '#EF4444' }}>
+            <option value="">Vendedor responsável *</option>
+            <option value="Valois">Valois (empresa)</option>
+            {vendedores.map(v => <option key={v.id} value={v.nome}>{v.nome}</option>)}
+          </select>
+          <select value={segmentoNovo} onChange={e => setSegmentoNovo(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', color: segmentoNovo ? '#0A1628' : '#94A3B8' }}>
+            <option value="">Segmento (opcional)</option>
+            {SEGMENTOS.map(s => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
+          </select>
+        </div>
         <button onClick={criar} disabled={saving} style={{ ...btnPrimary, width: '100%', opacity: saving ? 0.6 : 1 }}>{saving ? 'Salvando...' : '+ Adicionar Cliente'}</button>
       </div>
 
@@ -112,6 +142,29 @@ export function AdminClientesTab({ pedidos = [], user }) {
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
         <button onClick={() => setActiveFilters([])} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: activeFilters.length === 0 ? '#0A1628' : '#E2E8F0', color: activeFilters.length === 0 ? '#fff' : '#64748B', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>Todos</button>
         {ALL_BADGE_KEYS.map(k => { const cnt = Object.values(badgesMap).filter(b => b.includes(k)).length; if (!cnt) return null; const active = activeFilters.includes(k); return <button key={k} onClick={() => toggleFilter(k)} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: active ? '#0A1628' : '#E2E8F0', color: active ? '#fff' : '#64748B', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>{BADGE_DEFS[k].icon} {cnt}</button> })}
+      </div>
+
+      {/* Filtro por segmento */}
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.8, marginRight: 4 }}>Segmento:</span>
+        {(() => {
+          const cntPorSeg = {}; clientes.forEach(c => { const k = c.segmento || 'sem'; cntPorSeg[k] = (cntPorSeg[k] || 0) + 1 })
+          const opts = [['todos', 'Todos', clientes.length], ...SEGMENTOS.map(s => [s.key, `${s.icon} ${s.label}`, cntPorSeg[s.key] || 0]), ['sem', '— sem segmento', cntPorSeg.sem || 0]]
+          return opts.filter(([k, , cnt]) => k === 'todos' || cnt > 0).map(([k, l, cnt]) => (
+            <button key={k} onClick={() => setFiltroSegmento(k)} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: filtroSegmento === k ? '#0A1628' : '#E2E8F0', color: filtroSegmento === k ? '#fff' : '#64748B', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>{l} ({cnt})</button>
+          ))
+        })()}
+      </div>
+
+      {/* Ordenação */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.8 }}>Ordenar:</span>
+        <select value={ordenacao} onChange={e => setOrdenacao(e.target.value)} style={{ ...inputStyle, height: 28, padding: '0 8px', fontSize: 11, width: 'auto', cursor: 'pointer' }}>
+          <option value="padrao">Padrão (por nome)</option>
+          <option value="nome">Nome (A→Z)</option>
+          <option value="segmento">Segmento</option>
+          <option value="faturamento">Faturamento (maior→menor)</option>
+        </select>
       </div>
 
       {/* Barra lote */}
@@ -148,6 +201,11 @@ export function AdminClientesTab({ pedidos = [], user }) {
               <div style={{ flex: 1, minWidth: 0 }} onClick={() => !modoLote && setSelecionado(c.id)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', cursor: modoLote ? 'default' : 'pointer' }}>
                   <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</span>
+                  {c.segmento && SEGMENTO_MAP[c.segmento] && (
+                    <span style={{ background: SEGMENTO_MAP[c.segmento].color + '22', color: SEGMENTO_MAP[c.segmento].color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                      {SEGMENTO_MAP[c.segmento].icon} {SEGMENTO_MAP[c.segmento].label}
+                    </span>
+                  )}
                   {nPedidos > 0 && <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{nPedidos} pedido{nPedidos > 1 ? 's' : ''}</span>}
                   <ClienteBadges pedidos={cPedidos} />
                   <span style={{ background: '#F0FDF4', color: valorTotal > 0 ? '#059669' : '#94A3B8', fontWeight: 700, padding: '4px 10px', borderRadius: 8, fontSize: 12 }}>{fmtMoney(valorTotal)}</span>

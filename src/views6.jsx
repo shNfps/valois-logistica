@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fmt, fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchPedidosByCliente, fetchItensByPedidoIds, fetchVendedores, updateCliente, updatePedidosCliente, getRef } from './db.js'
+import { fmt, fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, SEGMENTOS, SEGMENTO_MAP, fetchPedidosByCliente, fetchItensByPedidoIds, fetchVendedores, updateCliente, updatePedidosCliente, getRef } from './db.js'
 import { Badge } from './components.jsx'
 import { ClienteBadges } from './cliente-badges.jsx'
 import { ClienteEquipamentosSection } from './admin-manutencao.jsx'
@@ -22,6 +22,7 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
   const [eTelefone, setETelefone] = useState('')
   const [eEmail, setEEmail] = useState('')
   const [eVendedor, setEVendedor] = useState('')
+  const [eSegmento, setESegmento] = useState('')
   const [eLatitude, setELatitude] = useState(null)
   const [eLongitude, setELongitude] = useState(null)
 
@@ -54,6 +55,7 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
     setETelefone(cliente.telefone || '')
     setEEmail(cliente.email || '')
     setEVendedor(cliente.vendedor_nome || 'Valois')
+    setESegmento(cliente.segmento || '')
     setELatitude(cliente.latitude || null)
     setELongitude(cliente.longitude || null)
     if (isAdmin) { const vs = await fetchVendedores(); setVendedores(vs) }
@@ -76,6 +78,7 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
     }
     updates.telefone = eTelefone.trim() || null
     updates.email = eEmail.trim() || null
+    if (!camposRestritos) updates.segmento = eSegmento || null
     if (podeEditarVendedor) updates.vendedor_nome = eVendedor || 'Valois'
 
     await updateCliente(cliente.id, updates)
@@ -129,6 +132,12 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
               <input value={eTelefone} onChange={e => setETelefone(e.target.value)} placeholder="Telefone" style={inputStyle} />
               <input value={eEmail} onChange={e => setEEmail(e.target.value)} placeholder="E-mail" style={inputStyle} />
             </div>
+            {!camposRestritos && (
+              <select value={eSegmento} onChange={e => setESegmento(e.target.value)} style={{ ...inputStyle, marginBottom: 8, cursor: 'pointer', color: eSegmento ? '#0A1628' : '#94A3B8' }}>
+                <option value="">Segmento (opcional)</option>
+                {SEGMENTOS.map(s => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
+              </select>
+            )}
             {podeEditarVendedor && (
               <select value={eVendedor} onChange={e => setEVendedor(e.target.value)} style={{ ...inputStyle, marginBottom: 8, cursor: 'pointer' }}>
                 <option value="Valois">Valois (empresa)</option>
@@ -145,6 +154,11 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0A1628' }}>{cliente.nome}</h3>
+                {cliente.segmento && SEGMENTO_MAP[cliente.segmento] && (
+                  <span style={{ background: SEGMENTO_MAP[cliente.segmento].color + '22', color: SEGMENTO_MAP[cliente.segmento].color, fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                    {SEGMENTO_MAP[cliente.segmento].icon} {SEGMENTO_MAP[cliente.segmento].label}
+                  </span>
+                )}
                 <ClienteBadges pedidos={pedidos} />
               </div>
               {podeEditar && <button onClick={abrirEdicao} style={{ ...btnSmall, fontSize: 12, padding: '5px 10px', color: '#3B82F6', flexShrink: 0 }}>✏️ Editar cadastro</button>}

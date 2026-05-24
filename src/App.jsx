@@ -11,6 +11,33 @@ import { FinanceiroView } from './financeiro.jsx'
 import { useNotificacoes, NotifBell, NotifToast } from './notificacoes-ui.jsx'
 import { AvatarCircle, AvatarPickerModal } from './avatar.jsx'
 import { EloBadgeAuto } from './performance-rank.jsx'
+import RelatorioDiagnosticoTop20 from './relatorios-diagnostico.jsx'
+import RelatorioVisitasPendentes from './relatorios-visitas.jsx'
+
+// Usuários liberados para a aba "Relatórios" (diagnóstico Top 20, visitas de retenção).
+// Hardcoded por nome — alinhado com a decisão do projeto.
+const RELATORIOS_USERS = ['Matheus']
+
+function RelatoriosView({ user }) {
+  const [sub, setSub] = useState('diagnostico')
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, background: '#fff', padding: 4, borderRadius: 999, border: '1px solid #E2E8F0', width: 'fit-content' }}>
+        {[['diagnostico', '🔬 Diagnóstico Top 20'], ['visitas', '📅 Visitas Pendentes']].map(([k, l]) => (
+          <button key={k} onClick={() => setSub(k)} style={{
+            padding: '6px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
+            background: sub === k ? '#0F172A' : 'transparent',
+            color: sub === k ? '#fff' : '#475569',
+            fontSize: 12, fontWeight: sub === k ? 700 : 500,
+            fontFamily: "'Inter',sans-serif"
+          }}>{l}</button>
+        ))}
+      </div>
+      {sub === 'diagnostico' && <RelatorioDiagnosticoTop20 user={user} />}
+      {sub === 'visitas'     && <RelatorioVisitasPendentes />}
+    </div>
+  )
+}
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -87,8 +114,10 @@ export default function App() {
 
   // Financeiro é restrito: admin não recebe acesso automático.
   // Para admins acessarem o módulo, precisam ter o setor 'financeiro' explicitamente.
-  const userSetores = user.setores || [user.setor]
-  const podeFinanceiro = userSetores.includes('financeiro')
+  const userSetoresBase = user.setores || [user.setor]
+  const podeRelatorios = RELATORIOS_USERS.includes(user.nome)
+  const userSetores = podeRelatorios ? [...userSetoresBase, 'relatorios'] : userSetoresBase
+  const podeFinanceiro = userSetoresBase.includes('financeiro')
 
   const SETOR_ICONS = {
     admin: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>,
@@ -98,7 +127,11 @@ export default function App() {
     vendedor: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
     manutencao: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>,
     financeiro: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
+    relatorios: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>,
   }
+
+  // Label/cor da aba 'relatorios' (não está no SETOR_MAP de db.js)
+  const RELATORIOS_TAB = { label: 'Relatórios', icon: '📊', color: '#7C3AED' }
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif", background: '#F8FAFC', minHeight: '100vh', color: '#0F172A' }}>
@@ -136,7 +169,7 @@ export default function App() {
           </div>
           <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 999, padding: 3, overflowX: 'auto' }}>
               {userSetores.map(s => {
-                const info = SETOR_MAP[s] || SETOR_MAP.comercial
+                const info = s === 'relatorios' ? RELATORIOS_TAB : (SETOR_MAP[s] || SETOR_MAP.comercial)
                 const isActive = activeTab === s
                 return (
                   <button key={s} onClick={() => setActiveTab(s)} style={{
@@ -164,6 +197,10 @@ export default function App() {
             {activeTab === 'financeiro' && (podeFinanceiro
               ? <FinanceiroView user={user} />
               : <div style={{ padding: 40, textAlign: 'center', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 12, color: '#991B1B', fontWeight: 600 }}>🔒 Acesso restrito ao setor financeiro</div>
+            )}
+            {activeTab === 'relatorios' && (podeRelatorios
+              ? <RelatoriosView user={user} />
+              : <div style={{ padding: 40, textAlign: 'center', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 12, color: '#991B1B', fontWeight: 600 }}>🔒 Acesso restrito</div>
             )}
           </>
         )}
