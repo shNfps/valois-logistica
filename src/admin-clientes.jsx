@@ -26,6 +26,7 @@ export function AdminClientesTab({ pedidos = [], user }) {
   const [vendedorLote, setVendedorLote] = useState('')
   const [toast, setToast] = useState(null)
   const [editandoVendedor, setEditandoVendedor] = useState(null)
+  const [editandoSegmento, setEditandoSegmento] = useState(null)
 
   const load = useCallback(async () => { setClientes(await fetchClientes()); setVendedores(await fetchVendedores()) }, [])
   useEffect(() => { load() }, [load])
@@ -88,6 +89,13 @@ export function AdminClientesTab({ pedidos = [], user }) {
     await updateCliente(clienteId, { vendedor_nome: novoVendedor })
     setEditandoVendedor(null); await load()
     showToast(`✅ ${clienteNome} transferido para ${novoVendedor}`)
+  }
+
+  const alterarSegmento = async (clienteId, novoSegmento, clienteNome) => {
+    await updateCliente(clienteId, { segmento: novoSegmento || null })
+    setEditandoSegmento(null); await load()
+    const lbl = novoSegmento ? (SEGMENTO_MAP[novoSegmento]?.label || novoSegmento) : 'sem segmento'
+    showToast(`✅ ${clienteNome} → ${lbl}`)
   }
 
   const aplicarLote = async () => {
@@ -201,10 +209,19 @@ export function AdminClientesTab({ pedidos = [], user }) {
               <div style={{ flex: 1, minWidth: 0 }} onClick={() => !modoLote && setSelecionado(c.id)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', cursor: modoLote ? 'default' : 'pointer' }}>
                   <span style={{ fontWeight: 700, color: '#0A1628', fontSize: 15 }}>{c.nome}</span>
-                  {c.segmento && SEGMENTO_MAP[c.segmento] && (
-                    <span style={{ background: SEGMENTO_MAP[c.segmento].color + '22', color: SEGMENTO_MAP[c.segmento].color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                  {c.segmento && SEGMENTO_MAP[c.segmento] ? (
+                    <span
+                      onClick={e => { e.stopPropagation(); if (!modoLote) setEditandoSegmento(editandoSegmento === c.id ? null : c.id) }}
+                      title="Clique para alterar"
+                      style={{ background: SEGMENTO_MAP[c.segmento].color + '22', color: SEGMENTO_MAP[c.segmento].color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 0.4, cursor: 'pointer' }}>
                       {SEGMENTO_MAP[c.segmento].icon} {SEGMENTO_MAP[c.segmento].label}
                     </span>
+                  ) : (
+                    <button
+                      onClick={e => { e.stopPropagation(); if (!modoLote) setEditandoSegmento(editandoSegmento === c.id ? null : c.id) }}
+                      style={{ background: '#F1F5F9', color: '#64748B', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, border: '1px dashed #CBD5E1', cursor: 'pointer', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                      + segmento
+                    </button>
                   )}
                   {nPedidos > 0 && <span style={{ background: '#DBEAFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{nPedidos} pedido{nPedidos > 1 ? 's' : ''}</span>}
                   <ClienteBadges pedidos={cPedidos} />
@@ -230,6 +247,15 @@ export function AdminClientesTab({ pedidos = [], user }) {
                   {vendedores.map(v => <option key={v.id} value={v.nome}>{v.nome}</option>)}
                 </select>
                 <button onClick={() => setEditandoVendedor(null)} style={{ ...btnSmall, fontSize: 11, padding: '4px 8px' }}>✕</button>
+              </div>
+            )}
+            {editandoSegmento === c.id && (
+              <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                <select defaultValue={c.segmento || ''} onChange={e => alterarSegmento(c.id, e.target.value, c.nome)} style={{ ...inputStyle, padding: '6px 10px', fontSize: 12 }}>
+                  <option value="">— sem segmento —</option>
+                  {SEGMENTOS.map(s => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
+                </select>
+                <button onClick={() => setEditandoSegmento(null)} style={{ ...btnSmall, fontSize: 11, padding: '4px 8px' }}>✕</button>
               </div>
             )}
           </div>
