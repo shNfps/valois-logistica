@@ -13,17 +13,28 @@ import { AvatarCircle, AvatarPickerModal } from './avatar.jsx'
 import { EloBadgeAuto } from './performance-rank.jsx'
 import RelatorioDiagnosticoTop20 from './relatorios-diagnostico.jsx'
 import RelatorioVisitasPendentes from './relatorios-visitas.jsx'
+import RelatorioTop50Produtos from './relatorios-produtos.jsx'
 
-// Usuários liberados para a aba "Relatórios" (diagnóstico Top 20, visitas de retenção).
+// Usuários liberados para a aba "Relatórios" (diagnóstico Top 20, visitas de retenção, top 50 produtos).
 // Hardcoded por nome — alinhado com a decisão do projeto.
 const RELATORIOS_USERS = ['Matheus']
+// Sub-tab "Top 50 Produtos" restrita SOMENTE ao Matheus (mais estrita que a aba pai).
+// Pedido explícito do usuário; mantém possibilidade futura de liberar outras sub-tabs
+// pra outros nomes sem expor essa.
+const TOP50_USERS = ['Matheus']
 
 function RelatoriosView({ user }) {
   const [sub, setSub] = useState('diagnostico')
+  const podeTop50 = TOP50_USERS.includes(user.nome)
+  const subTabs = [
+    ['diagnostico', '🔬 Diagnóstico Top 20'],
+    ['visitas',     '📅 Visitas Pendentes'],
+    ...(podeTop50 ? [['top50', '📦 Top 50 SKUs']] : [])
+  ]
   return (
     <div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, background: '#fff', padding: 4, borderRadius: 999, border: '1px solid #E2E8F0', width: 'fit-content' }}>
-        {[['diagnostico', '🔬 Diagnóstico Top 20'], ['visitas', '📅 Visitas Pendentes']].map(([k, l]) => (
+        {subTabs.map(([k, l]) => (
           <button key={k} onClick={() => setSub(k)} style={{
             padding: '6px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
             background: sub === k ? '#0F172A' : 'transparent',
@@ -35,6 +46,10 @@ function RelatoriosView({ user }) {
       </div>
       {sub === 'diagnostico' && <RelatorioDiagnosticoTop20 user={user} />}
       {sub === 'visitas'     && <RelatorioVisitasPendentes />}
+      {sub === 'top50' && (podeTop50
+        ? <RelatorioTop50Produtos user={user} />
+        : <div style={{ padding: 40, textAlign: 'center', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 12, color: '#991B1B', fontWeight: 600 }}>🔒 Acesso restrito</div>
+      )}
     </div>
   )
 }

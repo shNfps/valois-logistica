@@ -57,7 +57,122 @@ export async function atualizarVisitaRetencao(id, updates) {
   return { error: error || null }
 }
 
-// ----------- Export Excel via SheetJS -----------
+// ============= Top 50 Produtos =============
+// RPCs em supabase_migration_top50_produtos.sql
+export async function fetchTop50Produtos() {
+  const { data, error } = await supabase.rpc('get_top50_produtos')
+  if (error) console.error('get_top50_produtos:', error)
+  return { data: data || [], error: error || null }
+}
+
+export async function fetchUltimasCotacoes(codigos) {
+  if (!codigos?.length) return { data: {}, error: null }
+  const { data, error } = await supabase.rpc('get_ultima_cotacao_por_sku', { codigos })
+  if (error) { console.error('get_ultima_cotacao_por_sku:', error); return { data: {}, error } }
+  // Vira mapa { codigo → linha } pra lookup O(1) na UI
+  const map = {}
+  ;(data || []).forEach(r => { map[r.sku_codigo] = r })
+  return { data: map, error: null }
+}
+
+export async function criarCotacaoSku(payload) {
+  const { data, error } = await supabase
+    .from('cotacoes_sku')
+    .insert(payload)
+    .select().single()
+  if (error) console.error('criarCotacaoSku:', error)
+  return { data: data || null, error: error || null }
+}
+
+export async function exportarTop50Excel(linhas) {
+  const XLSX = await import('xlsx')
+
+  const cabecalho = [
+    'Código', 'Produto', 'Categoria', 'Classe ABC', 'Status',
+    'Faturamento 12m (R$)', 'Qtd vendida 12m',
+    '% sobre total', '% acumulado',
+    'Jan-Abr 2025 (R$)', 'Jan-Abr 2026 (R$)', 'YoY %',
+    'Últimos 90d (R$)', '90d anteriores (R$)', 'Tendência %',
+    'Clientes únicos 12m', 'Clientes únicos 90d',
+    'Ticket médio por pedido (R$)',
+    'Top 5 clientes (valor 12m)'
+  ]
+
+  const fmtTopCli = arr => Array.isArray(arr) && arr.length
+    ? arr.slice(0, 5).map(c => `${c.nome} (R$ ${Number(c.fat || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`).join(' | ')
+    : '—'
+
+  const rows = linhas.map(l => [
+    l.codigo || '',
+    l.nome_produto || '',
+    l.categoria || '',
+    l.classe_abc || '',
+    l.status || '',
+    Number(l.fat_12m || 0),
+    Number(l.qtd_12m || 0),
+    l.pct_sobre_total == null ? '' : Number(l.pct_sobre_total),
+    l.pct_acumulado   == null ? '' : Number(l.pct_acumulado),
+    Number(l.fat_janabr_25 || 0),
+    Number(l.fat_janabr_26 || 0),
+    l.yoy_pct == null ? '' : Number(l.yoy_pct),
+    Number(l.fat_90d || 0),
+    Number(l.fat_90d_anterior || 0),
+    l.tendencia_pct == null ? '' : Number(l.tendencia_pct),
+    Number(l.qtd_clientes_unicos_12m || 0),
+    Number(l.qtd_clientes_unicos_90d || 0),
+    Number(l.ticket_medio_pedido || 0),
+    fmtTopCli(l.top20_clientes)
+  ])
+
+  const STATUS_COR = {
+    CRITICO:   'FFFEE2E2', ATENCAO: 'FFFEF3C7',
+    ESTAVEL:   'FFE0F2FE', CRESCENDO: 'FFD1FAE5'
+  }
+  const ABC_COR = { A: 'FFFEF3C7', B: 'FFE0F2FE', C: 'FFF1F5F9' }
+
+  const aoa = [cabecalho, ...rows]
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  const fmtBRL = '[$R$-pt-BR] #,##0.00'
+  const fmtPct = '0.00"%"'
+  const monetCols = [5, 9, 10, 12, 13, 17]
+  const pctCols   = [7, 8, 11, 14]
+
+  for (let r = 1; r <= rows.length; r++) {
+    monetCols.forEach(c => { const cell = ws[XLSX.utils.encode_cell({ r, c })]; if (cell) cell.z = fmtBRL })
+    pctCols.forEach(c   => { const cell = ws[XLSX.utils.encode_cell({ r, c })]; if (cell) cell.z = fmtPct })
+    const stat = rows[r - 1][4]
+    const cor = STATUS_COR[stat]
+    if (cor) {
+      for (let c = 0; c < cabecalho.length; c++) {
+        const ref = XLSX.utils.encode_cell({ r, c })
+        if (!ws[ref]) ws[ref] = { t: 's', v: '' }
+        ws[ref].s = { fill: { patternType: 'solid', fgColor: { rgb: cor } } }
+      }
+    }
+    // ABC column override
+    const abcRef = XLSX.utils.encode_cell({ r, c: 3 })
+    const abcCor = ABC_COR[rows[r - 1][3]]
+    if (abcCor && ws[abcRef]) {
+      ws[abcRef].s = { fill: { patternType: 'solid', fgColor: { rgb: abcCor } }, font: { bold: true } }
+    }
+  }
+
+  ws['!cols'] = [
+    { wch: 10 }, { wch: 42 }, { wch: 14 }, { wch: 10 }, { wch: 11 },
+    { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+    { wch: 16 }, { wch: 16 }, { wch: 9 },
+    { wch: 16 }, { wch: 18 }, { wch: 12 },
+    { wch: 18 }, { wch: 18 }, { wch: 18 },
+    { wch: 70 }
+  ]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Top 50 Produtos')
+  const fname = `valois-top50-produtos-${new Date().toISOString().slice(0, 10)}.xlsx`
+  XLSX.writeFile(wb, fname, { cellStyles: true })
+}
+
+// ----------- Export Excel via SheetJS (Top 20 Clientes) -----------
 // headers em PT, R$ nas colunas monetárias, cor de fundo por status.
 const STATUS_COR = {
   CRITICO:   'FFFEE2E2', // light red
