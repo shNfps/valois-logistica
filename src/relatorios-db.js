@@ -1,16 +1,20 @@
 import { supabase } from './supabase.js'
 
-// RPCs do diagnóstico Top 20 (definidas em supabase_migration_diagnostico_top20.sql)
+// RPCs do diagnóstico Top 20 (definidas em supabase_migration_diagnostico_top20.sql
+// + fix em supabase_migration_diagnostico_top20_fix.sql).
+// IMPORTANTE: retornamos {data, error} pra que a tela mostre o erro ao invés
+// de exibir "tabela vazia" silenciosamente. Lição aprendida com o bug 42702.
 export async function fetchDiagnosticoTop20() {
   const { data, error } = await supabase.rpc('get_diagnostico_top20')
-  if (error) { console.error('get_diagnostico_top20:', error); return [] }
-  return data || []
+  if (error) console.error('get_diagnostico_top20:', error)
+  return { data: data || [], error: error || null }
 }
 
 export async function fetchDiagnosticoResumo() {
   const { data, error } = await supabase.rpc('get_diagnostico_top20_resumo')
-  if (error) { console.error('get_diagnostico_top20_resumo:', error); return null }
-  return Array.isArray(data) ? data[0] : data
+  if (error) console.error('get_diagnostico_top20_resumo:', error)
+  const row = Array.isArray(data) ? data[0] : data
+  return { data: row || null, error: error || null }
 }
 
 // Visitas de retenção (CRUD)

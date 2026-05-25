@@ -260,6 +260,7 @@ export default function RelatorioDiagnosticoTop20({ user }) {
   const [loading, setLoading] = useState(true)
   const [linhas, setLinhas] = useState([])
   const [resumo, setResumo] = useState(null)
+  const [erro, setErro] = useState(null)
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [ordenacao, setOrdenacao] = useState({ campo: 'fat_12m', dir: 'desc' })
   const [expandida, setExpandida] = useState(null)
@@ -268,12 +269,16 @@ export default function RelatorioDiagnosticoTop20({ user }) {
   const [ultimasVisitas, setUltimasVisitas] = useState({})
 
   const carregar = async () => {
-    setLoading(true)
-    const [l, r] = await Promise.all([fetchDiagnosticoTop20(), fetchDiagnosticoResumo()])
-    setLinhas(l); setResumo(r)
+    setLoading(true); setErro(null)
+    const [respL, respR] = await Promise.all([fetchDiagnosticoTop20(), fetchDiagnosticoResumo()])
+    if (respL.error || respR.error) {
+      setErro(respL.error || respR.error)
+      setLinhas([]); setResumo(null); setLoading(false); return
+    }
+    setLinhas(respL.data); setResumo(respR.data)
     // últimas visitas por cliente (mostradas como indicador na linha)
     const map = {}
-    await Promise.all(l.map(async row => {
+    await Promise.all(respL.data.map(async row => {
       const v = await fetchUltimaVisita(row.cliente_id)
       if (v) map[row.cliente_id] = v
     }))
@@ -307,6 +312,19 @@ export default function RelatorioDiagnosticoTop20({ user }) {
   const setaOrdem = (campo) => ordenacao.campo === campo ? (ordenacao.dir === 'asc' ? ' ↑' : ' ↓') : ''
 
   if (loading) return <Loader />
+
+  if (erro) {
+    return (
+      <div style={{ ...card, padding: 24, background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>⚠️ Erro ao carregar o diagnóstico</div>
+        <div style={{ fontSize: 13, marginBottom: 6 }}><strong>Mensagem:</strong> {erro.message || 'desconhecido'}</div>
+        {erro.code    && <div style={{ fontSize: 12 }}><strong>Code:</strong> {erro.code}</div>}
+        {erro.details && <div style={{ fontSize: 12 }}><strong>Details:</strong> {erro.details}</div>}
+        {erro.hint    && <div style={{ fontSize: 12 }}><strong>Hint:</strong> {erro.hint}</div>}
+        <button onClick={carregar} style={{ ...btnSmall, marginTop: 14 }}>🔄 Tentar novamente</button>
+      </div>
+    )
+  }
 
   return (
     <div>
