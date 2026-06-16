@@ -3,16 +3,10 @@ import { supabase } from './supabase.js'
 import { inputStyle, btnPrimary, btnSmall, card, fetchClientes } from './db.js'
 import { fetchEquipamentosByCliente, fetchOSBySolicitante, createOrdemServico, uploadFotoManutencao } from './manutencao-db.js'
 import { criarNotificacao } from './notificacoes.js'
-import { SearchBar } from './components.jsx'
+import { OS_TIPO_LABEL, statusColor, statusLabel, formatData } from './manutencao-shared.js'
 
-const OS_TIPO_LABEL = { instalacao: 'Instalação', manutencao: 'Manutenção', troca: 'Troca' }
-const PERIODO_LABEL = { manha: '☀️ Manhã', tarde: '🌅 Tarde', dia_todo: '📅 Dia todo' }
-const STATUS_COLORS = {
-  AGENDADA: { bg: '#FEF3C7', color: '#B45309' },
-  EM_ANDAMENTO: { bg: '#DBEAFE', color: '#1D4ED8' },
-  CONCLUIDA: { bg: '#D1FAE5', color: '#065F46' },
-  CANCELADA: { bg: '#F1F5F9', color: '#64748B' }
-}
+const TIPOS_SOLICIT = ['instalacao', 'manutencao', 'troca', 'desinstalacao']
+const COM_EQUIPAMENTO = ['manutencao', 'troca', 'desinstalacao']
 
 function SolicitarModal({ clientes, user, onClose, onCreated }) {
   const [tipo, setTipo] = useState('manutencao')
@@ -22,8 +16,6 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
   const [equipamentos, setEquipamentos] = useState([])
   const [equipamentoId, setEquipamentoId] = useState('')
   const [descricao, setDescricao] = useState('')
-  const [dataAgendada, setDataAgendada] = useState('')
-  const [periodo, setPeriodo] = useState('manha')
   const [foto, setFoto] = useState(null)
   const [fotoPreview, setFotoPreview] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -32,40 +24,32 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
   const clienteSel = clientes.find(c => c.id === clienteId)
 
   useEffect(() => {
-    if (clienteId) {
-      fetchEquipamentosByCliente(clienteId).then(setEquipamentos)
-    } else {
-      setEquipamentos([]); setEquipamentoId('')
-    }
+    if (clienteId) fetchEquipamentosByCliente(clienteId).then(setEquipamentos)
+    else { setEquipamentos([]); setEquipamentoId('') }
   }, [clienteId])
 
-  const filteredClientes = clientes.filter(c => {
-    if (!clienteSearch) return true
-    return c.nome.toLowerCase().includes(clienteSearch.toLowerCase())
-  }).slice(0, 15)
+  const filteredClientes = clientes.filter(c => !clienteSearch || c.nome.toLowerCase().includes(clienteSearch.toLowerCase())).slice(0, 15)
 
   const handleSave = async () => {
     if (!clienteId) { alert('Selecione o cliente'); return }
     if (!descricao.trim()) { alert('Descreva o serviço'); return }
-    if (!dataAgendada) { alert('Selecione a data'); return }
-    const amanha = new Date(); amanha.setDate(amanha.getDate() + 1)
-    if (dataAgendada <= new Date().toISOString().slice(0, 10)) { alert('⚠️ Manutenção deve ser agendada com pelo menos 1 dia de antecedência'); return }
     setSaving(true)
     let fotoUrl = null
     if (foto) fotoUrl = await uploadFotoManutencao(foto)
     const cl = clientes.find(c => c.id === clienteId)
     const eq = equipamentos.find(e => e.id === equipamentoId)
+    const prazo = new Date(); prazo.setHours(prazo.getHours() + 24)
     const os = {
       tipo, cliente_id: clienteId, cliente_nome: cl?.nome || '',
       cidade: cl?.cidade || null, endereco: cl?.endereco || null,
       equipamento_id: equipamentoId || null, equipamento_tipo: eq?.tipo || null,
-      descricao: descricao.trim(), data_agendada: dataAgendada,
-      periodo, solicitante_nome: user.nome, status: 'AGENDADA',
-      foto_antes: fotoUrl
+      descricao: descricao.trim(), data_agendada: null, periodo: null,
+      solicitante_nome: user.nome, tecnico_nome: null, status: 'ABERTA',
+      prazo_aceite: prazo.toISOString(), foto_antes: fotoUrl
     }
     const result = await createOrdemServico(os)
     if (result) {
-      await criarNotificacao('manutencao', `🔧 Nova OS: ${OS_TIPO_LABEL[tipo]} em ${cl?.nome || ''}`, `${descricao.trim().slice(0, 80)} · Agendada: ${new Date(dataAgendada).toLocaleDateString('pt-BR')} · Por: ${user.nome}`)
+      await criarNotificacao('manutencao', `🔧 Nova OS aberta: ${cl?.nome || ''} - ${OS_TIPO_LABEL[tipo]}`, `${descricao.trim().slice(0, 80)} · Por: ${user.nome}`)
     }
     setSaving(false)
     onCreated()
@@ -78,9 +62,9 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
         <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>Solicitar Serviço</h3>
 
         <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Tipo de serviço</label>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          {Object.entries(OS_TIPO_LABEL).map(([k, v]) => (
-            <button key={k} onClick={() => setTipo(k)} style={{ flex: 1, padding: '8px 4px', borderRadius: 8, border: `2px solid ${tipo === k ? '#F97316' : '#E2E8F0'}`, background: tipo === k ? '#FFF7ED' : '#fff', color: tipo === k ? '#EA580C' : '#64748B', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{v}</button>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+          {TIPOS_SOLICIT.map(k => (
+            <button key={k} onClick={() => setTipo(k)} style={{ flex: '1 0 40%', padding: '8px 4px', borderRadius: 8, border: `2px solid ${tipo === k ? '#F97316' : '#E2E8F0'}`, background: tipo === k ? '#FFF7ED' : '#fff', color: tipo === k ? '#EA580C' : '#64748B', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{OS_TIPO_LABEL[k]}</button>
           ))}
         </div>
 
@@ -98,7 +82,7 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
           )}
         </div>
 
-        {clienteId && (tipo === 'manutencao' || tipo === 'troca') && (
+        {clienteId && COM_EQUIPAMENTO.includes(tipo) && (
           <>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Equipamento</label>
             <select value={equipamentoId} onChange={e => setEquipamentoId(e.target.value)} style={{ ...inputStyle, marginBottom: 12, color: equipamentoId ? '#0A1628' : '#94A3B8' }}>
@@ -115,31 +99,20 @@ function SolicitarModal({ clientes, user, onClose, onCreated }) {
 
         <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Foto do problema (opcional)</label>
         <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" ref={fotoRef} onChange={e => { const f = e.target.files[0]; if (f) { setFoto(f); setFotoPreview(URL.createObjectURL(f)) } }} style={{ display: 'none' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <button type="button" onClick={() => fotoRef.current.click()} style={{ ...btnSmall, flex: 1, justifyContent: 'center', color: foto ? '#10B981' : '#64748B', borderColor: foto ? '#A7F3D0' : '#E2E8F0' }}>
             {foto ? `✓ ${foto.name.slice(0, 25)}` : '📷 Anexar foto do problema'}
           </button>
           {fotoPreview && <img src={fotoPreview} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid #E2E8F0' }} />}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Data *</label>
-            <input type="date" value={dataAgendada} onChange={e => setDataAgendada(e.target.value)} min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Período</label>
-            <select value={periodo} onChange={e => setPeriodo(e.target.value)} style={inputStyle}>
-              <option value="manha">Manhã</option>
-              <option value="tarde">Tarde</option>
-              <option value="dia_todo">Dia todo</option>
-            </select>
-          </div>
+        <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 14, background: '#F8FAFC', borderRadius: 8, padding: '8px 10px', lineHeight: 1.4 }}>
+          ℹ️ A data e o técnico são definidos pela equipe de manutenção ao <b>aceitar</b> a ordem. Você será notificado com a data agendada.
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} style={{ ...btnSmall, flex: 1, justifyContent: 'center' }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} style={{ ...btnPrimary, flex: 2, opacity: saving ? 0.6 : 1 }}>{saving ? 'Salvando...' : '+ Solicitar Serviço'}</button>
+          <button onClick={handleSave} disabled={saving} style={{ ...btnPrimary, flex: 2, opacity: saving ? 0.6 : 1 }}>{saving ? 'Gerando...' : 'Gerar Ordem de Serviço'}</button>
         </div>
       </div>
     </div>
@@ -168,21 +141,21 @@ export function SolicitarManutencaoTab({ user }) {
 
   return (
     <div>
-      <button onClick={() => setShowSolicitar(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 16 }}>+ Solicitar Serviço</button>
+      <button onClick={() => setShowSolicitar(true)} style={{ ...btnPrimary, width: '100%', marginBottom: 16 }}>Gerar Ordem de Serviço</button>
 
       <span style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2, display: 'block', marginBottom: 12 }}>Minhas Solicitações ({ordens.length})</span>
 
       {ordens.map(os => {
-        const st = STATUS_COLORS[os.status] || STATUS_COLORS.AGENDADA
+        const sc = statusColor(os)
         return (
           <div key={os.id} style={{ ...card, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
               <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#94A3B8', background: '#F1F5F9', padding: '2px 6px', borderRadius: 4 }}>{os.numero_os}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#0A1628', flex: 1 }}>{os.cliente_nome}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: st.bg, color: st.color }}>{os.status.replace('_', ' ')}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: sc.bg, color: sc.color }}>{statusLabel(os)}</span>
             </div>
             <div style={{ fontSize: 12, color: '#64748B' }}>
-              {OS_TIPO_LABEL[os.tipo] || os.tipo} · {new Date(os.data_agendada).toLocaleDateString('pt-BR')} · {PERIODO_LABEL[os.periodo]}
+              {OS_TIPO_LABEL[os.tipo] || os.tipo}{os.data_agendada ? ` · 📅 Agendada: ${formatData(os.data_agendada)}` : ''}
             </div>
             <div style={{ fontSize: 12, color: '#334155', marginTop: 4 }}>{os.descricao}</div>
             {os.tecnico_nome && <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>Técnico: {os.tecnico_nome}</div>}

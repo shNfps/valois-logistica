@@ -1,26 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { card, btnSmall, fetchClientes } from './db.js'
-import { fetchOrdensServico, fetchEquipamentos } from './manutencao-db.js'
-import { criarNotificacao } from './notificacoes.js'
+import { card, fetchClientes } from './db.js'
+import { fetchOrdensServico, processarAtrasadas } from './manutencao-db.js'
+import { statusEfetivo } from './manutencao-shared.js'
 
 export function AdminManutencaoCard() {
   const [ordens, setOrdens] = useState([])
-  const [equipamentos, setEquipamentos] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const load = async () => {
-      const [os, eq] = await Promise.all([fetchOrdensServico(), fetchEquipamentos()])
-      setOrdens(os); setEquipamentos(eq); setLoading(false)
-      const hoje = new Date().toISOString().slice(0, 10)
-      const atrasadas = os.filter(o => o.data_agendada < hoje && !['CONCLUIDA', 'CANCELADA'].includes(o.status))
-      if (atrasadas.length > 0) {
-        const key = `valois-os-atrasada-${hoje}`
-        if (!localStorage.getItem(key)) {
-          localStorage.setItem(key, '1')
-          await criarNotificacao('admin', `⚠️ ${atrasadas.length} OS atrasada(s)`, atrasadas.map(o => `${o.numero_os} - ${o.cliente_nome}`).slice(0, 3).join(', '))
-        }
-      }
+      const os = await fetchOrdensServico()
+      await processarAtrasadas(os) // promove ABERTA vencida -> ATRASADA + notifica admin (dedup por OS)
+      setOrdens(await fetchOrdensServico())
+      setLoading(false)
     }
     load()
   }, [])
@@ -31,13 +23,15 @@ export function AdminManutencaoCard() {
   const amanha = new Date(); amanha.setDate(amanha.getDate() + 1)
   const amanhaStr = amanha.toISOString().slice(0, 10)
   const mesInicio = new Date(); mesInicio.setDate(1); mesInicio.setHours(0, 0, 0, 0)
+  const efetivo = ordens.map(o => ({ ...o, _st: statusEfetivo(o) }))
 
-  const osHoje = ordens.filter(o => o.data_agendada === hoje && !['CANCELADA'].includes(o.status))
-  const osAmanha = ordens.filter(o => o.data_agendada === amanhaStr && !['CANCELADA'].includes(o.status))
-  const atrasadas = ordens.filter(o => o.data_agendada < hoje && !['CONCLUIDA', 'CANCELADA'].includes(o.status))
-  const agendadas = ordens.filter(o => o.status === 'AGENDADA').length
-  const emAndamento = ordens.filter(o => o.status === 'EM_ANDAMENTO').length
-  const concluidasMes = ordens.filter(o => o.status === 'CONCLUIDA' && o.concluido_em && new Date(o.concluido_em) >= mesInicio).length
+  const ativas = efetivo.filter(o => ['ACEITA', 'EM_ANDAMENTO'].includes(o._st))
+  const osHoje = ativas.filter(o => o.data_agendada === hoje)
+  const osAmanha = ativas.filter(o => o.data_agendada === amanhaStr)
+  const atrasadas = efetivo.filter(o => o._st === 'ATRASADA')
+  const abertas = efetivo.filter(o => o._st === 'ABERTA').length
+  const emAndamento = efetivo.filter(o => o._st === 'EM_ANDAMENTO').length
+  const concluidasMes = efetivo.filter(o => o._st === 'CONCLUIDA' && o.concluido_em && new Date(o.concluido_em) >= mesInicio).length
 
   return (
     <div style={{ ...card, padding: 18, marginBottom: 14, borderLeft: '4px solid #F97316' }}>
@@ -65,7 +59,7 @@ export function AdminManutencaoCard() {
 
       {/* Status counters */}
       <div style={{ fontSize: 11, color: '#64748B', marginBottom: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <span><b style={{ color: '#B45309' }}>{agendadas}</b> agendadas</span>
+        <span><b style={{ color: '#B45309' }}>{abertas}</b> aguardando aceite</span>
         <span>·</span>
         <span><b style={{ color: '#1D4ED8' }}>{emAndamento}</b> em andamento</span>
         <span>·</span>
@@ -80,7 +74,7 @@ export function AdminManutencaoCard() {
             <div key={os.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid #FECACA', fontSize: 12 }}>
               <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#DC2626', background: '#FEE2E2', padding: '1px 5px', borderRadius: 4 }}>{os.numero_os}</span>
               <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{os.cliente_nome}</span>
-              <span style={{ color: '#DC2626', fontSize: 10, fontWeight: 600 }}>{new Date(os.data_agendada).toLocaleDateString('pt-BR')}</span>
+              <span style={{ color: '#DC2626', fontSize: 10, fontWeight: 600 }}>sem aceite 24h</span>
             </div>
           ))}
         </div>
@@ -91,11 +85,11 @@ export function AdminManutencaoCard() {
         <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#EA580C', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Hoje</div>
           {osHoje.map(os => {
-            const sc = { AGENDADA: '#B45309', EM_ANDAMENTO: '#1D4ED8', CONCLUIDA: '#065F46' }
+            const sc = { ACEITA: '#4338CA', EM_ANDAMENTO: '#1D4ED8', CONCLUIDA: '#065F46' }
             return <div key={os.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', fontSize: 12, borderBottom: '1px solid #F1F5F9' }}>
               <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#94A3B8' }}>{os.numero_os}</span>
               <span style={{ flex: 1, fontWeight: 600, color: '#0A1628', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{os.cliente_nome}</span>
-              <span style={{ fontSize: 9, fontWeight: 700, color: sc[os.status] || '#64748B' }}>{os.status.replace('_', ' ')}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: sc[os._st] || '#64748B' }}>{os._st.replace('_', ' ')}</span>
             </div>
           })}
         </div>

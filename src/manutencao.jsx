@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ManutencaoAceiteTab } from './manutencao-aceite.jsx'
 import { ManutencaoAgendaTab } from './manutencao-agenda.jsx'
 import { ManutencaoEquipamentosTab } from './manutencao-equipamentos.jsx'
 import { ManutencaoHistoricoTab } from './manutencao-historico.jsx'
@@ -7,16 +8,18 @@ import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
 const tabBtn = (active) => ({ padding: '8px 16px', borderRadius: '8px 8px 0 0', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, background: active ? '#0A1628' : 'transparent', color: active ? '#fff' : '#64748B' })
 
 export function ManutencaoView({ user }) {
-  const [tab, setTab] = useState('agenda')
+  const [tab, setTab] = useState('manutencoes')
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid #E2E8F0', paddingBottom: 0, overflowX: 'auto' }}>
+        <button onClick={() => setTab('manutencoes')} style={tabBtn(tab === 'manutencoes')}>🔧 Manutenções</button>
         <button onClick={() => setTab('agenda')} style={tabBtn(tab === 'agenda')}>📅 Agenda</button>
         <button onClick={() => setTab('equipamentos')} style={tabBtn(tab === 'equipamentos')}>📦 Equipamentos</button>
         <button onClick={() => setTab('historico')} style={tabBtn(tab === 'historico')}>📋 Histórico</button>
         <button onClick={() => setTab('reembolsos')} style={tabBtn(tab === 'reembolsos')}>💸 Reembolsos</button>
       </div>
+      {tab === 'manutencoes' && <ManutencaoAceiteTab user={user} />}
       {tab === 'agenda' && <ManutencaoAgendaTab user={user} />}
       {tab === 'equipamentos' && <ManutencaoEquipamentosTab />}
       {tab === 'historico' && <ManutencaoHistoricoTab />}

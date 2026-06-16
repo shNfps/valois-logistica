@@ -1,15 +1,6 @@
 import { useState } from 'react'
 import { inputStyle, btnPrimary, btnSmall } from './db.js'
-
-const OS_TIPO_ICON = { instalacao: '🔧', manutencao: '⚙️', troca: '🔄', desinstalacao: '❌' }
-const OS_TIPO_LABEL = { instalacao: 'Instalação', manutencao: 'Manutenção', troca: 'Troca', desinstalacao: 'Desinstalação' }
-const PERIODO_LABEL = { manha: '☀️ Manhã', tarde: '🌅 Tarde', dia_todo: '📅 Dia todo' }
-const STATUS_COLORS = {
-  AGENDADA: { bg: '#FEF3C7', color: '#B45309', border: '#FDE68A' },
-  EM_ANDAMENTO: { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' },
-  CONCLUIDA: { bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' },
-  CANCELADA: { bg: '#F1F5F9', color: '#64748B', border: '#E2E8F0' }
-}
+import { OS_TIPO_ICON, OS_TIPO_LABEL, PERIODO_LABEL, statusColor, statusLabel, statusEfetivo, formatData } from './manutencao-shared.js'
 
 function InfoRow({ icon, label, value }) {
   if (!value) return null
@@ -19,16 +10,19 @@ function InfoRow({ icon, label, value }) {
   </div>
 }
 
-export function OSDetalhePanel({ os, user, onClose, onAprovar, onReagendar, onIniciar, onConcluir, onCancelar, onObs }) {
+export function OSDetalhePanel({ os, user, onClose, onAceitar, onIniciar, onConcluir, onReagendar, onCancelar, onObs }) {
   const [showObs, setShowObs] = useState(false)
   const [obsTexto, setObsTexto] = useState('')
-  const sc = STATUS_COLORS[os.status] || STATUS_COLORS.AGENDADA
+  const sc = statusColor(os)
+  const st = statusEfetivo(os)
 
   const handleSaveObs = () => {
     if (!obsTexto.trim()) return
     onObs(os, obsTexto.trim())
     setObsTexto(''); setShowObs(false)
   }
+
+  const dataValue = os.data_agendada ? `${formatData(os.data_agendada)}${os.periodo ? ` · ${PERIODO_LABEL[os.periodo]}` : ''}` : null
 
   return (
     <>
@@ -48,7 +42,7 @@ export function OSDetalhePanel({ os, user, onClose, onAprovar, onReagendar, onIn
             </div>
             <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#94A3B8' }}>{os.numero_os}</span>
           </div>
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>{os.status.replace('_', ' ')}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>{statusLabel(os)}</span>
         </div>
 
         {/* Content */}
@@ -56,7 +50,7 @@ export function OSDetalhePanel({ os, user, onClose, onAprovar, onReagendar, onIn
           <InfoRow icon="👤" label="Cliente" value={os.cliente_nome} />
           <InfoRow icon="📍" label="Endereço" value={[os.endereco, os.cidade].filter(Boolean).join(' - ')} />
           <InfoRow icon="📦" label="Equipamento" value={os.equipamento_tipo} />
-          <InfoRow icon="📅" label="Data agendada" value={`${new Date(os.data_agendada).toLocaleDateString('pt-BR')} · ${PERIODO_LABEL[os.periodo]}`} />
+          <InfoRow icon="📅" label="Data agendada" value={dataValue} />
           <InfoRow icon="👷" label="Solicitado por" value={os.solicitante_nome} />
           {os.tecnico_nome && <InfoRow icon="🔧" label="Técnico" value={os.tecnico_nome} />}
           <InfoRow icon="🕐" label="Criado em" value={os.criado_em ? new Date(os.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : null} />
@@ -70,8 +64,16 @@ export function OSDetalhePanel({ os, user, onClose, onAprovar, onReagendar, onIn
           {/* Foto do problema */}
           {os.foto_antes && (
             <div style={{ marginBottom: 14, background: '#FFF7ED', borderRadius: 10, padding: 12, border: '1px solid #FDE68A' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📷 Foto do problema (enviada pelo solicitante)</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📷 Foto do problema (solicitante)</div>
               <img src={os.foto_antes} onClick={() => window.open(os.foto_antes, '_blank')} style={{ width: '100%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid #E2E8F0', cursor: 'pointer' }} />
+            </div>
+          )}
+
+          {/* Foto resolvido */}
+          {(os.foto_resolvido || os.foto_depois) && (
+            <div style={{ marginBottom: 14, background: '#ECFDF5', borderRadius: 10, padding: 12, border: '1px solid #A7F3D0' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#065F46', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>✅ Serviço resolvido</div>
+              <img src={os.foto_resolvido || os.foto_depois} onClick={() => window.open(os.foto_resolvido || os.foto_depois, '_blank')} style={{ width: '100%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid #E2E8F0', cursor: 'pointer' }} />
             </div>
           )}
 
@@ -94,15 +96,15 @@ export function OSDetalhePanel({ os, user, onClose, onAprovar, onReagendar, onIn
         </div>
 
         {/* Action buttons */}
-        {['AGENDADA', 'EM_ANDAMENTO'].includes(os.status) && (
+        {['ABERTA', 'ATRASADA', 'ACEITA', 'EM_ANDAMENTO'].includes(st) && (
           <div style={{ padding: '14px 20px', borderTop: '1px solid #E2E8F0', background: '#FAFAFA', flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {os.status === 'AGENDADA' && !os.tecnico_nome && <button onClick={() => onAprovar(os)} style={{ ...btnSmall, background: '#10B981', color: '#fff', border: 'none', fontSize: 12, flex: 1 }}>✅ Aprovar</button>}
-              {os.status === 'AGENDADA' && <button onClick={() => onReagendar(os)} style={{ ...btnSmall, background: '#F59E0B', color: '#fff', border: 'none', fontSize: 12, flex: 1 }}>📅 Reagendar</button>}
-              {os.status === 'AGENDADA' && <button onClick={() => onIniciar(os)} style={{ ...btnSmall, background: '#3B82F6', color: '#fff', border: 'none', fontSize: 12, flex: 1 }}>▶ Iniciar</button>}
-              {os.status === 'EM_ANDAMENTO' && <button onClick={() => onConcluir(os)} style={{ ...btnPrimary, background: '#10B981', fontSize: 12, flex: 2 }}>✓ Concluir</button>}
-              <button onClick={() => setShowObs(true)} style={{ ...btnSmall, fontSize: 12 }}>📝 Nota</button>
-              <button onClick={() => onCancelar(os)} style={{ ...btnSmall, color: '#EF4444', fontSize: 12 }}>✗ Cancelar</button>
+              {(st === 'ABERTA' || st === 'ATRASADA') && <button onClick={() => onAceitar(os)} style={{ ...btnPrimary, background: '#10B981', fontSize: 12, flex: 2 }}>✅ Aceitar OS</button>}
+              {st === 'ACEITA' && <button onClick={() => onIniciar(os)} style={{ ...btnSmall, background: '#3B82F6', color: '#fff', border: 'none', fontSize: 12, flex: 1 }}>▶ Iniciar</button>}
+              {st === 'ACEITA' && <button onClick={() => onReagendar(os)} style={{ ...btnSmall, background: '#F59E0B', color: '#fff', border: 'none', fontSize: 12, flex: 1 }}>📅 Reagendar</button>}
+              {st === 'EM_ANDAMENTO' && <button onClick={() => onConcluir(os)} style={{ ...btnPrimary, background: '#10B981', fontSize: 12, flex: 2 }}>✓ Concluir</button>}
+              {['ACEITA', 'EM_ANDAMENTO'].includes(st) && <button onClick={() => setShowObs(true)} style={{ ...btnSmall, fontSize: 12 }}>📝 Nota</button>}
+              {['ACEITA', 'EM_ANDAMENTO'].includes(st) && <button onClick={() => onCancelar(os)} style={{ ...btnSmall, color: '#EF4444', fontSize: 12 }}>✗ Cancelar</button>}
             </div>
           </div>
         )}

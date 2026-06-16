@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { criarNotificacao } from './notificacoes.js'
 
 function gerarNumeroOS() {
   const now = new Date()
@@ -68,15 +69,46 @@ export async function updateOrdemServico(id, updates) {
   if (error) console.error(error)
 }
 
+// Manutencionista aceita a OS: define técnico + data + período (fluxo aceite-primeiro).
+export async function aceitarOS(id, tecnicoNome, dataAgendada, periodo) {
+  await updateOrdemServico(id, {
+    status: 'ACEITA',
+    tecnico_nome: tecnicoNome,
+    aceita_em: new Date().toISOString(),
+    data_agendada: dataAgendada,
+    periodo
+  })
+}
+
+export async function marcarAtrasada(id) {
+  await updateOrdemServico(id, { status: 'ATRASADA' })
+}
+
+// Promove p/ ATRASADA toda OS ABERTA com prazo_aceite vencido, notificando o admin
+// (1x por OS, dedup via localStorage). Retorna os ids afetados.
+export async function processarAtrasadas(ordens) {
+  const agora = new Date()
+  const vencidas = ordens.filter(o => o.status === 'ABERTA' && o.prazo_aceite && new Date(o.prazo_aceite) < agora)
+  for (const os of vencidas) {
+    await marcarAtrasada(os.id)
+    const key = `valois-os-atrasada-${os.id}`
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, '1')
+      await criarNotificacao('admin', `⏰ OS ${os.numero_os} atrasada`, `Sem aceite em 24h · ${os.cliente_nome}`)
+    }
+  }
+  return vencidas.map(v => v.id)
+}
+
 export async function iniciarOS(id, tecnicoNome) {
   await updateOrdemServico(id, { status: 'EM_ANDAMENTO', tecnico_nome: tecnicoNome })
 }
 
-export async function concluirOS(id, observacao, fotoPosterior, equipamentoId) {
+export async function concluirOS(id, observacao, fotoResolvido, equipamentoId) {
   await updateOrdemServico(id, {
     status: 'CONCLUIDA',
     observacao_conclusao: observacao || null,
-    foto_depois: fotoPosterior || null,
+    foto_resolvido: fotoResolvido || null,
     concluido_em: new Date().toISOString()
   })
   if (equipamentoId) {

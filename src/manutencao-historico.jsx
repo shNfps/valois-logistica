@@ -86,14 +86,14 @@ export function ManutencaoHistoricoTab() {
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   {os.foto_antes && (
                     <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', marginBottom: 4 }}>ANTES</div>
-                      <img src={os.foto_antes} style={{ width: 140, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid #E2E8F0' }} />
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#B45309', marginBottom: 4 }}>PROBLEMA</div>
+                      <img src={os.foto_antes} onClick={() => window.open(os.foto_antes, '_blank')} style={{ width: 140, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid #E2E8F0', cursor: 'pointer' }} />
                     </div>
                   )}
-                  {os.foto_depois && (
+                  {(os.foto_resolvido || os.foto_depois) && (
                     <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', marginBottom: 4 }}>DEPOIS</div>
-                      <img src={os.foto_depois} style={{ width: 140, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid #E2E8F0' }} />
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#065F46', marginBottom: 4 }}>RESOLVIDO</div>
+                      <img src={os.foto_resolvido || os.foto_depois} onClick={() => window.open(os.foto_resolvido || os.foto_depois, '_blank')} style={{ width: 140, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid #E2E8F0', cursor: 'pointer' }} />
                     </div>
                   )}
                 </div>
