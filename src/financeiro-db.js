@@ -166,7 +166,7 @@ export async function updateConfigFinanceiro(updates) {
 }
 
 // ─── Auto-criação de conta a receber ao anexar NF ───
-const PRAZO_FORMA = { a_vista: 0, boleto_7: 7, boleto_14: 14, boleto_28: 28, cartao: 0, pix: 0 }
+const PRAZO_FORMA = { a_vista: 0, boleto_7: 7, boleto_14: 14, boleto_21: 21, boleto_28: 28, cartao: 0, pix: 0 }
 export function formaToCR(forma) {
   if (forma?.startsWith('boleto')) return 'boleto'
   return forma === 'pix' ? 'pix' : forma === 'cartao' ? 'cartao' : 'a_vista'

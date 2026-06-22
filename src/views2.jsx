@@ -22,6 +22,7 @@ const FORMAS_PAGAMENTO_PEDIDO = [
   { v: 'a_vista', l: 'À vista', dias: 0 },
   { v: 'boleto_7', l: 'Boleto 7 dias', dias: 7 },
   { v: 'boleto_14', l: 'Boleto 14 dias', dias: 14 },
+  { v: 'boleto_21', l: 'Boleto 21 dias', dias: 21 },
   { v: 'boleto_28', l: 'Boleto 28 dias', dias: 28 },
   { v: 'cartao', l: 'Cartão', dias: 0 },
   { v: 'pix', l: 'PIX', dias: 0 }
