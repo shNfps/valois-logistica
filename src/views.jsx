@@ -103,7 +103,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
         {p.obs_comercial&&<div style={{marginTop:6}}><ObsComercialInline texto={p.obs_comercial}/></div>}
         <PedidoDetail pedido={p}/>
         <div style={{marginTop:6,display:'flex',gap:6,flexWrap:'wrap'}}>
-          {p.orcamento_url&&<button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#7C3AED'}}>🤖 Extrair itens</button>}
+          {p.nf_url&&<button onClick={()=>setExtractingPedido(p)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#7C3AED'}}>🤖 Extrair itens</button>}
           <button onClick={()=>handleDeletePedido(p.id,p.cliente)} style={{...btnSmall,fontSize:10,padding:'3px 8px',color:'#EF4444'}}>🗑 Deletar</button>
         </div>
       </div>))}
@@ -243,7 +243,7 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
             <ObsComercialInline texto={p.obs_comercial}/>
             {p.obs&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:8}}>Obs galpão: {p.obs}</div>}
             <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
-            <div style={{marginTop:8,display:'flex',gap:6}}>{p.orcamento_url&&<button onClick={e=>{e.stopPropagation();setExtractingPedido(p)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button>}<button onClick={e=>{e.stopPropagation();handleDeletePedido(p.id,p.cliente)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444'}}>🗑 Deletar pedido</button></div>
+            <div style={{marginTop:8,display:'flex',gap:6}}>{p.nf_url&&<button onClick={e=>{e.stopPropagation();setExtractingPedido(p)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button>}<button onClick={e=>{e.stopPropagation();handleDeletePedido(p.id,p.cliente)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444'}}>🗑 Deletar pedido</button></div>
           </div>)}
         </div>)})}
         </div>

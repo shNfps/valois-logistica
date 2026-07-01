@@ -26,7 +26,7 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
   const extrair = async () => {
     setLoading(true); setError('')
     try {
-      const [raw, prods] = await Promise.all([extractItemsFromPdf(pedido.orcamento_url), fetchProdutos()])
+      const [raw, prods] = await Promise.all([extractItemsFromPdf(pedido.nf_url), fetchProdutos()])
       setItens(raw.map(i => {
         const cod = i.codigo ? String(i.codigo).replace(/\./g, '') : null
         const match = matchItem({ ...i, codigo: cod }, prods)
