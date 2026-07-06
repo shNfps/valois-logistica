@@ -171,17 +171,22 @@ export function LoginScreen({onLogin}){
     <div style={{fontFamily:"'Inter',sans-serif",minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,position:'relative',overflow:'hidden'}}>
       <style>{LOGIN_AUTOFILL_CSS}</style>
       <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:0,backgroundImage:'url(/login-bg.jpg)',backgroundSize:'cover',backgroundPosition:'center',filter:'brightness(0.3) saturate(0.7)'}}/>
-      <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:1,background:'linear-gradient(135deg,rgba(10,22,40,0.85) 0%,rgba(30,58,95,0.75) 50%,rgba(10,22,40,0.9) 100%)'}}/>
+      <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:1,background:'linear-gradient(135deg,rgba(10,22,40,0.68) 0%,rgba(30,58,95,0.6) 50%,rgba(10,22,40,0.72) 100%)'}}/>
       <div style={{position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center'}}>
-        <svg width="64" height="64" viewBox="0 0 64 64" style={{marginBottom:14,filter:'drop-shadow(0 4px 16px rgba(37,99,235,0.4))'}}>
-          <rect width="64" height="64" rx="16" fill="#0F172A"/>
-          <text x="8" y="38" fontFamily="Inter,sans-serif" fontWeight="800" fontSize="18" fill="#2563EB">VA</text>
-          <text x="33" y="38" fontFamily="Inter,sans-serif" fontWeight="800" fontSize="18" fill="#10B981">LOIS</text>
-          <rect x="8" y="44" width="48" height="3" rx="1.5" fill="#10B981" opacity="0.8"/>
-        </svg>
-        <div style={{color:'#fff',fontWeight:700,fontSize:22,letterSpacing:3,marginBottom:4}}><span style={{color:'#2563EB'}}>VA</span><span style={{color:'#10B981'}}>LOIS</span></div>
+        {/* Logo Valois — filter drop-shadow claro p/ contraste sobre o fundo azul.
+            Se não gostar do brilho, é só remover a linha `filter:...` abaixo. */}
+        <img
+          src="/logo-valois.png"
+          alt="Valois Descartáveis e Limpeza"
+          style={{width:'100%',maxWidth:300,height:'auto',marginBottom:14,filter:'drop-shadow(0 0 12px rgba(255,255,255,0.15))'}}
+        />
+        {/* OPÇÃO A (ativa): a logo já traz "Valois / Descartáveis e Limpeza",
+            então mantemos abaixo apenas o nome do sistema. */}
+        <div style={{color:'#64748B',fontSize:10,fontWeight:500,letterSpacing:3,textTransform:'uppercase',marginBottom:36}}>Sistema de Logística</div>
+        {/* OPÇÃO B (manter ambos os subtítulos como antes) — troque o bloco acima por:
         <div style={{color:'#94A3B8',fontSize:11,fontWeight:500,letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>Descartáveis e Limpeza</div>
         <div style={{color:'#64748B',fontSize:10,fontWeight:500,letterSpacing:3,textTransform:'uppercase',marginBottom:36}}>Sistema de Logística</div>
+        */}
         {msgSessao&&<div style={{background:'rgba(37,99,235,0.15)',color:'#93C5FD',border:'1px solid rgba(37,99,235,0.3)',padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:16,textAlign:'center',maxWidth:340,width:'100%'}}>{msgSessao}</div>}
         <div style={{width:'100%',maxWidth:340,background:'rgba(15,23,42,0.72)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.1)'}}>
           <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:500,color:'#94A3B8',marginBottom:8,letterSpacing:0.3}}>Usuário</label>
