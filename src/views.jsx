@@ -20,11 +20,18 @@ import { RoteirosTab } from './roteiros-tab.jsx'
 import { CancelarRotaModal } from './cancelar-rota-modal.jsx'
 
 // ─── ADMIN VIEW ───
+// Usuários master (por login) — podem editar setores de qualquer funcionário e deletar
+// inclusive admins. Admins comuns não conseguem deletar admins nem mexer no master.
+const MASTER_USERS = ['matheus']
+const SETORES_DISPONIVEIS = ['comercial','galpao','motorista','vendedor','manutencao','financeiro','admin']
+
 export function AdminView({ pedidos, refresh, user, notifs=[] }) {
   const [usuarios,setUsuarios]=useState([]);const [produtos,setProdutos]=useState([]);const [tab,setTab]=useState('dashboard')
   const [nome,setNome]=useState('');const [usuarioNovo,setUsuarioNovo]=useState('');const [senhaNova,setSenhaNova]=useState('')
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
   const [search,setSearch]=useState('');const [searchProd,setSearchProd]=useState('');const [searchUser,setSearchUser]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
+  const [editandoSetores,setEditandoSetores]=useState(null);const [setoresEdit,setSetoresEdit]=useState([])
+  const isMaster=MASTER_USERS.includes(user?.usuario)
   // Produto state
   const [pNome,setPNome]=useState('');const [pPreco,setPPreco]=useState('');const [pCusto,setPCusto]=useState('');const [pCat,setPCat]=useState('Descartáveis');const [pFab,setPFab]=useState('');const [pImg,setPImg]=useState(null);const [pUploading,setPUploading]=useState(false);const [editProd,setEditProd]=useState(null);const [pCodigo,setPCodigo]=useState('');const [pDiluicao,setPDiluicao]=useState('');const [showSemCodigo,setShowSemCodigo]=useState(false);const [showReprocessar,setShowReprocessar]=useState(false);const [showFotos,setShowFotos]=useState(false);const [showReajuste,setShowReajuste]=useState(false)
   const [rotasAtivas,setRotasAtivas]=useState([]);const [editRota,setEditRota]=useState(null);const [cancelRota,setCancelRota]=useState(null);const [pipelineFilter,setPipelineFilter]=useState(null);const [expandedAdminId,setExpandedAdminId]=useState(null);const [atrasoFilter,setAtrasoFilter]=useState(false)
@@ -41,6 +48,13 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
     setNome('');setUsuarioNovo('');setSenhaNova('');setSetoresNovo(['comercial']);await loadUsuarios();setSaving(false)
   }
   const handleDelete=async(id,n)=>{if(!confirm(`Deletar ${n}?`))return;await deleteUsuario(id);await loadUsuarios()}
+  const toggleSetorEdit=(s)=>{setSetoresEdit(prev=>prev.includes(s)?prev.filter(x=>x!==s):[...prev,s])}
+  const salvarSetores=async(id)=>{
+    if(setoresEdit.length===0){alert('Selecione ao menos 1 setor');return}
+    const{error}=await supabase.from('usuarios').update({setor:setoresEdit[0],setores:setoresEdit}).eq('id',id)
+    if(error){alert('Erro: '+error.message);return}
+    setEditandoSetores(null);setSetoresEdit([]);await loadUsuarios()
+  }
   const handleDeletePedido=async(id,cliente)=>{if(!confirm(`Deletar pedido de ${cliente}? Essa ação não pode ser desfeita.`))return;await deletePedido(id);refresh()}
   const alterarSenha=async(id)=>{if(!editSenha.trim())return;await supabase.from('usuarios').update({senha:editSenha}).eq('id',id);setEditando(null);setEditSenha('');alert('Senha alterada!')}
   const criarProduto=async()=>{
@@ -128,24 +142,40 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
         <input type="password" value={senhaNova} onChange={e=>setSenhaNova(e.target.value)} placeholder="Senha" style={{...inputStyle,marginBottom:10}}/>
         <label style={{display:'block',fontSize:12,fontWeight:600,color:'#334155',marginBottom:8}}>Setores</label>
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
-          {['comercial','galpao','motorista','vendedor','manutencao','admin'].map(s=>{const info=SETOR_MAP[s];const active=setoresNovo.includes(s);return(<button key={s} onClick={()=>toggleSetor(s)} style={{padding:'6px 12px',borderRadius:8,border:`2px solid ${active?info.color:'#E2E8F0'}`,background:active?info.color+'22':'#fff',color:active?info.color:'#94A3B8',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>{info.icon} {info.label}</button>)})}
+          {SETORES_DISPONIVEIS.map(s=>{const info=SETOR_MAP[s];const active=setoresNovo.includes(s);return(<button key={s} onClick={()=>toggleSetor(s)} style={{padding:'6px 12px',borderRadius:8,border:`2px solid ${active?info.color:'#E2E8F0'}`,background:active?info.color+'22':'#fff',color:active?info.color:'#94A3B8',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>{info.icon} {info.label}</button>)})}
         </div>
         <button onClick={criarUsuario} disabled={saving} style={{...btnPrimary,width:'100%',opacity:saving?0.6:1}}>{saving?'Criando...':'+ Criar Funcionário'}</button>
       </div>
       <SearchBar value={searchUser} onChange={setSearchUser} placeholder="Buscar por nome, usuário ou setor..."/>
-      {usuarios.filter(u=>{if(!searchUser)return true;const s=searchUser.toLowerCase();const setores=u.setores||[u.setor];return u.nome.toLowerCase().includes(s)||u.usuario.toLowerCase().includes(s)||setores.some(x=>x.toLowerCase().includes(s))}).map(u=>{const setores=u.setores||[u.setor];return(<div key={u.id} style={card}>
+      {usuarios.filter(u=>{if(!searchUser)return true;const s=searchUser.toLowerCase();const setores=u.setores||[u.setor];return u.nome.toLowerCase().includes(s)||u.usuario.toLowerCase().includes(s)||setores.some(x=>x.toLowerCase().includes(s))}).map(u=>{
+        const setores=u.setores||[u.setor]
+        const uIsMaster=MASTER_USERS.includes(u.usuario)
+        // Admin comum não mexe em master; master não deleta a si mesmo nem outro master
+        const podeSenha=isMaster||!uIsMaster
+        const podeEditar=isMaster
+        const podeDeletar=isMaster?(!uIsMaster&&u.id!==user?.id):(!setores.includes('admin'))
+        return(<div key={u.id} style={card}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div><span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{u.nome}</span><span style={{fontSize:12,color:'#94A3B8',marginLeft:8}}>@{u.usuario}</span></div>
+          <div><span style={{fontWeight:700,color:'#0A1628',fontSize:15}}>{u.nome}</span><span style={{fontSize:12,color:'#94A3B8',marginLeft:8}}>@{u.usuario}</span>{uIsMaster&&<span style={{background:'#FEF3C7',color:'#B45309',fontWeight:700,fontSize:10,padding:'2px 8px',borderRadius:8,marginLeft:8,border:'1px solid #FDE68A'}}>👑 Master</span>}</div>
           <div style={{display:'flex',gap:3}}>{setores.map(s=>{const info=SETOR_MAP[s]||SETOR_MAP.comercial;return<span key={s} style={{background:info.color+'22',color:info.color,fontWeight:700,fontSize:10,padding:'2px 6px',borderRadius:8}}>{info.icon}</span>})}</div>
         </div>
-        <div style={{display:'flex',gap:6,marginTop:10}}>
+        <div style={{display:'flex',gap:6,marginTop:10,flexWrap:'wrap'}}>
           {editando===u.id?(<div style={{display:'flex',gap:4,alignItems:'center'}}>
             <input type="password" value={editSenha} onChange={e=>setEditSenha(e.target.value)} placeholder="Nova senha" style={{...inputStyle,width:140,padding:'4px 8px',fontSize:12}}/>
             <button onClick={()=>alterarSenha(u.id)} style={{...btnSmall,fontSize:11,padding:'4px 8px',background:'#10B981',color:'#fff',border:'none'}}>OK</button>
             <button onClick={()=>{setEditando(null);setEditSenha('')}} style={{...btnSmall,fontSize:11,padding:'4px 8px'}}>✗</button>
+          </div>):editandoSetores===u.id?(<div style={{width:'100%'}}>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+              {SETORES_DISPONIVEIS.map(s=>{const info=SETOR_MAP[s];const active=setoresEdit.includes(s);return(<button key={s} onClick={()=>toggleSetorEdit(s)} style={{padding:'6px 12px',borderRadius:8,border:`2px solid ${active?info.color:'#E2E8F0'}`,background:active?info.color+'22':'#fff',color:active?info.color:'#94A3B8',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>{info.icon} {info.label}</button>)})}
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <button onClick={()=>salvarSetores(u.id)} style={{...btnSmall,fontSize:11,padding:'4px 12px',background:'#10B981',color:'#fff',border:'none'}}>Salvar acessos</button>
+              <button onClick={()=>{setEditandoSetores(null);setSetoresEdit([])}} style={{...btnSmall,fontSize:11,padding:'4px 10px'}}>Cancelar</button>
+            </div>
           </div>):(<>
-            <button onClick={()=>setEditando(u.id)} style={{...btnSmall,fontSize:11,padding:'4px 10px'}}>Alterar senha</button>
-            {!setores.includes('admin')&&<button onClick={()=>handleDelete(u.id,u.nome)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444'}}>Deletar</button>}
+            {podeSenha&&<button onClick={()=>setEditando(u.id)} style={{...btnSmall,fontSize:11,padding:'4px 10px'}}>Alterar senha</button>}
+            {podeEditar&&<button onClick={()=>{setEditandoSetores(u.id);setSetoresEdit(setores)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#2563EB'}}>Editar acessos</button>}
+            {podeDeletar&&<button onClick={()=>handleDelete(u.id,u.nome)} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#EF4444'}}>Deletar</button>}
           </>)}
         </div>
       </div>)})}
