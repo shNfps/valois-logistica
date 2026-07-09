@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, fmtCnpj, fetchVendedores } from './db.js'
+import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, CIDADES, fetchClientes, createCliente, fmtCnpj, fmtCpf, fmtDocumentoCliente, getTipoDocumentoCliente, fetchVendedores } from './db.js'
 import { ClienteDetalhe } from './views6.jsx'
 import { ClienteBadges, calcClienteBadges, ALL_BADGE_KEYS, BADGE_DEFS } from './cliente-badges.jsx'
 import { EnderecoAutocomplete } from './endereco-autocomplete.jsx'
@@ -14,6 +14,7 @@ export function ClientesTab({ pedidos = [], user }) {
   const [nome, setNome] = useState(''); const [cidade, setCidade] = useState('')
   const [telefone, setTelefone] = useState(''); const [email, setEmail] = useState('')
   const [endereco, setEndereco] = useState(''); const [cnpj, setCnpj] = useState('')
+  const [tipoDocumento, setTipoDocumento] = useState('cnpj')
   const [vendedorNovo, setVendedorNovo] = useState('')
   const [latitude, setLatitude] = useState(null); const [longitude, setLongitude] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -34,12 +35,15 @@ export function ClientesTab({ pedidos = [], user }) {
   const criar = async () => {
     if (!nome.trim()) { alert('Informe o nome'); return }
     if (!endereco.trim()) { alert('Informe o endereço'); return }
-    if (cnpj.replace(/\D/g, '').length !== 14) { alert('CNPJ deve ter 14 dígitos'); return }
+    const docFiscal = cnpj.replace(/\D/g, '')
+    const docEsperado = tipoDocumento === 'cpf' ? 11 : 14
+    const docLabel = tipoDocumento.toUpperCase()
+    if (docFiscal.length !== docEsperado) { alert(`${docLabel} deve ter ${docEsperado} digitos`); return }
     if (!vendedorNovo) { alert('Selecione o vendedor responsável'); return }
     setSaving(true)
-    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo, latitude: latitude || null, longitude: longitude || null })
+    const { error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, email: email || null, endereco: endereco.trim(), cnpj: docFiscal, vendedor_nome: vendedorNovo, latitude: latitude || null, longitude: longitude || null })
     if (error) { alert('Erro: ' + error.message); setSaving(false); return }
-    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setEndereco(''); setCnpj(''); setLatitude(null); setLongitude(null); setShowForm(false)
+    setNome(''); setCidade(''); setTelefone(''); setEmail(''); setEndereco(''); setCnpj(''); setTipoDocumento('cnpj'); setLatitude(null); setLongitude(null); setShowForm(false)
     await load(); setSaving(false)
   }
 
@@ -73,7 +77,13 @@ export function ClientesTab({ pedidos = [], user }) {
               <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-          <input value={cnpj} onChange={e => setCnpj(fmtCnpj(e.target.value))} placeholder="CNPJ *" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+            <input value={cnpj} onChange={e => setCnpj(tipoDocumento === 'cpf' ? fmtCpf(e.target.value) : fmtCnpj(e.target.value))} placeholder={tipoDocumento === 'cpf' ? 'CPF *' : 'CNPJ *'} inputMode="numeric" style={inputStyle} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, height: 42, padding: '0 12px', border: '1px solid #E2E8F0', borderRadius: 10, background: '#F8FAFC', color: '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={tipoDocumento === 'cpf'} onChange={e => { setTipoDocumento(e.target.checked ? 'cpf' : 'cnpj'); setCnpj('') }} style={{ width: 15, height: 15 }} />
+              CPF
+            </label>
+          </div>
           <EnderecoAutocomplete value={endereco} onChange={setEndereco} placeholder="Endereço completo *" style={{ marginBottom: 10 }}
             onSelect={({ endereco: end, cidade: cid, latitude: lat, longitude: lng }) => { setEndereco(end); if (cid) setCidade(cid); setLatitude(lat); setLongitude(lng) }} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -118,7 +128,7 @@ export function ClientesTab({ pedidos = [], user }) {
               <ClienteBadges pedidos={cPedidos} />
               <span style={{ background: '#F0FDF4', color: valorTotal > 0 ? '#059669' : '#94A3B8', fontWeight: 700, padding: '4px 10px', borderRadius: 8, fontSize: 12 }}>{fmtMoney(valorTotal)}</span>
             </div>
-            {c.cnpj && String(c.cnpj).trim() && <div style={{ fontSize: 12, color: '#64748B', marginBottom: 3 }}>🏢 <span style={{ fontWeight: 600 }}>{fmtCnpj(c.cnpj)}</span></div>}
+            {c.cnpj && String(c.cnpj).trim() && <div style={{ fontSize: 12, color: '#64748B', marginBottom: 3 }}>🏢 {getTipoDocumentoCliente(c.cnpj)}: <span style={{ fontWeight: 600 }}>{fmtDocumentoCliente(c.cnpj)}</span></div>}
             <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {c.cidade && <span>📍 {c.cidade}</span>}
               {c.telefone && <span>📞 {c.telefone}</span>}
@@ -141,6 +151,7 @@ export function NovoClienteRapidoModal({ nomeInicial, onClose, onCriado, user })
   const [telefone, setTelefone] = useState('')
   const [endereco, setEndereco] = useState('')
   const [cnpj, setCnpj] = useState('')
+  const [tipoDocumento, setTipoDocumento] = useState('cnpj')
   const [latitude, setLatitude] = useState(null); const [longitude, setLongitude] = useState(null)
   const [vendedores, setVendedores] = useState([])
   const isVendedor = user?.setores?.includes('vendedor') || user?.setor === 'vendedor'
@@ -151,9 +162,12 @@ export function NovoClienteRapidoModal({ nomeInicial, onClose, onCriado, user })
   const criar = async () => {
     if (!nome.trim()) { alert('Informe o nome'); return }
     if (!endereco.trim()) { alert('Informe o endereço'); return }
-    if (cnpj.replace(/\D/g, '').length !== 14) { alert('CNPJ deve ter 14 dígitos'); return }
+    const docFiscal = cnpj.replace(/\D/g, '')
+    const docEsperado = tipoDocumento === 'cpf' ? 11 : 14
+    const docLabel = tipoDocumento.toUpperCase()
+    if (docFiscal.length !== docEsperado) { alert(`${docLabel} deve ter ${docEsperado} digitos`); return }
     setSaving(true)
-    const { data, error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, endereco: endereco.trim(), cnpj: cnpj.replace(/\D/g, ''), vendedor_nome: vendedorNovo || 'Valois', latitude: latitude || null, longitude: longitude || null })
+    const { data, error } = await createCliente({ nome: nome.trim(), cidade: cidade || null, telefone: telefone || null, endereco: endereco.trim(), cnpj: docFiscal, vendedor_nome: vendedorNovo || 'Valois', latitude: latitude || null, longitude: longitude || null })
     if (error) { alert('Erro: ' + error.message); setSaving(false); return }
     onCriado?.(data); onClose()
   }
@@ -169,7 +183,13 @@ export function NovoClienteRapidoModal({ nomeInicial, onClose, onCriado, user })
         <select value={cidade} onChange={e => setCidade(e.target.value)} style={{ ...inputStyle, marginBottom: 10, cursor: 'pointer', color: cidade ? '#0A1628' : '#94A3B8' }}>
           <option value="">Cidade...</option>{CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <input value={cnpj} onChange={e => setCnpj(fmtCnpj(e.target.value))} placeholder="CNPJ *" inputMode="numeric" style={{ ...inputStyle, marginBottom: 10 }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+            <input value={cnpj} onChange={e => setCnpj(tipoDocumento === 'cpf' ? fmtCpf(e.target.value) : fmtCnpj(e.target.value))} placeholder={tipoDocumento === 'cpf' ? 'CPF *' : 'CNPJ *'} inputMode="numeric" style={inputStyle} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, height: 42, padding: '0 12px', border: '1px solid #E2E8F0', borderRadius: 10, background: '#F8FAFC', color: '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={tipoDocumento === 'cpf'} onChange={e => { setTipoDocumento(e.target.checked ? 'cpf' : 'cnpj'); setCnpj('') }} style={{ width: 15, height: 15 }} />
+              CPF
+            </label>
+          </div>
         <EnderecoAutocomplete value={endereco} onChange={setEndereco} placeholder="Endereço completo *" style={{ marginBottom: 10 }}
           onSelect={({ endereco: end, cidade: cid, latitude: lat, longitude: lng }) => { setEndereco(end); if (cid) setCidade(cid); setLatitude(lat); setLongitude(lng) }} />
         <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="Telefone" style={{ ...inputStyle, marginBottom: 10 }} />

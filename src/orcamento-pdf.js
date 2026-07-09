@@ -10,6 +10,23 @@ function fmtCnpj(v) {
   return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8,12)+'-'+n.slice(12)
 }
 
+function fmtCpf(v) {
+  if (!v) return ''
+  const n = String(v).replace(/\D/g, '').slice(0, 11)
+  if (n.length <= 3) return n
+  if (n.length <= 6) return n.slice(0,3)+'.'+n.slice(3)
+  if (n.length <= 9) return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6)
+  return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6,9)+'-'+n.slice(9)
+}
+
+function getTipoDocumentoCliente(v) {
+  return String(v || '').replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ'
+}
+
+function fmtDocumentoCliente(v) {
+  return getTipoDocumentoCliente(v) === 'CPF' ? fmtCpf(v) : fmtCnpj(v)
+}
+
 export function gerarOrcamentoPdf({ cliente, vendedor, carrinho, total, clienteObj }) {
   if (!clienteObj && !cliente.trim()) { alert('Informe o cliente'); return }
   const fmtVal = v => 'R$ ' + Number(v).toFixed(2).replace('.', ',')
@@ -28,7 +45,7 @@ export function gerarOrcamentoPdf({ cliente, vendedor, carrinho, total, clienteO
     </tr>`).join('')
 
   const clienteInfo = clienteObj ? `
-    ${clienteObj.cnpj ? `<div class="info-detail">CNPJ: ${fmtCnpj(clienteObj.cnpj)}</div>` : ''}
+    ${clienteObj.cnpj ? `<div class="info-detail">${getTipoDocumentoCliente(clienteObj.cnpj)}: ${fmtDocumentoCliente(clienteObj.cnpj)}</div>` : ''}
     ${clienteObj.endereco ? `<div class="info-detail">${clienteObj.endereco}${clienteObj.cidade ? ' — ' + clienteObj.cidade : ''}</div>` : ''}
   ` : ''
 

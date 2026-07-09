@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF, MarkerClustererF } from '@react-google-maps/api'
-import { card, btnSmall } from './db.js'
+import { card, btnSmall, fmtDocumentoCliente, getTipoDocumentoCliente } from './db.js'
 
 const GALPAO_LAT = -22.8843
 const GALPAO_LNG = -42.0194
@@ -204,7 +204,7 @@ function InfoWindowContent({ marker, onVerDetalhes, onSolicitarManutencao }) {
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", maxWidth: 280, fontSize: 12 }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: '#0A1628', marginBottom: 2 }}>{cliente.nome}</div>
-      {cliente.cnpj && <div style={{ fontSize: 11, color: '#64748B', marginBottom: 4 }}>CNPJ: {cliente.cnpj}</div>}
+      {cliente.cnpj && <div style={{ fontSize: 11, color: '#64748B', marginBottom: 4 }}>{getTipoDocumentoCliente(cliente.cnpj)}: {fmtDocumentoCliente(cliente.cnpj)}</div>}
       {cliente.endereco && <div style={{ fontSize: 11, color: '#64748B', marginBottom: 2 }}>📍 {cliente.endereco}</div>}
       {cliente.cidade && <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 8 }}>{cliente.cidade}</div>}
       <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Equipamentos ({equipamentos.length})</div>

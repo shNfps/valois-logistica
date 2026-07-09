@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fmt, fmtMoney, fmtCnpj, inputStyle, btnPrimary, btnSmall, card, CIDADES, SEGMENTOS, SEGMENTO_MAP, fetchPedidosByCliente, fetchItensByPedidoIds, fetchVendedores, updateCliente, updatePedidosCliente, getRef } from './db.js'
+import { fmt, fmtMoney, fmtCnpj, fmtCpf, fmtDocumentoCliente, getTipoDocumentoCliente, inputStyle, btnPrimary, btnSmall, card, CIDADES, SEGMENTOS, SEGMENTO_MAP, fetchPedidosByCliente, fetchItensByPedidoIds, fetchVendedores, updateCliente, updatePedidosCliente, getRef } from './db.js'
 import { Badge } from './components.jsx'
 import { ClienteBadges } from './cliente-badges.jsx'
 import { ClienteEquipamentosSection } from './admin-manutencao.jsx'
@@ -17,6 +17,7 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
   const [vendedores, setVendedores] = useState([])
   const [eNome, setENome] = useState('')
   const [eCnpj, setECnpj] = useState('')
+  const [eTipoDocumento, setETipoDocumento] = useState('cnpj')
   const [eEndereco, setEEndereco] = useState('')
   const [eCidade, setECidade] = useState('')
   const [eTelefone, setETelefone] = useState('')
@@ -49,7 +50,8 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
 
   const abrirEdicao = async () => {
     setENome(cliente.nome || '')
-    setECnpj(fmtCnpj(cliente.cnpj || ''))
+    setETipoDocumento(getTipoDocumentoCliente(cliente.cnpj || ''))
+    setECnpj(fmtDocumentoCliente(cliente.cnpj || ''))
     setEEndereco(cliente.endereco || '')
     setECidade(cliente.cidade || '')
     setETelefone(cliente.telefone || '')
@@ -70,7 +72,10 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
     const updates = {}
     if (!camposRestritos) {
       updates.nome = eNome.trim()
-      updates.cnpj = eCnpj.replace(/\D/g, '') || null
+      const docFiscal = eCnpj.replace(/\D/g, '')
+      const docEsperado = eTipoDocumento === 'CPF' ? 11 : 14
+      if (docFiscal && docFiscal.length !== docEsperado) { alert(`${eTipoDocumento} deve ter ${docEsperado} digitos`); setSaving(false); return }
+      updates.cnpj = docFiscal || null
       updates.endereco = eEndereco.trim() || null
       updates.cidade = eCidade || null
       updates.latitude = eLatitude || null
@@ -121,7 +126,13 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0A1628', marginBottom: 12 }}>Editar Cadastro</div>
             {!camposRestritos && <>
               <input value={eNome} onChange={e => setENome(e.target.value)} placeholder="Nome *" style={{ ...inputStyle, marginBottom: 8 }} />
-              <input value={eCnpj} onChange={e => setECnpj(fmtCnpj(e.target.value))} placeholder="CNPJ" inputMode="numeric" style={{ ...inputStyle, marginBottom: 8 }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <input value={eCnpj} onChange={e => setECnpj(eTipoDocumento === 'CPF' ? fmtCpf(e.target.value) : fmtCnpj(e.target.value))} placeholder={eTipoDocumento} inputMode="numeric" style={inputStyle} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, height: 42, padding: '0 12px', border: '1px solid #E2E8F0', borderRadius: 10, background: '#F8FAFC', color: '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <input type="checkbox" checked={eTipoDocumento === 'CPF'} onChange={e => { setETipoDocumento(e.target.checked ? 'CPF' : 'CNPJ'); setECnpj('') }} style={{ width: 15, height: 15 }} />
+                  CPF
+                </label>
+              </div>
               <EnderecoAutocomplete value={eEndereco} onChange={setEEndereco} placeholder="Endereço" style={{ marginBottom: 8 }}
                 onSelect={({ endereco: end, cidade: cid, latitude: lat, longitude: lng }) => { setEEndereco(end); if (cid) setECidade(cid); setELatitude(lat); setELongitude(lng) }} />
               <select value={eCidade} onChange={e => setECidade(e.target.value)} style={{ ...inputStyle, marginBottom: 8, cursor: 'pointer', color: eCidade ? '#0A1628' : '#94A3B8' }}>
@@ -168,7 +179,7 @@ export function ClienteDetalhe({ cliente, onBack, user, onSaved }) {
               {cliente.telefone && <span>📞 {cliente.telefone}</span>}
               {cliente.email && <span>✉ {cliente.email}</span>}
             </div>
-            {cliente.cnpj && <div style={{ fontSize: 13, color: '#64748B', marginTop: 6 }}>🏢 CNPJ: <span style={{ fontWeight: 600 }}>{fmtCnpj(cliente.cnpj)}</span></div>}
+            {cliente.cnpj && <div style={{ fontSize: 13, color: '#64748B', marginTop: 6 }}>🏢 {getTipoDocumentoCliente(cliente.cnpj)}: <span style={{ fontWeight: 600 }}>{fmtDocumentoCliente(cliente.cnpj)}</span></div>}
             {cliente.endereco && <div style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>🏠 {cliente.endereco}</div>}
           </>
         )}

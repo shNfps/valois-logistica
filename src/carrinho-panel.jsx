@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { fmtMoney, fmtCnpj, inputStyle, btnPrimary } from './db.js'
+import { fmtMoney, fmtDocumentoCliente, getTipoDocumentoCliente, inputStyle, btnPrimary } from './db.js'
 import { supabase } from './supabase.js'
 import { gerarOrcamentoPdf } from './orcamento-pdf.js'
 import { NovoClienteRapidoModal } from './views4.jsx'
@@ -46,7 +46,7 @@ function ClienteSearch({ value, onChange }) {
               onMouseLeave={e => e.currentTarget.style.background = ''}>
               <div style={{ fontWeight: 600, fontSize: 13, color: '#0A1628' }}>{c.nome}</div>
               <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>
-                {c.cidade && `📍 ${c.cidade}  `}{c.cnpj && fmtCnpj(c.cnpj)}
+                {c.cidade && `📍 ${c.cidade}  `}{c.cnpj && `${getTipoDocumentoCliente(c.cnpj)}: ${fmtDocumentoCliente(c.cnpj)}`}
               </div>
             </div>
           ))}
@@ -96,7 +96,7 @@ function CarrinhoPainel({ onClose, carrinho, total, alterarQtd, removerItem, ven
           <ClienteSearch value={cliente} onChange={handleCliente} />
           {cliente.obj && (
             <div style={{ fontSize: 11, color: '#10B981', marginTop: 5, fontWeight: 600 }}>
-              ✓ {cliente.obj.cidade ? `📍 ${cliente.obj.cidade}` : ''}{cliente.obj.cnpj ? `  ·  CNPJ: ${fmtCnpj(cliente.obj.cnpj)}` : ''}
+              ✓ {cliente.obj.cidade ? `📍 ${cliente.obj.cidade}` : ''}{cliente.obj.cnpj ? `  ·  ${getTipoDocumentoCliente(cliente.obj.cnpj)}: ${fmtDocumentoCliente(cliente.obj.cnpj)}` : ''}
             </div>
           )}
         </div>

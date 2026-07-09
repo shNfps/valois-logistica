@@ -156,6 +156,9 @@ export const SETOR_MAP={admin:{label:'Admin',icon:'👑',color:'#F59E0B'},comerc
 export const TIPOS_EQUIPAMENTO=['Dispenser de Sabonete','Dispenser de Papel Toalha','Dispenser de Papel Higiênico','Diluidor','Foamer','Saboneteira','Lixeira','Suporte','Outro']
 
 export const fmtCnpj = v => { if(!v)return''; const n=String(v).replace(/\D/g,'').slice(0,14); if(n.length<=2)return n; if(n.length<=5)return n.slice(0,2)+'.'+n.slice(2); if(n.length<=8)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5); if(n.length<=12)return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8); return n.slice(0,2)+'.'+n.slice(2,5)+'.'+n.slice(5,8)+'/'+n.slice(8,12)+'-'+n.slice(12) }
+export const fmtCpf = v => { if(!v)return''; const n=String(v).replace(/\D/g,'').slice(0,11); if(n.length<=3)return n; if(n.length<=6)return n.slice(0,3)+'.'+n.slice(3); if(n.length<=9)return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6); return n.slice(0,3)+'.'+n.slice(3,6)+'.'+n.slice(6,9)+'-'+n.slice(9) }
+export const getTipoDocumentoCliente = v => String(v||'').replace(/\D/g,'').length===11?'CPF':'CNPJ'
+export const fmtDocumentoCliente = v => getTipoDocumentoCliente(v)==='CPF'?fmtCpf(v):fmtCnpj(v)
 
 export const inputStyle={height:42,padding:'0 14px',border:'1px solid #E2E8F0',borderRadius:10,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:"'Inter',sans-serif",background:'#F8FAFC',width:'100%',color:'#0F172A'}
 export const btnPrimary={display:'flex',alignItems:'center',justifyContent:'center',gap:6,height:42,padding:'0 20px',borderRadius:10,border:'none',background:'#0F172A',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:"'Inter',sans-serif",transition:'all 0.18s'}
