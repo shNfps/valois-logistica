@@ -3,12 +3,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 // ─── LOADING TRANSITION (pós-login) ───
 // Splash exibido logo após o login, ANTES de renderizar o sistema.
 // Conceito: balde de limpeza soltando bolhas de sabão que sobem e desvanecem.
+// - Fundo azul-navy no MESMO tom da tela de login (bolhas brancas saltam no escuro).
 // - Animação 100% CSS (keyframes) — nenhuma lib.
-// - Cores 100% via design tokens (theme.css); brancos/rgba são só highlights.
-// - Duração: mínimo ~1.8s p/ a animação respirar; segue quando os dados
-//   iniciais carregarem (prop `ready`) OU no máximo 10s (timeout de segurança).
+// - Duração: mínimo ~1.8s; segue quando os dados iniciais carregarem (prop `ready`)
+//   OU no máximo 10s (timeout de segurança).
 // - prefers-reduced-motion: mostra só logo + spinner simples.
-// Alternativa guardada (mop no piso molhado): trocar só o miolo <Stage/>.
 
 const MIN_MS = 1800
 const MAX_MS = 10000
@@ -26,45 +25,32 @@ const BUBBLES = [
 ]
 
 const CSS = `
-.val-splash{position:fixed;inset:0;z-index:3000;background:var(--background);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-family:'Inter',sans-serif;padding:20px}
-.val-splash-logo{width:100%;max-width:230px;height:auto;margin-bottom:6px}
+.val-splash{position:fixed;inset:0;z-index:3000;background:linear-gradient(135deg,#0A1628 0%,#1E3A5F 52%,#0A1628 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-family:'Inter',sans-serif;padding:20px}
+.val-splash-logo{width:100%;max-width:230px;height:auto;margin-bottom:6px;filter:drop-shadow(0 0 10px rgba(255,255,255,.45))}
 .val-stage{position:relative;width:240px;height:250px}
 .val-bucket{position:absolute;bottom:0;left:50%;transform:translateX(-50%)}
 .val-bucket-body{fill:var(--valois-blue)}
 .val-bucket-rim{fill:var(--valois-green)}
 .val-foam{fill:var(--surface)}
 .val-bubble{position:absolute;bottom:86px;border-radius:50%;
-  background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.92),rgba(224,242,255,.32) 42%,rgba(126,204,40,.12) 72%,rgba(43,53,142,.05));
-  border:1px solid rgba(255,255,255,.65);
-  box-shadow:inset -2px -3px 6px rgba(43,53,142,.10),0 2px 5px rgba(43,53,142,.06);
+  background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.95),rgba(224,242,255,.45) 42%,rgba(126,204,40,.16) 72%,rgba(255,255,255,.06));
+  border:1px solid rgba(255,255,255,.8);
+  box-shadow:inset -2px -3px 6px rgba(10,22,40,.25),0 2px 6px rgba(0,0,0,.18);
   animation:val-bubble-rise linear infinite;will-change:transform,opacity}
 @keyframes val-bubble-rise{
   0%{transform:translate(0,0) scale(.4);opacity:0}
-  12%{opacity:.9}
+  12%{opacity:.95}
   30%{transform:translate(7px,-52px) scale(1)}
-  52%{transform:translate(-7px,-100px) scale(1.03);opacity:.85}
-  74%{transform:translate(6px,-150px) scale(1);opacity:.45}
+  52%{transform:translate(-7px,-100px) scale(1.03);opacity:.9}
+  74%{transform:translate(6px,-150px) scale(1);opacity:.5}
   100%{transform:translate(-2px,-194px) scale(1.14);opacity:0}
 }
-.val-splash-text{color:var(--valois-blue);font-size:15px;font-weight:600;letter-spacing:.2px;margin-top:2px}
+.val-splash-text{color:rgba(255,255,255,.92);font-size:15px;font-weight:600;letter-spacing:.2px;margin-top:2px}
 .val-pulse{animation:val-text-pulse 1.8s ease-in-out infinite}
 @keyframes val-text-pulse{0%,100%{opacity:1}50%{opacity:.55}}
-.val-swoosh{margin-top:6px;opacity:.5}
-.val-swoosh-green{fill:var(--valois-green)}
-.val-swoosh-blue{stroke:var(--valois-blue)}
-.val-spinner{width:42px;height:42px;border:4px solid var(--valois-blue-soft);border-top-color:var(--valois-blue);border-radius:50%;animation:val-spin .8s linear infinite;margin:14px 0}
+.val-spinner{width:42px;height:42px;border:4px solid rgba(255,255,255,.22);border-top-color:var(--valois-green);border-radius:50%;animation:val-spin .8s linear infinite;margin:14px 0}
 @keyframes val-spin{to{transform:rotate(360deg)}}
 `
-
-// Swoosh da marca (recriado em SVG) — divisor decorativo, uma única vez por tela.
-function Swoosh() {
-  return (
-    <svg className="val-swoosh" width="200" height="20" viewBox="0 0 200 20" fill="none" aria-hidden="true">
-      <path className="val-swoosh-green" d="M4 12 Q100 1 196 12 L194 17 Q100 7 6 17 Z" />
-      <path className="val-swoosh-blue" d="M5 15 Q100 5 195 15" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 function Bucket() {
   return (
@@ -129,7 +115,6 @@ export function LoadingTransition({ ready, onDone }) {
         </div>
       )}
       <div className={reduced ? 'val-splash-text' : 'val-splash-text val-pulse'}>Preparando tudo para você…</div>
-      <Swoosh />
     </div>
   )
 }
