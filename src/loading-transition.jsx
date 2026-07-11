@@ -26,7 +26,7 @@ const BUBBLES = [
 
 const CSS = `
 .val-splash{position:fixed;inset:0;z-index:3000;background:linear-gradient(135deg,#0A1628 0%,#1E3A5F 52%,#0A1628 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-family:'Inter',sans-serif;padding:20px}
-.val-splash-logo{width:100%;max-width:230px;height:auto;margin-bottom:6px;filter:drop-shadow(0 0 10px rgba(255,255,255,.45))}
+.val-splash-logo{width:100%;max-width:230px;height:auto;margin-bottom:6px}
 .val-stage{position:relative;width:240px;height:250px}
 .val-bucket{position:absolute;bottom:0;left:50%;transform:translateX(-50%)}
 .val-bucket-body{fill:var(--valois-blue)}
@@ -100,7 +100,7 @@ export function LoadingTransition({ ready, onDone }) {
   return (
     <div className="val-splash">
       <style>{CSS}</style>
-      <img className="val-splash-logo" src="/logo-valois.png" alt="Valois Logística" />
+      <img className="val-splash-logo" src="/logo-valois-dark.png" alt="Valois Logística" />
       {reduced ? (
         <div className="val-spinner" />
       ) : (

@@ -192,12 +192,10 @@ export default function App() {
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {/* Logo oficial (mesma do login) sobre chip branco: a logo foi desenhada p/
-                  fundo claro (VA azul + tagline azul), que na topbar navy fica ~1.3:1 de
-                  contraste. O chip devolve o fundo claro e garante contraste total. */}
-              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-control)', padding: '6px 12px', display: 'flex', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.18)' }}>
-                <img src="/logo-valois.png" alt="Valois Logística" style={{ height: 28, width: 'auto', display: 'block' }} />
-              </div>
+              {/* Variante da logo p/ fundo escuro (logo-valois-dark.png): as partes azuis
+                  viram branco e o verde é mantido — tratada a partir da logo oficial. Assenta
+                  direto na topbar navy, com contraste total e sem o chip branco. */}
+              <img src="/logo-valois-dark.png" alt="Valois Logística" style={{ height: 32, width: 'auto', display: 'block' }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <div style={{ textAlign: 'right' }}>
