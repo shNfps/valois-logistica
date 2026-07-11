@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './supabase.js'
 import { SETOR_MAP, fetchPedidos } from './db.js'
-import { notificarAtrasos } from './alertas-entrega.jsx'
+import { notificarAtrasos, filtrarAtrasos } from './alertas-entrega.jsx'
 import { Loader, LoginScreen } from './components.jsx'
+import { LoadingTransition } from './loading-transition.jsx'
+import { HomePage } from './home.jsx'
+import { Sidebar, MobileSubnavBar, MobileDrawer, MODULE_SUBTABS, HOME_ITEM, firstSubTab, useIsMobile } from './sidebar.jsx'
 import { AdminView } from './views.jsx'
 import { ComercialView, GalpaoView, VendedorView } from './views2.jsx'
 import { MotoristaView } from './views5.jsx'
@@ -23,27 +26,11 @@ const RELATORIOS_USERS = ['Matheus']
 // pra outros nomes sem expor essa.
 const TOP50_USERS = ['Matheus']
 
-function RelatoriosView({ user }) {
-  const [sub, setSub] = useState('diagnostico')
+// Sub-abas controladas pelo side menu (Checkpoint 4): recebe `sub` por prop.
+function RelatoriosView({ user, sub = 'diagnostico' }) {
   const podeTop50 = TOP50_USERS.includes(user.nome)
-  const subTabs = [
-    ['diagnostico', '🔬 Diagnóstico Top 20'],
-    ['visitas',     '📅 Visitas Pendentes'],
-    ...(podeTop50 ? [['top50', '📦 Top 50 SKUs']] : [])
-  ]
   return (
     <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, background: '#fff', padding: 4, borderRadius: 999, border: '1px solid #E2E8F0', width: 'fit-content' }}>
-        {subTabs.map(([k, l]) => (
-          <button key={k} onClick={() => setSub(k)} style={{
-            padding: '6px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
-            background: sub === k ? '#0F172A' : 'transparent',
-            color: sub === k ? '#fff' : '#475569',
-            fontSize: 12, fontWeight: sub === k ? 700 : 500,
-            fontFamily: "'Inter',sans-serif"
-          }}>{l}</button>
-        ))}
-      </div>
       {sub === 'diagnostico' && <RelatorioDiagnosticoTop20 user={user} />}
       {sub === 'visitas'     && <RelatorioVisitasPendentes />}
       {sub === 'top50' && (podeTop50
@@ -54,6 +41,14 @@ function RelatoriosView({ user }) {
   )
 }
 
+// Destino pós-login/refresh (Checkpoints 3+4). activeTab = módulo (setores[0],
+// "cai onde cai hoje"). subTab = 'home' p/ não-admin (Home é o 1º item do side
+// menu) ou a 1ª sub-aba do módulo p/ admin.
+function landing(setores) {
+  const mod = setores[0]
+  return { tab: mod, sub: setores.includes('admin') ? firstSubTab(mod) : 'home' }
+}
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try { const u = window.localStorage?.getItem('valois-user'); return u ? JSON.parse(u) : null } catch { return null }
@@ -62,11 +57,23 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState(null)
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+  // Splash pós-login (Checkpoint 2). Só aparece após uma ação de login —
+  // sessão persistida (refresh) NÃO dispara o splash, preservando o fluxo atual.
+  const [showSplash, setShowSplash] = useState(false)
+  // Side menu (Checkpoint 4)
+  const [subTab, setSubTab] = useState(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return window.localStorage?.getItem('valois-sidebar-collapsed') === '1' } catch { return false } })
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const isMobile = useIsMobile()
+  const topbarRef = useRef(null)
+  const [topH, setTopH] = useState(88)
 
   const handleLogin = (userData) => {
     setUser(userData)
+    setShowSplash(true)
     const setores = userData.setores || [userData.setor]
-    setActiveTab(setores[0])
+    const { tab, sub } = landing(setores)
+    setActiveTab(tab); setSubTab(sub)
     try {
       window.localStorage?.setItem('valois-user', JSON.stringify(userData))
       window.localStorage?.setItem('valois-login-date', new Date().toISOString().split('T')[0])
@@ -74,7 +81,7 @@ export default function App() {
   }
 
   const handleLogout = () => {
-    setUser(null); setActiveTab(null)
+    setUser(null); setActiveTab(null); setSubTab(null); setShowSplash(false); setDrawerOpen(false)
     try { window.localStorage?.removeItem('valois-user'); window.localStorage?.removeItem('valois-login-date') } catch {}
   }
 
@@ -96,7 +103,8 @@ export default function App() {
   useEffect(() => {
     if (user && !activeTab) {
       const setores = user.setores || [user.setor]
-      setActiveTab(setores[0])
+      const { tab, sub } = landing(setores)
+      setActiveTab(tab); setSubTab(sub)
     }
   }, [user, activeTab])
 
@@ -123,9 +131,22 @@ export default function App() {
     return () => { supabase.removeChannel(channel) }
   }, [user, loadData])
 
+  // Mede a altura da topbar p/ o sidebar/drawer grudarem logo abaixo dela.
+  useEffect(() => {
+    if (!user) return
+    const measure = () => { if (topbarRef.current) setTopH(topbarRef.current.offsetHeight) }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [user, isMobile])
+
   const { notifs, toast, setToast, dismiss, dismissAll } = useNotificacoes(user)
 
   if (!user) return <LoginScreen onLogin={handleLogin} />
+
+  // Splash pós-login: cobre o carregamento inicial dos dados.
+  // `ready` = dados já carregados; o componente respeita o mínimo de 1.8s e o teto de 10s.
+  if (showSplash) return <LoadingTransition ready={!loading} onDone={() => setShowSplash(false)} />
 
   // Financeiro é restrito: admin não recebe acesso automático.
   // Para admins acessarem o módulo, precisam ter o setor 'financeiro' explicitamente.
@@ -148,26 +169,34 @@ export default function App() {
   // Label/cor da aba 'relatorios' (não está no SETOR_MAP de db.js)
   const RELATORIOS_TAB = { label: 'Relatórios', icon: '📊', color: '#7C3AED' }
 
+  // ── Side menu (Checkpoint 4) ──
+  // Sidebar mostra as sub-abas do módulo ativo. Para não-admin, "Início" é o 1º item.
+  const isNonAdmin = !userSetoresBase.includes('admin')
+  const goToModule = (m) => { setActiveTab(m); setSubTab(firstSubTab(m)); setDrawerOpen(false) }
+  const toggleCollapse = () => setSidebarCollapsed(v => { const nv = !v; try { window.localStorage?.setItem('valois-sidebar-collapsed', nv ? '1' : '0') } catch {} ; return nv })
+  let subItems = MODULE_SUBTABS[activeTab] || []
+  if (activeTab === 'relatorios' && !TOP50_USERS.includes(user.nome)) subItems = subItems.filter(i => i.key !== 'top50')
+  const sidebarItems = isNonAdmin ? [HOME_ITEM, ...subItems] : subItems
+  // Badge de exemplo: pedidos atrasados/de hoje na sub-aba "Pedidos" (comercial/admin).
+  const atrasadosCount = filtrarAtrasos(pedidos, ['atrasado', 'hoje']).length
+  const badges = (activeTab === 'comercial' || activeTab === 'admin') ? { pedidos: atrasadosCount } : {}
+  const currentItem = sidebarItems.find(i => i.key === subTab) || sidebarItems[0]
+  const moduleLabel = activeTab === 'relatorios' ? 'Relatórios' : (SETOR_MAP[activeTab]?.label || '')
+
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", background: '#F8FAFC', minHeight: '100vh', color: '#0F172A' }}>
+    <div style={{ fontFamily: "'Inter', sans-serif", background: 'var(--background)', minHeight: '100vh', color: 'var(--text-primary)' }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}`}</style>
       <NotifToast toast={toast} onDismiss={() => setToast(null)} />
 
-      <div style={{ background: 'rgba(15,23,42,0.92)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 16px', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div ref={topbarRef} style={{ background: 'color-mix(in srgb, var(--valois-blue-dark) 92%, transparent)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 16px', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <svg width="32" height="32" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
-                <rect width="32" height="32" rx="8" fill="#0F172A" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
-                <text x="3" y="20" fontFamily="Inter,sans-serif" fontWeight="800" fontSize="9.5" fill="#2563EB">VA</text>
-                <text x="15" y="20" fontFamily="Inter,sans-serif" fontWeight="800" fontSize="9.5" fill="#10B981">LOIS</text>
-                <rect x="3" y="23" width="26" height="2" rx="1" fill="#10B981" opacity="0.7"/>
-              </svg>
-              <div>
-                <div style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: 1.5, lineHeight: 1.1 }}>
-                  <span style={{ color: '#2563EB' }}>VA</span><span style={{ color: '#10B981' }}>LOIS</span>
-                </div>
-                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 8, fontWeight: 500, letterSpacing: 2, textTransform: 'uppercase' }}>Logística</div>
+              {/* Logo oficial (mesma do login) sobre chip branco: a logo foi desenhada p/
+                  fundo claro (VA azul + tagline azul), que na topbar navy fica ~1.3:1 de
+                  contraste. O chip devolve o fundo claro e garante contraste total. */}
+              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-control)', padding: '6px 12px', display: 'flex', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.18)' }}>
+                <img src="/logo-valois.png" alt="Valois Logística" style={{ height: 28, width: 'auto', display: 'block' }} />
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -187,7 +216,7 @@ export default function App() {
                 const info = s === 'relatorios' ? RELATORIOS_TAB : (SETOR_MAP[s] || SETOR_MAP.comercial)
                 const isActive = activeTab === s
                 return (
-                  <button key={s} onClick={() => setActiveTab(s)} style={{
+                  <button key={s} onClick={() => goToModule(s)} style={{
                     flex: '0 0 auto', padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer',
                     background: isActive ? '#fff' : 'transparent',
                     color: isActive ? '#0F172A' : 'rgba(255,255,255,0.65)',
@@ -200,25 +229,34 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px' }}>
-        {loading && activeTab !== 'vendedor' ? <Loader /> : (
-          <>
-            {activeTab === 'admin' && <AdminView pedidos={pedidos} refresh={loadData} user={user} notifs={notifs} />}
-            {activeTab === 'comercial' && <ComercialView pedidos={pedidos} refresh={loadData} user={user} />}
-            {activeTab === 'galpao' && <GalpaoView pedidos={pedidos} refresh={loadData} user={user} />}
-            {activeTab === 'motorista' && <MotoristaView pedidos={pedidos} refresh={loadData} user={user} />}
-            {activeTab === 'vendedor' && <VendedorView user={user} pedidos={pedidos} />}
-            {activeTab === 'manutencao' && <ManutencaoView user={user} />}
-            {activeTab === 'financeiro' && (podeFinanceiro
-              ? <FinanceiroView user={user} />
-              : <div style={{ padding: 40, textAlign: 'center', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 12, color: '#991B1B', fontWeight: 600 }}>🔒 Acesso restrito ao setor financeiro</div>
-            )}
-            {activeTab === 'relatorios' && (podeRelatorios
-              ? <RelatoriosView user={user} />
-              : <div style={{ padding: 40, textAlign: 'center', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 12, color: '#991B1B', fontWeight: 600 }}>🔒 Acesso restrito</div>
-            )}
-          </>
-        )}
+      {/* Mobile: barra-gatilho + drawer (reaproveita a mesma lista do sidebar) */}
+      {isMobile && <MobileSubnavBar label={currentItem?.label} icon={currentItem?.icon} onOpen={() => setDrawerOpen(true)} top={topH} />}
+      <MobileDrawer open={isMobile && drawerOpen} onClose={() => setDrawerOpen(false)} items={sidebarItems} active={subTab} onSelect={setSubTab} badges={badges} title={moduleLabel} />
+
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'flex-start' }}>
+        {/* Desktop: sidebar fixo */}
+        {!isMobile && <Sidebar items={sidebarItems} active={subTab} onSelect={setSubTab} badges={badges} collapsed={sidebarCollapsed} onToggleCollapse={toggleCollapse} top={topH} />}
+        <div style={{ flex: 1, minWidth: 0, padding: 16 }}>
+          {loading && activeTab !== 'vendedor' && subTab !== 'home' ? <Loader /> : (
+            <>
+              {subTab === 'home' && <HomePage user={user} onNavigate={goToModule} />}
+              {subTab !== 'home' && activeTab === 'admin' && <AdminView tab={subTab} setTab={setSubTab} pedidos={pedidos} refresh={loadData} user={user} notifs={notifs} />}
+              {subTab !== 'home' && activeTab === 'comercial' && <ComercialView tab={subTab} pedidos={pedidos} refresh={loadData} user={user} />}
+              {subTab !== 'home' && activeTab === 'galpao' && <GalpaoView tab={subTab} pedidos={pedidos} refresh={loadData} user={user} />}
+              {subTab !== 'home' && activeTab === 'motorista' && <MotoristaView tab={subTab} pedidos={pedidos} refresh={loadData} user={user} />}
+              {subTab !== 'home' && activeTab === 'vendedor' && <VendedorView tab={subTab} user={user} pedidos={pedidos} />}
+              {subTab !== 'home' && activeTab === 'manutencao' && <ManutencaoView tab={subTab} user={user} />}
+              {subTab !== 'home' && activeTab === 'financeiro' && (podeFinanceiro
+                ? <FinanceiroView tab={subTab} user={user} />
+                : <div style={{ padding: 40, textAlign: 'center', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 12, color: '#991B1B', fontWeight: 600 }}>🔒 Acesso restrito ao setor financeiro</div>
+              )}
+              {subTab !== 'home' && activeTab === 'relatorios' && (podeRelatorios
+                ? <RelatoriosView sub={subTab} user={user} />
+                : <div style={{ padding: 40, textAlign: 'center', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 12, color: '#991B1B', fontWeight: 600 }}>🔒 Acesso restrito</div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

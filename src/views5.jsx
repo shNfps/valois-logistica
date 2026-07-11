@@ -9,13 +9,11 @@ import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
 import { ObsComercialInline } from './obs-comercial.jsx'
 import { PendenteCard, ResumoRapidoMotorista, RotaCard, pendenteKeyframes } from './motorista-extras.jsx'
 
-const motTabBtn = (active) => ({ padding: '8px 16px', borderRadius: '8px 8px 0 0', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, background: active ? '#0A1628' : 'transparent', color: active ? '#fff' : '#64748B' })
-
 // RotaCard, PendenteCard e ResumoRapidoMotorista vivem em motorista-extras.jsx.
 
 // ─── MOTORISTA VIEW ───
-export function MotoristaView({ pedidos, refresh, user }) {
-  const [tab, setTab] = useState('rotas')
+// Sub-abas controladas pelo side menu (Checkpoint 4): recebe `tab` por prop.
+export function MotoristaView({ pedidos, refresh, user, tab = 'rotas' }) {
   const [viewing, setViewing] = useState(null); const [signing, setSigning] = useState(false); const [saving, setSaving] = useState(false)
   const [rotasAtivas, setRotasAtivas] = useState([]); const [rotasPedidos, setRotasPedidos] = useState({})
   const [rotasPendentes, setRotasPendentes] = useState([])
@@ -134,11 +132,6 @@ export function MotoristaView({ pedidos, refresh, user }) {
   return (<div>
     <style>{`.nf-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(max-width:640px){.nf-grid{grid-template-columns:1fr}}`}</style>
     {toast && <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: '#059669', color: '#fff', padding: '12px 24px', borderRadius: 12, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,.3)', whiteSpace: 'nowrap' }}>{toast}</div>}
-    <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid #E2E8F0', paddingBottom: 0 }}>
-      <button onClick={() => setTab('rotas')} style={motTabBtn(tab === 'rotas')}>🚛 Rotas</button>
-      <button onClick={() => setTab('roteiros')} style={motTabBtn(tab === 'roteiros')}>🗺️ Meus Roteiros</button>
-      <button onClick={() => setTab('reembolsos')} style={motTabBtn(tab === 'reembolsos')}>💸 Reembolsos</button>
-    </div>
     {tab === 'reembolsos' && <ReembolsosFuncionarioTab user={user} />}
     {tab === 'roteiros' && <RoteirosTab pedidos={pedidos} user={user} somenteMotorista={user.nome} />}
     {tab === 'rotas' && <>

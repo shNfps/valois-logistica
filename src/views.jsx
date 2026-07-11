@@ -25,8 +25,10 @@ import { CancelarRotaModal } from './cancelar-rota-modal.jsx'
 const MASTER_USERS = ['matheus']
 const SETORES_DISPONIVEIS = ['comercial','galpao','motorista','vendedor','manutencao','financeiro','admin']
 
-export function AdminView({ pedidos, refresh, user, notifs=[] }) {
-  const [usuarios,setUsuarios]=useState([]);const [produtos,setProdutos]=useState([]);const [tab,setTab]=useState('dashboard')
+// Sub-abas controladas pelo side menu (Checkpoint 4): recebe `tab`/`setTab` por prop
+// (setTab é usado internamente no atalho "Ver ranking completo").
+export function AdminView({ pedidos, refresh, user, notifs=[], tab='dashboard', setTab }) {
+  const [usuarios,setUsuarios]=useState([]);const [produtos,setProdutos]=useState([])
   const [nome,setNome]=useState('');const [usuarioNovo,setUsuarioNovo]=useState('');const [senhaNova,setSenhaNova]=useState('')
   const [setoresNovo,setSetoresNovo]=useState(['comercial']);const [saving,setSaving]=useState(false)
   const [search,setSearch]=useState('');const [searchProd,setSearchProd]=useState('');const [searchUser,setSearchUser]=useState('');const [editando,setEditando]=useState(null);const [editSenha,setEditSenha]=useState('');const [extractingPedido,setExtractingPedido]=useState(null)
@@ -76,10 +78,6 @@ export function AdminView({ pedidos, refresh, user, notifs=[] }) {
 
   return(<div>
     <style>{atrasoKeyframes}</style>
-    <div style={{display:'flex',gap:6,marginBottom:20,flexWrap:'wrap'}}>
-      {[{key:'dashboard',label:'Dashboard'},{key:'ranking',label:'🏆 Ranking'},{key:'usuarios',label:'Funcionários'},{key:'produtos',label:'Produtos'},{key:'pedidos',label:'Pedidos'},{key:'roteiros',label:'🗺️ Roteiros'},{key:'clientes',label:'Clientes'},{key:'comissoes',label:'Comissões'},{key:'metas',label:'Metas'}].map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:tab===t.key?'#0A1628':'#E2E8F0',color:tab===t.key?'#fff':'#64748B',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>{t.label}</button>))}
-    </div>
-
     {tab==='roteiros'&&<RoteirosTab pedidos={pedidos} user={user}/>}
     {tab==='ranking'&&<RankingPage pedidos={pedidos} usuarios={usuarios} isAdmin={true}/>}
     {tab==='comissoes'&&<ComissoesTab pedidos={pedidos}/>}

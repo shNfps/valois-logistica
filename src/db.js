@@ -160,10 +160,12 @@ export const fmtCpf = v => { if(!v)return''; const n=String(v).replace(/\D/g,'')
 export const getTipoDocumentoCliente = v => String(v||'').replace(/\D/g,'').length===11?'CPF':'CNPJ'
 export const fmtDocumentoCliente = v => getTipoDocumentoCliente(v)==='CPF'?fmtCpf(v):fmtCnpj(v)
 
-export const inputStyle={height:42,padding:'0 14px',border:'1px solid #E2E8F0',borderRadius:10,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:"'Inter',sans-serif",background:'#F8FAFC',width:'100%',color:'#0F172A'}
-export const btnPrimary={display:'flex',alignItems:'center',justifyContent:'center',gap:6,height:42,padding:'0 20px',borderRadius:10,border:'none',background:'#0F172A',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:"'Inter',sans-serif",transition:'all 0.18s'}
-export const btnSmall={display:'inline-flex',alignItems:'center',gap:4,height:32,padding:'0 12px',borderRadius:8,border:'none',background:'#F1F5F9',color:'#0F172A',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:"'Inter',sans-serif"}
-export const card={background:'#fff',borderRadius:16,padding:18,marginBottom:12,boxShadow:'0 1px 3px rgba(0,0,0,0.04),0 1px 2px rgba(0,0,0,0.03)',border:'1px solid rgba(226,232,240,0.8)'}
+// Estilos compartilhados — consomem os design tokens (theme.css). Usados por 47+ telas,
+// então esta é a alavanca central do tema (Checkpoint 5).
+export const inputStyle={height:42,padding:'0 14px',border:'1px solid var(--border)',borderRadius:'var(--radius-control)',fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:"'Inter',sans-serif",background:'var(--background)',width:'100%',color:'var(--text-primary)'}
+export const btnPrimary={display:'flex',alignItems:'center',justifyContent:'center',gap:6,height:42,padding:'0 20px',borderRadius:'var(--radius-control)',border:'none',background:'var(--valois-blue)',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:"'Inter',sans-serif",transition:'all 0.18s'}
+export const btnSmall={display:'inline-flex',alignItems:'center',gap:4,height:32,padding:'0 12px',borderRadius:'var(--radius-control)',border:'none',background:'#F1F5F9',color:'var(--text-primary)',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:"'Inter',sans-serif"}
+export const card={background:'var(--surface)',borderRadius:'var(--radius-card)',padding:18,marginBottom:12,boxShadow:'var(--shadow-card)',border:'1px solid var(--border)'}
 
 // DB ops
 export async function fetchPedidos(){const{data,error}=await supabase.from('pedidos').select('*').order('criado_em',{ascending:false});if(error){console.error(error);return[]};return data||[]}

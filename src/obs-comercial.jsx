@@ -77,7 +77,7 @@ export function ObsComercialInput({ value, onChange }) {
         rows={3}
         maxLength={MAX_OBS}
         placeholder="Ex: separar rápido, produto X já foi, urgente..."
-        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: '#F8FAFC', border: '2px solid #E2E8F0', borderRadius: 10, fontSize: 14, color: '#0F172A', outline: 'none', resize: 'vertical', fontFamily: "'Inter',sans-serif" }}
+        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--background)', border: '2px solid var(--border)', borderRadius: 'var(--radius-control)', fontSize: 14, color: 'var(--text-primary)', outline: 'none', resize: 'vertical', fontFamily: "'Inter',sans-serif" }}
       />
       <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'right', marginTop: 2 }}>{value.length}/{MAX_OBS}</div>
     </div>

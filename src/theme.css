@@ -1,0 +1,30 @@
+/* ============================================================
+   Valois Logística — Design Tokens
+   Fonte única de verdade da identidade visual (higiene/limpeza
+   profissional: claro, arejado, azul manda + verde acentua).
+   Consumir SEMPRE via var(--token) — nada de hex solto no JSX.
+   ============================================================ */
+:root {
+  /* Cores da marca (extraídas da logo oficial) */
+  --valois-blue: #2B358E;        /* azul institucional — cor DOMINANTE */
+  --valois-blue-dark: #1E2564;   /* hover / estados ativos / topbar */
+  --valois-blue-soft: #EEF0FA;   /* fundos de item ativo, badges */
+  --valois-green: #7ECC28;       /* verde da logo — APENAS acento: sucesso, CTAs secundários, detalhes */
+  --valois-green-soft: #F0FAE4;
+
+  /* Neutros "limpos" */
+  --surface: #FFFFFF;
+  --background: #F6F8FB;          /* fundo geral levemente azulado, remete a "água limpa" */
+  --border: #E4E8F0;
+  --text-primary: #1A2140;
+  --text-secondary: #6B7290;
+
+  /* Semânticas (harmonizadas com as de status já existentes) */
+  --danger: #E5484D;
+  --warning: #F5A623;
+  --success: var(--valois-green);
+
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --shadow-card: 0 1px 3px rgba(43, 53, 142, 0.06), 0 4px 16px rgba(43, 53, 142, 0.05);
+}

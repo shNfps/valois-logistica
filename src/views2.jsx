@@ -28,8 +28,6 @@ const FORMAS_PAGAMENTO_PEDIDO = [
   { v: 'pix', l: 'PIX', dias: 0 }
 ]
 
-const tabBtn=(active)=>({padding:'8px 16px',borderRadius:'8px 8px 0 0',border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:13,background:active?'#0A1628':'transparent',color:active?'#fff':'#64748B'})
-
 function ProdutoPopup({prod,onClose,onAdd}){
   return(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
@@ -52,8 +50,7 @@ function ProdutoPopup({prod,onClose,onAdd}){
 }
 
 // ─── COMERCIAL VIEW ───
-export function ComercialView({ pedidos, refresh, user }) {
-  const [tab,setTab]=useState('pedidos')
+export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
   const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
   const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('');const [nfNumeros,setNfNumeros]=useState({})
   const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
@@ -105,15 +102,6 @@ export function ComercialView({ pedidos, refresh, user }) {
     </div>)
   }
   return(<div>
-    <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
-      <button onClick={()=>setTab('pedidos')} style={tabBtn(tab==='pedidos')}>📋 Pedidos</button>
-      <button onClick={()=>setTab('roteiros')} style={tabBtn(tab==='roteiros')}>🗺️ Roteiros</button>
-      <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
-      <button onClick={()=>setTab('manutencao')} style={tabBtn(tab==='manutencao')}>🔧 Manutenção</button>
-      <button onClick={()=>setTab('reembolsos')} style={tabBtn(tab==='reembolsos')}>💸 Reembolsos</button>
-      <button onClick={()=>setTab('inadimplencia')} style={tabBtn(tab==='inadimplencia')}>🚨 Inadimplência</button>
-      <button onClick={()=>setTab('performance')} style={tabBtn(tab==='performance')}>📊 Performance</button>
-    </div>
     {tab==='roteiros'&&<RoteirosTab pedidos={pedidos} user={user}/>}
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
     {tab==='manutencao'&&<SolicitarManutencaoTab user={user}/>}
@@ -153,8 +141,7 @@ export function ComercialView({ pedidos, refresh, user }) {
 }
 
 // ─── GALPÃO VIEW ───
-export function GalpaoView({ pedidos, refresh, user }) {
-  const [tab,setTab]=useState('conferencia')
+export function GalpaoView({ pedidos, refresh, user, tab='conferencia' }) {
   const [viewing,setViewing]=useState(null);const [obs,setObs]=useState('');const [saving,setSaving]=useState(false)
   const relevantes=pedidos.filter(p=>['PENDENTE','INCOMPLETO'].includes(p.status))
   const aprovar=async(id)=>{setSaving(true);await updatePedido(id,{status:'CONFERIDO',conferido_por:user.nome});await addHistorico(id,user.nome,'Conferiu e aprovou');const _pa=pedidos.find(x=>x.id===id);await criarNotificacao('comercial',`✅ Pedido ${_pa?.numero_ref||id.slice(0,8).toUpperCase()} de ${_pa?.cliente||''} conferido`,`Anexe a NF · Galpão: ${user.nome}`,id);refresh();setViewing(null);setSaving(false)}
@@ -180,10 +167,6 @@ export function GalpaoView({ pedidos, refresh, user }) {
       </div>
     </div>)}
   return(<div>
-    <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0}}>
-      <button onClick={()=>setTab('conferencia')} style={tabBtn(tab==='conferencia')}>📦 Conferência</button>
-      <button onClick={()=>setTab('reembolsos')} style={tabBtn(tab==='reembolsos')}>💸 Reembolsos</button>
-    </div>
     {tab==='reembolsos' && <ReembolsosFuncionarioTab user={user}/>}
     {tab==='conferencia' && <>
       <h3 style={{fontSize:13,fontWeight:700,color:'#94A3B8',margin:'0 0 14px',textTransform:'uppercase',letterSpacing:1.5}}>Conferência ({relevantes.length})</h3>
@@ -206,8 +189,7 @@ export function GalpaoView({ pedidos, refresh, user }) {
 
 
 // ─── VENDEDOR VIEW ───
-export function VendedorView({ user, pedidos=[] }) {
-  const [tab,setTab]=useState('catalogo')
+export function VendedorView({ user, pedidos=[], tab='catalogo' }) {
   const [produtos,setProdutos]=useState([]);const [search,setSearch]=useState('');const [catFilter,setCatFilter]=useState('')
   const [carrinho,setCarrinho]=useState([]);const [prodPopup,setProdPopup]=useState(null)
   const [showPopup,setShowPopup]=useState(false);const [confetesData,setConfetesData]=useState(null)
@@ -245,16 +227,6 @@ export function VendedorView({ user, pedidos=[] }) {
   const cats=[...new Set(produtos.map(p=>p.categoria))].sort()
 
   return(<div>
-    <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid #E2E8F0',paddingBottom:0,overflowX:'auto'}}>
-      <button onClick={()=>setTab('catalogo')} style={tabBtn(tab==='catalogo')}>🛍 Catálogo</button>
-      <button onClick={()=>setTab('clientes')} style={tabBtn(tab==='clientes')}>👥 Clientes</button>
-      <button onClick={()=>setTab('comissao')} style={tabBtn(tab==='comissao')}>💰 Comissão</button>
-      <button onClick={()=>setTab('rotas')} style={tabBtn(tab==='rotas')}>🗺️ Rotas</button>
-      <button onClick={()=>setTab('manutencao')} style={tabBtn(tab==='manutencao')}>🔧 Manutenção</button>
-      <button onClick={()=>setTab('reembolsos')} style={tabBtn(tab==='reembolsos')}>💸 Reembolsos</button>
-      <button onClick={()=>setTab('inadimplencia')} style={tabBtn(tab==='inadimplencia')}>🚨 Inadimplência</button>
-      <button onClick={()=>setTab('performance')} style={tabBtn(tab==='performance')}>📊 Performance</button>
-    </div>
     {tab==='clientes'&&<ClientesTab pedidos={pedidos} user={user}/>}
     {tab==='comissao'&&<VendedorDashboardTab user={user} pedidos={pedidos}/>}
     {tab==='rotas'&&<VendedorRotasTab/>}
