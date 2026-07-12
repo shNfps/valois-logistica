@@ -35,8 +35,9 @@ export async function rodarAlertasFinanceiros() {
       for (const i of inad) {
         const chave = `inadimp:${i.cliente_id || i.cliente_nome}:${hoje}`
         if (!await alertaJaDisparado(chave)) {
-          await criarNotificacao('comercial', `🚨 Cliente inadimplente: ${i.cliente_nome}`, `${i.count} contas atrasadas · ${fmtMoney(i.total)}`)
-          await criarNotificacao('financeiro', `🚨 Cliente inadimplente: ${i.cliente_nome}`, `${i.count} contas atrasadas · ${fmtMoney(i.total)}`)
+          const detalhe = `${fmtMoney(i.total)} em aberto · ${i.count} boleto${i.count !== 1 ? 's' : ''} vencido${i.count !== 1 ? 's' : ''} · maior atraso ${i.maiorAtraso}d`
+          await criarNotificacao('comercial', `🚨 Cliente inadimplente: ${i.cliente_nome}`, detalhe)
+          await criarNotificacao('financeiro', `🚨 Cliente inadimplente: ${i.cliente_nome}`, detalhe)
           await marcarAlertaDisparado(chave)
         }
       }
