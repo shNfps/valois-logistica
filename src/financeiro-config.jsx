@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { fmtCnpj, inputStyle, btnPrimary, btnSmall, card } from './db.js'
-import { fetchCategoriasDespesa, createCategoriaDespesa, deleteCategoriaDespesa, fetchFornecedores, createFornecedor, updateFornecedor, deleteFornecedor, fetchConfigFinanceiro, updateConfigFinanceiro } from './financeiro-db.js'
+import { fetchCategoriasDespesa, createCategoriaDespesa, deleteCategoriaDespesa, fetchFornecedores, createFornecedor, updateFornecedor, deleteFornecedor, fetchConfigFinanceiro, updateConfigFinanceiro, backfillContasReceber } from './financeiro-db.js'
 
 const TIPOS = ['fornecedor', 'salario', 'infra', 'veiculo', 'imposto', 'operacional', 'obra', 'reembolso', 'outros']
 
@@ -138,10 +138,66 @@ function AlertasSection() {
   )
 }
 
+// Backfill: cria contas a receber de pedidos antigos com NF sem cobrança.
+// Simule antes (dry-run) e execute; idempotente (não duplica ao rodar de novo).
+function BackfillSection() {
+  const [rel, setRel] = useState(null)
+  const [rodando, setRodando] = useState(false)
+  const [modo, setModo] = useState('')
+  const rodar = async (dryRun) => {
+    if (!dryRun && !confirm('Executar o backfill e CRIAR as contas a receber faltantes?\n\nGrava no banco. Não duplica contas já existentes.')) return
+    setRodando(true); setModo(dryRun ? 'sim' : 'exec')
+    try { setRel(await backfillContasReceber({ dryRun })) }
+    finally { setRodando(false) }
+  }
+  const motivos = rel ? Object.entries(rel.motivos || {}) : []
+  return (
+    <div style={{ ...card, padding: 18, marginBottom: 16 }}>
+      <h4 style={{ margin: '0 0 6px', fontSize: 14, color: '#0A1628' }}>🔄 Backfill de contas a receber (NFs antigas)</h4>
+      <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 12px' }}>
+        Cria cobranças para pedidos antigos com NF, valor e cliente que ainda não têm conta a receber.
+        Sem data exata de boleto, o vencimento é calculado pelo prazo (marcado como automático). Idempotente.
+      </p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button onClick={() => rodar(true)} disabled={rodando} style={{ ...btnSmall, height: 38 }}>🔍 Simular (dry-run)</button>
+        <button onClick={() => rodar(false)} disabled={rodando} style={{ ...btnPrimary, height: 38 }}>▶ Executar backfill</button>
+      </div>
+      {rodando && <div style={{ fontSize: 13, color: '#64748B', marginTop: 12 }}>Processando...</div>}
+      {rel && !rodando && (
+        <div style={{ marginTop: 14, background: '#F8FAFC', borderRadius: 10, padding: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: rel.dryRun ? '#B45309' : '#065F46', marginBottom: 8 }}>
+            {rel.dryRun ? '🔍 Simulação (nada foi gravado)' : '✅ Backfill executado'}{rel.erro ? ` · erro: ${rel.erro}` : ''}
+          </div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, marginBottom: 8 }}>
+            <span>Analisados: <b>{rel.analisados}</b></span>
+            <span style={{ color: '#059669' }}>{rel.dryRun ? 'A criar' : 'Criadas'}: <b>{rel.criados}</b></span>
+            {rel.atualizados > 0 && <span style={{ color: '#1D4ED8' }}>Atualizadas: <b>{rel.atualizados}</b></span>}
+            <span style={{ color: '#94A3B8' }}>Ignorados: <b>{rel.ignorados}</b></span>
+          </div>
+          {motivos.length > 0 && (
+            <div style={{ fontSize: 12, color: '#64748B' }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Motivos dos ignorados:</div>
+              {motivos.map(([m, n]) => <div key={m} style={{ paddingLeft: 8 }}>• {m}: <b>{n}</b></div>)}
+            </div>
+          )}
+          {rel.pendentesCorrecao?.length > 0 && (
+            <div style={{ fontSize: 11, color: '#92400E', marginTop: 8, background: '#FEF3C7', borderRadius: 8, padding: '8px 10px' }}>
+              <b>Pendentes de correção manual (sem vencimento):</b>
+              {rel.pendentesCorrecao.slice(0, 20).map((p, i) => <div key={i}>#{p.ref} · {p.cliente} · NF {p.nf || '—'}</div>)}
+              {rel.pendentesCorrecao.length > 20 && <div>… +{rel.pendentesCorrecao.length - 20}</div>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ConfiguracoesTab() {
   return (
     <div>
       <AlertasSection />
+      <BackfillSection />
       <CategoriasSection />
       <FornecedoresSection />
     </div>
