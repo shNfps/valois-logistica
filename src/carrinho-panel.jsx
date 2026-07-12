@@ -3,6 +3,7 @@ import { fmtMoney, fmtDocumentoCliente, getTipoDocumentoCliente, inputStyle, btn
 import { supabase } from './supabase.js'
 import { gerarOrcamentoPdf } from './orcamento-pdf.js'
 import { NovoClienteRapidoModal } from './views4.jsx'
+import { AlertaInadimplencia } from './alerta-inadimplencia.jsx'
 
 // ─── AUTOCOMPLETE COM BUSCA ILIKE NO SUPABASE ───
 function ClienteSearch({ value, onChange }) {
@@ -99,6 +100,7 @@ function CarrinhoPainel({ onClose, carrinho, total, alterarQtd, removerItem, ven
               ✓ {cliente.obj.cidade ? `📍 ${cliente.obj.cidade}` : ''}{cliente.obj.cnpj ? `  ·  ${getTipoDocumentoCliente(cliente.obj.cnpj)}: ${fmtDocumentoCliente(cliente.obj.cnpj)}` : ''}
             </div>
           )}
+          {cliente.obj && <AlertaInadimplencia cliente={cliente.obj} compact />}
         </div>
 
         {/* Lista de itens (scrollável) */}
