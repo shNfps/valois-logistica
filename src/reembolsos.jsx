@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { fmtMoney, inputStyle, btnPrimary, btnSmall, card } from './db.js'
 import { fetchReembolsos, createReembolso, updateReembolso, deleteReembolso, uploadComprovante, isoHoje } from './financeiro-db.js'
 import { criarNotificacao } from './notificacoes.js'
+import { AttachmentInput } from './attachment.jsx'
 
 const STATUS_BADGE = {
   PENDENTE:    { label: '🟡 Pendente',    bg: '#FEF3C7', color: '#B45309' },
@@ -18,15 +19,15 @@ function SolicitarModal({ user, onClose, onSaved, editando }) {
   const [valor, setValor] = useState(editando?.valor || '')
   const [dataDespesa, setDataDespesa] = useState(editando?.data_despesa || isoHoje())
   const [categoria, setCategoria] = useState(editando?.categoria || 'Combustível')
-  const [comprovante, setComprovante] = useState(null)
+  const [comprovanteFiles, setComprovanteFiles] = useState([])
   const [saving, setSaving] = useState(false)
 
   const salvar = async () => {
     if (!descricao.trim() || !valor || !dataDespesa) { alert('Preencha descrição, valor e data'); return }
-    if (!editando && !comprovante) { alert('Anexe o comprovante (foto ou PDF)'); return }
+    if (!editando && comprovanteFiles.length === 0) { alert('Anexe o comprovante (foto ou PDF)'); return }
     setSaving(true)
     let url = editando?.comprovante_url || null
-    if (comprovante) url = await uploadComprovante(comprovante)
+    if (comprovanteFiles[0]) url = await uploadComprovante(comprovanteFiles[0])
     if (editando) {
       await updateReembolso(editando.id, { descricao, valor: Number(valor), data_despesa: dataDespesa, categoria, comprovante_url: url })
     } else {
@@ -49,7 +50,9 @@ function SolicitarModal({ user, onClose, onSaved, editando }) {
           {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <label style={{ display: 'block', fontSize: 12, color: '#64748B', marginBottom: 6 }}>Comprovante {editando ? '(deixe vazio para manter)' : '*'}</label>
-        <input type="file" accept="image/*,.pdf" onChange={e => setComprovante(e.target.files[0])} style={{ marginBottom: 16, width: '100%' }} />
+        <div style={{ marginBottom: 16 }}>
+          <AttachmentInput files={comprovanteFiles} onFiles={setComprovanteFiles} existingUrl={editando?.comprovante_url} />
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} style={{ ...btnSmall, flex: 1, justifyContent: 'center' }}>Cancelar</button>
           <button onClick={salvar} disabled={saving} style={{ ...btnPrimary, flex: 2, opacity: saving ? 0.6 : 1 }}>{saving ? 'Salvando...' : 'Salvar'}</button>
