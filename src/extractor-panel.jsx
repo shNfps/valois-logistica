@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { extractItemsFromPdf } from './ai.js'
 import { fetchProdutos, updateProduto, createProduto, savePedidoItens, inputStyle, btnPrimary, btnSmall, card } from './db.js'
+import { upsertContaReceberDoPedido } from './financeiro-db.js'
 
 const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
@@ -40,7 +41,15 @@ export function ExtractorPanel({ pedido, onClose, onSaved }) {
 
   const salvarPedido = async () => {
     setSalvando(true)
-    await savePedidoItens(pedido.id, itens.filter(i => i._sel))
+    const selec = itens.filter(i => i._sel)
+    await savePedidoItens(pedido.id, selec)
+    // Com o valor_total agora definido, cria/atualiza a conta a receber. Corrige o
+    // caso em que a NF foi anexada antes da extração (valor ainda era 0 e a conta
+    // não era criada). upsert não duplica: atualiza a conta se já existir.
+    const total = selec.reduce((s, i) => s + (Number(i.preco_total) || (Number(i.quantidade) || 0) * (Number(i.preco_unitario) || 0)), 0)
+    if (pedido.numero_nf && total > 0) {
+      await upsertContaReceberDoPedido({ ...pedido, valor_total: total })
+    }
     setSalvando(false); onSaved?.(); onClose()
   }
 

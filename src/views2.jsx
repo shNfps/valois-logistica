@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, fetchMetas, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
+import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FORMAS_PAGAMENTO_PEDIDO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, fetchMetas, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
 import { AtrasoBadge, ResumoComercialAtrasos, atrasoRowStyle, atrasoKeyframes } from './alertas-entrega.jsx'
 import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
@@ -13,20 +13,12 @@ import { PerformanceVendedorTab } from './performance-vendedor.jsx'
 import { PerformanceComercialTab } from './performance-comercial.jsx'
 import { SolicitarManutencaoTab } from './manutencao-solicit.jsx'
 import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
-import { criarContaReceberDoPedido } from './financeiro-db.js'
+import { pedidoFinanceiroPendente } from './financeiro-db.js'
+import { AnexarNfBoletoModal } from './nf-boleto-modal.jsx'
+import { AlertaInadimplencia } from './alerta-inadimplencia.jsx'
 import { InadimplenciaReadonly } from './financeiro-inadimplencia.jsx'
 import { ObsComercialInput, ObsComercialBanner, ObsComercialInline, ObsEditModal, isUrgente } from './obs-comercial.jsx'
 import { RoteirosTab } from './roteiros-tab.jsx'
-
-const FORMAS_PAGAMENTO_PEDIDO = [
-  { v: 'a_vista', l: 'À vista', dias: 0 },
-  { v: 'boleto_7', l: 'Boleto 7 dias', dias: 7 },
-  { v: 'boleto_14', l: 'Boleto 14 dias', dias: 14 },
-  { v: 'boleto_21', l: 'Boleto 21 dias', dias: 21 },
-  { v: 'boleto_28', l: 'Boleto 28 dias', dias: 28 },
-  { v: 'cartao', l: 'Cartão', dias: 0 },
-  { v: 'pix', l: 'PIX', dias: 0 }
-]
 
 function ProdutoPopup({prod,onClose,onAdd}){
   return(
@@ -52,13 +44,13 @@ function ProdutoPopup({prod,onClose,onAdd}){
 // ─── COMERCIAL VIEW ───
 export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
   const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
-  const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('');const [nfNumeros,setNfNumeros]=useState({})
-  const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
+  const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('');const [anexandoNf,setAnexandoNf]=useState(null)
+  const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [clienteSel,setClienteSel]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
   const [novoClienteNome,setNovoClienteNome]=useState(null);const [expandedId,setExpandedId]=useState(null)
   const [formaPagamento,setFormaPagamento]=useState('a_vista')
   const [obsComercial,setObsComercial]=useState('')
   const [editObsPedido,setEditObsPedido]=useState(null)
-  const fileRef=useRef(null);const nfFileRefs=useRef({});const orcCorrigidoRefs=useRef({})
+  const fileRef=useRef(null);const orcCorrigidoRefs=useRef({})
   useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
   const handleSubmit=async()=>{
@@ -67,13 +59,6 @@ export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
     if(!arquivo){alert('Selecione o PDF do orçamento');return}
     setUploading(true)
     try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const fp=FORMAS_PAGAMENTO_PEDIDO.find(x=>x.v===formaPagamento);const obsTxt=obsComercial.trim();const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId,formaPagamento,fp?.dias||0,obsTxt||null);if(pedido){const acaoCriar=obsTxt?`Criou o pedido com observação: ${obsTxt}`:'Criou o pedido';await addHistorico(pedido.id,user.nome,acaoCriar);const msgObs=obsTxt?(isUrgente(obsTxt)?` · 📢 ${obsTxt}`:` · 📢 Obs do comercial`):'';await criarNotificacao('galpao',`📦 Novo pedido de ${cliente.trim()} - ${cidade}`,`Aguardando conferência · Por: ${user.nome}${msgObs}`,pedido.id)}setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);setFormaPagamento('a_vista');setObsComercial('');if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
-  }
-  const handleNf=async(pedidoId,e)=>{
-    const file=e.target.files[0];if(!file)return
-    const numero_nf=(nfNumeros[pedidoId]||'').trim()
-    if(!numero_nf){alert('Informe o número da NF');e.target.value='';return}
-    setUploading(true)
-    try{const url=await uploadPdf(file,'notas-fiscais');if(url){await updatePedido(pedidoId,{nf_url:url,status:'NF_EMITIDA',numero_nf});await addHistorico(pedidoId,user.nome,`Anexou NF nº ${numero_nf}`);const _pnf=pedidos.find(x=>x.id===pedidoId);await criarNotificacao('motorista',`🚛 NF ${numero_nf} de ${_pnf?.cliente||''} - ${_pnf?.cidade||''}`,`Pronta para entrega · Por: ${user.nome}`,pedidoId);if(_pnf){const cr=await criarContaReceberDoPedido({..._pnf,numero_nf});if(cr)await criarNotificacao('financeiro',`📥 Nova conta a receber: ${_pnf.cliente}`,`NF ${numero_nf} · ${fmtMoney(_pnf.valor_total||0)} · venc. ${cr.data_vencimento}`,pedidoId)}setNfNumeros(prev=>{const n={...prev};delete n[pedidoId];return n});refresh()}}finally{setUploading(false);e.target.value=''}
   }
   const handleOrcamentoCorrigido=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return;setUploading(true)
@@ -84,7 +69,7 @@ export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
     return(<div key={p.id}>
       <div onClick={()=>setExpandedId(v=>v===p.id?null:p.id)} onMouseEnter={e=>{if(!isExp)e.currentTarget.style.background='#F8FAFC'}} onMouseLeave={e=>{if(!isExp)e.currentTarget.style.background='#fff'}} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:isExp?'#F8FAFC':'#fff',...atrasoRowStyle(p)}}>
         <RefBadge pedido={p}/><span style={{fontWeight:700,color:'#0A1628',fontSize:13,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.cliente}</span>
-        {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<AtrasoBadge pedido={p} compact/><Badge status={p.status}/>
+        {p.cidade&&<span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>📍{p.cidade}</span>}<AtrasoBadge pedido={p} compact/><Badge status={p.status}/>{pedidoFinanceiroPendente(p)&&<span title="Dados financeiros incompletos — falta boleto/vencimento/valor para gerar a cobrança" style={{fontSize:12,whiteSpace:'nowrap'}}>💸⚠️</span>}
         {p.valor_total>0&&<span style={{fontSize:12,fontWeight:700,color:'#059669',whiteSpace:'nowrap'}}>{fmtMoney(p.valor_total)}</span>}
         <span style={{fontSize:11,color:'#94A3B8',whiteSpace:'nowrap'}}>{fmt(p.criado_em)}</span>
         <span style={{fontSize:10,color:'#94A3B8',transition:'transform 0.2s',display:'inline-block',transform:isExp?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
@@ -95,7 +80,8 @@ export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
         {p.obs&&p.status==='INCOMPLETO'&&<div style={{background:'#FEE2E2',padding:'8px 12px',borderRadius:8,fontSize:13,color:'#991B1B',marginBottom:8,fontWeight:600,border:'1px solid #FECACA'}}>⚠️ Galpão: {p.obs}</div>}
         {p.obs&&p.status!=='INCOMPLETO'&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:8}}>📋 {p.obs}</div>}
         {p.status==='INCOMPLETO'&&(<div style={{marginBottom:8}}><input type="file" accept=".pdf" ref={el=>orcCorrigidoRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleOrcamentoCorrigido(p.id,e)}/><button onClick={e=>{e.stopPropagation();orcCorrigidoRefs.current[p.id]?.click()}} disabled={uploading} style={{...btnSmall,background:'#F59E0B',color:'#fff',border:'none'}}>📄 Enviar orçamento corrigido</button></div>)}
-        {p.status==='CONFERIDO'&&(<div style={{marginBottom:8}}><input type="file" accept=".pdf" ref={el=>nfFileRefs.current[p.id]=el} style={{display:'none'}} onChange={e=>handleNf(p.id,e)}/><div style={{display:'flex',gap:8,alignItems:'center'}}><input type="text" inputMode="numeric" value={nfNumeros[p.id]||''} onChange={e=>setNfNumeros(prev=>({...prev,[p.id]:e.target.value.replace(/\D/g,'')}))} placeholder="Número da NF *" style={{...inputStyle,flex:1,padding:'7px 12px',fontSize:13}}/><button onClick={e=>{e.stopPropagation();if(!(nfNumeros[p.id]||'').trim()){alert('Informe o número da NF');return};nfFileRefs.current[p.id]?.click()}} disabled={uploading} style={{...btnSmall,background:'#10B981',color:'#fff',border:'none',whiteSpace:'nowrap'}}>✓ Anexar NF</button></div></div>)}
+        {p.status==='CONFERIDO'&&(<div style={{marginBottom:8}}><button onClick={e=>{e.stopPropagation();setAnexandoNf(p)}} disabled={uploading} style={{...btnSmall,background:'#10B981',color:'#fff',border:'none'}}>✓ Anexar NF + Boleto</button></div>)}
+        {(()=>{const pend=pedidoFinanceiroPendente(p);return pend?(<div style={{background:'#FEF3C7',border:'1px solid #FDE68A',borderRadius:8,padding:'8px 12px',marginBottom:8,fontSize:12.5,color:'#92400E'}}><div style={{fontWeight:700,marginBottom:6}}>⚠️ {pend.mensagem}</div><button onClick={e=>{e.stopPropagation();setAnexandoNf(p)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',background:'#F59E0B',color:'#fff',border:'none'}}>Completar dados financeiros</button></div>):null})()}
         {p.nf_url&&<div style={{marginBottom:8}}><button onClick={e=>{e.stopPropagation();setExtractingPedido(p)}} style={{...btnSmall,fontSize:11,padding:'5px 10px',color:'#7C3AED'}}>🤖 Extrair itens</button></div>}
         <PedidoDetail pedido={p}/><HistoricoView pedidoId={p.id}/>
       </div>)}
@@ -116,8 +102,9 @@ export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
         <h3 style={{margin:'0 0 16px',fontSize:16,fontWeight:700,color:'#0A1628'}}>Novo Pedido</h3>
         <div style={{display:'grid',gridTemplateColumns:'90px 1fr',gap:12,marginBottom:10}}>
           <input value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Nº" style={inputStyle}/>
-          <ClienteCombobox clientes={clientes} value={cliente} onChange={v=>{setCliente(v);setClienteId(null)}} onSelect={c=>{if(c){setCliente(c.nome);setClienteId(c.id)}}} onCreateNew={nome=>setNovoClienteNome(nome)}/>
+          <ClienteCombobox clientes={clientes} value={cliente} onChange={v=>{setCliente(v);setClienteId(null);setClienteSel(null)}} onSelect={c=>{if(c){setCliente(c.nome);setClienteId(c.id);setClienteSel(c)}}} onCreateNew={nome=>setNovoClienteNome(nome)}/>
         </div>
+        {clienteSel&&<AlertaInadimplencia cliente={clienteSel}/>}
         <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:10,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
           <option value="">Selecione a cidade...</option>{CIDADES.map(c=><option key={c} value={c}>{c}</option>)}
         </select>
@@ -137,6 +124,7 @@ export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
     </>}
     {novoClienteNome&&<NovoClienteRapidoModal nomeInicial={novoClienteNome} user={user} onClose={()=>setNovoClienteNome(null)} onCriado={c=>{if(c){setCliente(c.nome);setClienteId(c.id);setClientes(prev=>[...prev,c])}}}/>}
     {editObsPedido&&<ObsEditModal pedido={editObsPedido} user={user} onClose={()=>setEditObsPedido(null)} onSaved={refresh}/>}
+    {anexandoNf&&<AnexarNfBoletoModal pedido={anexandoNf} clientes={clientes} user={user} onClose={()=>setAnexandoNf(null)} onSaved={refresh}/>}
   </div>)
 }
 
