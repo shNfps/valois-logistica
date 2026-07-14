@@ -4,6 +4,8 @@ const API = 'https://api.anthropic.com/v1/messages'
 const MODEL_SONNET = 'claude-sonnet-4-6'        // extração pesada (detecta imagem do produto)
 const MODEL_HAIKU = 'claude-haiku-4-5-20251001' // extrações leves/rápidas
 
+export const NF_OCR_MODEL = MODEL_HAIKU
+export const NF_OCR_TIMEOUT_MS = 30_000
 function blobToBase64(blob) {
   return new Promise((res, rej) => {
     const r = new FileReader()
@@ -11,6 +13,25 @@ function blobToBase64(blob) {
     r.onerror = rej
     r.readAsDataURL(blob)
   })
+}
+
+// Impede que a interface fique aguardando indefinidamente uma chamada de IA.
+// Exportada para permitir teste unitário sem fazer uma requisição real.
+export async function fetchComTimeout(url, options = {}, timeoutMs = NF_OCR_TIMEOUT_MS, fetchFn = globalThis.fetch) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetchFn(url, { ...options, signal: controller.signal })
+  } catch (e) {
+    if (controller.signal.aborted) {
+      const erro = new Error(`A leitura da nota fiscal excedeu ${Math.round(timeoutMs / 1000)} segundos.`)
+      erro.code = 'NF_OCR_TIMEOUT'
+      throw erro
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function callClaude(pdfUrl, prompt, model = MODEL_SONNET, maxTokens = 2048) {
@@ -68,9 +89,10 @@ export function extractItemsFromNf(pdfUrl) {
   )
 }
 
-// Transcrição CRUA do DANFE (PDF ou imagem) para o parser determinístico do
+// Transcrição focada do DANFE (PDF ou imagem) para o parser determinístico do
 // nf-extractor.js. A IA aqui é só "OCR": não interpreta, não soma, não escolhe o
 // total — quem lê o rótulo VALOR TOTAL DA NOTA / Nº é o parser puro (testável).
+// Usa Haiku porque esta é uma extração leve; Sonnet fica reservado à análise pesada.
 // mediaType: 'application/pdf' ou 'image/png'|'image/jpeg'.
 export async function transcreverNf(url, mediaType = 'application/pdf') {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
@@ -80,15 +102,16 @@ export async function transcreverNf(url, mediaType = 'application/pdf') {
   const base64 = await blobToBase64(await resp.blob())
   const source = { type: 'base64', media_type: mediaType, data: base64 }
   const bloco = mediaType.startsWith('image/') ? { type: 'image', source } : { type: 'document', source }
-  const prompt = 'Transcreva TODO o texto deste documento fiscal (DANFE) exatamente como aparece, ' +
-    'preservando os rótulos e a ordem das linhas. NÃO resuma, NÃO interprete, NÃO calcule nada. ' +
-    'Garanta que apareçam: a linha do rótulo "VALOR TOTAL DA NOTA" com o valor ao lado, o número da NF ' +
-    '(rótulo Nº) e a tabela "DADOS DOS PRODUTOS / SERVIÇOS" com uma linha por item. Responda somente com o texto transcrito.'
-  const res = await fetch(API, {
+  const prompt = 'Transcreva somente estas partes deste DANFE, exatamente como aparecem: ' +
+    '1) número da NF junto do rótulo Nº; 2) rótulo "VALOR TOTAL DA NOTA" junto do valor; ' +
+    '3) seção "DADOS DOS PRODUTOS / SERVIÇOS", preservando uma linha completa por item, com código, ' +
+    'descrição, unidade, quantidade, valor unitário e valor total. NÃO interprete e NÃO calcule. ' +
+    'Responda somente com essas linhas, mantendo os rótulos e a ordem original.'
+  const res = await fetchComTimeout(API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: MODEL_SONNET, max_tokens: 4000, messages: [{ role: 'user', content: [bloco, { type: 'text', text: prompt }] }] })
-  })
+    body: JSON.stringify({ model: NF_OCR_MODEL, max_tokens: 4000, messages: [{ role: 'user', content: [bloco, { type: 'text', text: prompt }] }] })
+  }, NF_OCR_TIMEOUT_MS)
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     const e = new Error(err.error?.message || `Erro ${res.status}`); e.status = res.status; throw e

@@ -89,7 +89,9 @@ export function NfBoletoWizard({ pedido, clientes = [], user, onClose, onSaved, 
       setExtraiu(true)
     } catch (e) {
       console.error(e)
-      setErro('Não consegui ler a NF automaticamente. Preencha os campos manualmente abaixo.')
+      setErro(e?.code === 'NF_OCR_TIMEOUT'
+        ? 'A leitura automática passou de 30 segundos. Preencha os campos abaixo ou tente novamente.'
+        : 'Não consegui ler a NF automaticamente. Preencha os campos manualmente abaixo.')
       setExtraiu(true) // libera edição manual — usuário nunca fica travado
     } finally { setExtraindo(false) }
   }, [])
