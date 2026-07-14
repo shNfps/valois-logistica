@@ -14,7 +14,7 @@ import { PerformanceComercialTab } from './performance-comercial.jsx'
 import { SolicitarManutencaoTab } from './manutencao-solicit.jsx'
 import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
 import { pedidoFinanceiroPendente } from './financeiro-db.js'
-import { AnexarNfBoletoModal } from './nf-boleto-modal.jsx'
+import { NfBoletoWizard } from './nf-boleto-wizard.jsx'
 import { AlertaInadimplencia } from './alerta-inadimplencia.jsx'
 import { InadimplenciaReadonly } from './financeiro-inadimplencia.jsx'
 import { ObsComercialInput, ObsComercialBanner, ObsComercialInline, ObsEditModal, isUrgente } from './obs-comercial.jsx'
@@ -124,7 +124,7 @@ export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
     </>}
     {novoClienteNome&&<NovoClienteRapidoModal nomeInicial={novoClienteNome} user={user} onClose={()=>setNovoClienteNome(null)} onCriado={c=>{if(c){setCliente(c.nome);setClienteId(c.id);setClientes(prev=>[...prev,c])}}}/>}
     {editObsPedido&&<ObsEditModal pedido={editObsPedido} user={user} onClose={()=>setEditObsPedido(null)} onSaved={refresh}/>}
-    {anexandoNf&&<AnexarNfBoletoModal pedido={anexandoNf} clientes={clientes} user={user} onClose={()=>setAnexandoNf(null)} onSaved={refresh}/>}
+    {anexandoNf&&<NfBoletoWizard pedido={anexandoNf} clientes={clientes} user={user} onClose={()=>setAnexandoNf(null)} onSaved={refresh}/>}
   </div>)
 }
 

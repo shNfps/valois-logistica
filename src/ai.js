@@ -67,3 +67,32 @@ export function extractItemsFromNf(pdfUrl) {
     4000
   )
 }
+
+// Transcrição CRUA do DANFE (PDF ou imagem) para o parser determinístico do
+// nf-extractor.js. A IA aqui é só "OCR": não interpreta, não soma, não escolhe o
+// total — quem lê o rótulo VALOR TOTAL DA NOTA / Nº é o parser puro (testável).
+// mediaType: 'application/pdf' ou 'image/png'|'image/jpeg'.
+export async function transcreverNf(url, mediaType = 'application/pdf') {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('Configure VITE_ANTHROPIC_API_KEY no arquivo .env')
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error('Não foi possível baixar o arquivo da NF')
+  const base64 = await blobToBase64(await resp.blob())
+  const source = { type: 'base64', media_type: mediaType, data: base64 }
+  const bloco = mediaType.startsWith('image/') ? { type: 'image', source } : { type: 'document', source }
+  const prompt = 'Transcreva TODO o texto deste documento fiscal (DANFE) exatamente como aparece, ' +
+    'preservando os rótulos e a ordem das linhas. NÃO resuma, NÃO interprete, NÃO calcule nada. ' +
+    'Garanta que apareçam: a linha do rótulo "VALOR TOTAL DA NOTA" com o valor ao lado, o número da NF ' +
+    '(rótulo Nº) e a tabela "DADOS DOS PRODUTOS / SERVIÇOS" com uma linha por item. Responda somente com o texto transcrito.'
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: MODEL_SONNET, max_tokens: 4000, messages: [{ role: 'user', content: [bloco, { type: 'text', text: prompt }] }] })
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const e = new Error(err.error?.message || `Erro ${res.status}`); e.status = res.status; throw e
+  }
+  const data = await res.json()
+  return data.content?.[0]?.text?.trim() || ''
+}

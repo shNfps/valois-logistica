@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, FABRICANTES, CATEGORIAS_PRODUTO, uploadImage, updateProduto } from './db.js'
+import { fmtMoney, inputStyle, btnPrimary, btnSmall, card, FABRICANTES, CATEGORIAS_PRODUTO, uploadImage, updateProduto, STATUS_VENDA, totalVendidoNoDia } from './db.js'
 
 export { ExtractorPanel } from './extractor-panel.jsx'
 export { AdminClientesTab } from './admin-clientes.jsx'
@@ -12,9 +12,9 @@ function getDayStart(ago = 0) { const d = new Date(); d.setHours(0, 0, 0, 0); d.
 export function AdminVendasSection({ pedidos, rotasAtivas = [], onEditRota, onCancelRota }) {
   const [tooltip, setTooltip] = useState(null)
   const [hovered, setHovered] = useState(null)
-  const pv = pedidos.filter(p => ['NF_EMITIDA', 'EM_ROTA', 'ENTREGUE'].includes(p.status))
+  const pv = pedidos.filter(p => STATUS_VENDA.includes(p.status))
   const soma = ps => ps.reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
-  const tHoje = soma(pv.filter(p => new Date(p.criado_em) >= getDayStart()))
+  const tHoje = totalVendidoNoDia(pedidos) // mesma fonte usada no Step 3 "Venda concluída"
   const tOntem = soma(pv.filter(p => { const d = new Date(p.criado_em); return d >= getDayStart(1) && d < getDayStart() }))
   const tSemana = soma(pv.filter(p => new Date(p.criado_em) >= getDayStart(7)))
   const tMes = soma(pv.filter(p => new Date(p.criado_em) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)))

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmt, fmtMoney, groupByDate, groupByCidade, filterPedidos, statusAtraso, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
+import { fmt, fmtMoney, groupByDate, groupByCidade, filterPedidos, statusAtraso, CIDADES, CATEGORIAS_PRODUTO, FABRICANTES, VEICULOS, SETOR_MAP, STATUS_MAP, inputStyle, btnPrimary, btnSmall, card, fetchUsuarios, fetchProdutos, addHistorico, uploadPdf, uploadImage, createPedido, updatePedido, deletePedido, deletePedidoCascade, deleteUsuario, createProduto, upsertProduto, updateProduto, deleteProduto, fetchRotasAtivas } from './db.js'
 import { AtrasoBadge, AlertasDashboardCard, atrasoRowStyle, atrasoKeyframes, filtrarAtrasos } from './alertas-entrega.jsx'
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
 import { ExtractorPanel, AdminClientesTab, AdminVendasSection, EditProdutoModal } from './views3.jsx'
@@ -57,7 +57,16 @@ export function AdminView({ pedidos, refresh, user, notifs=[], tab='dashboard', 
     if(error){alert('Erro: '+error.message);return}
     setEditandoSetores(null);setSetoresEdit([]);await loadUsuarios()
   }
-  const handleDeletePedido=async(id,cliente)=>{if(!confirm(`Deletar pedido de ${cliente}? Essa ação não pode ser desfeita.`))return;await deletePedido(id);refresh()}
+  const handleDeletePedido=async(id,cliente)=>{
+    if(!confirm(`Deletar pedido de ${cliente}? Essa ação não pode ser desfeita.`))return
+    const r=await deletePedidoCascade(id)
+    if(!r.ok){
+      if(r.motivo==='tem_recebimento')alert(`Não é possível deletar: a conta a receber deste pedido já tem ${fmtMoney(r.totalRecebido)} recebido.\n\nDê baixa/cancele a cobrança no Financeiro antes de excluir o pedido.`)
+      else alert('Erro ao deletar o pedido: '+(r.error?.message||r.motivo||'desconhecido'))
+      return
+    }
+    refresh()
+  }
   const alterarSenha=async(id)=>{if(!editSenha.trim())return;await supabase.from('usuarios').update({senha:editSenha}).eq('id',id);setEditando(null);setEditSenha('');alert('Senha alterada!')}
   const criarProduto=async()=>{
     if(!pNome.trim()||!pPreco){alert('Preencha nome e preço');return}

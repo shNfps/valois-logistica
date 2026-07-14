@@ -270,7 +270,11 @@ export async function deleteMeta(id){const{error}=await supabase.from('metas').d
 export async function fetchConfigRanking(){const{data,error}=await supabase.from('config_ranking').select('*').eq('id',1).maybeSingle();if(error){console.error(error);return null};return data}
 export async function updateConfigRanking(updates){const{error}=await supabase.from('config_ranking').upsert({id:1,...updates,atualizado_em:new Date().toISOString()});if(error)console.error(error)}
 
-export async function savePedidoItens(pedidoId,itens){
+// valorTotalNf (opcional): total AUTORITATIVO da NF (rótulo VALOR TOTAL DA NOTA /
+// <vNF>). Ele inclui frete/IPI/ST e NÃO é a soma dos itens — por isso o wizard passa
+// esse valor. Sem ele (ex.: extração em lote), cai na soma dos itens (comportamento
+// antigo, preservado).
+export async function savePedidoItens(pedidoId,itens,valorTotalNf){
   await supabase.from('pedido_itens').delete().eq('pedido_id',pedidoId)
   // snapshot do custo dos produtos no momento da venda (preserva margem histórica)
   const codigos=itens.map(i=>i.codigo?String(i.codigo).replace(/\./g,''):null).filter(Boolean)
@@ -278,7 +282,78 @@ export async function savePedidoItens(pedidoId,itens){
   if(codigos.length){const{data}=await supabase.from('produtos').select('codigo,custo').in('codigo',codigos);(data||[]).forEach(p=>{custoMap[p.codigo]=Number(p.custo||0)})}
   const rows=itens.map(i=>{const qtd=Number(i.quantidade)||0;const unit=Number(i.preco_unitario)||0;const total=Number(i.preco_total)||qtd*unit;const cod=i.codigo?String(i.codigo).replace(/\./g,''):null;return{pedido_id:pedidoId,codigo:cod,nome_produto:i.nome_produto,quantidade:qtd,unidade:i.unidade||'un',preco_unitario:unit,preco_total:total,custo_unitario:cod?(custoMap[cod]??null):null}})
   if(rows.length>0){const{error}=await supabase.from('pedido_itens').insert(rows);if(error){console.error(error);return false}}
-  const total=rows.reduce((s,r)=>s+r.preco_total,0)
+  const somaItens=rows.reduce((s,r)=>s+r.preco_total,0)
+  const total=(valorTotalNf!=null&&Number(valorTotalNf)>0)?Number(valorTotalNf):somaItens
   await supabase.from('pedidos').update({valor_total:total,atualizado_em:new Date().toISOString()}).eq('id',pedidoId)
   return true
+}
+
+// ─── Regra ÚNICA de "venda efetivada" (compartilhada admin ↔ wizard) ───
+// Mesma regra do dashboard admin (AdminVendasSection): status de venda + criado_em
+// no dia local, somando valor_total. Centralizado p/ nunca divergirem.
+export const STATUS_VENDA=['NF_EMITIDA','EM_ROTA','ENTREGUE']
+export function totalVendidoNoDia(pedidos,ref=new Date()){
+  const ini=new Date(ref);ini.setHours(0,0,0,0)
+  const fim=new Date(ini);fim.setDate(fim.getDate()+1)
+  return (pedidos||[]).reduce((s,p)=>{
+    if(!STATUS_VENDA.includes(p.status))return s
+    const d=new Date(p.criado_em)
+    return (d>=ini&&d<fim)?s+(Number(p.valor_total)||0):s
+  },0)
+}
+
+// ─── Configurações chave/valor (tabela `configuracoes`, migration v12) ───
+export async function fetchConfiguracao(chave,fallback=null){
+  const{data,error}=await supabase.from('configuracoes').select('valor').eq('chave',chave).maybeSingle()
+  if(error){console.error(error);return fallback}
+  return data?.valor??fallback
+}
+export async function setConfiguracao(chave,valor){
+  const{error}=await supabase.from('configuracoes').upsert({chave,valor:String(valor),atualizado_em:new Date().toISOString()})
+  if(error)console.error(error)
+}
+// Meta diária de vendas. 26000 é só o FALLBACK se a config ainda não existir — o
+// valor real vem da tabela e é editável no Admin (nunca hardcodar no componente).
+export async function fetchMetaDiaria(){
+  const v=await fetchConfiguracao('meta_diaria_vendas','26000')
+  const n=Number(v);return Number.isFinite(n)&&n>0?n:26000
+}
+
+// ─── Deleção segura de pedido (corrige o delete travado após anexar tudo) ───
+// contas_receber.pedido_id não cascateia; um pedido com conta a receber não podia
+// ser apagado e o erro era engolido. Regra: conta COM recebimento → bloqueia; sem
+// recebimento → apaga conta+histórico+pedido (itens/rotas/notif cascateiam). O erro
+// real volta p/ a UI — sem falha silenciosa.
+export async function deletePedidoCascade(pedidoId){
+  const{data:contas,error:cErr}=await supabase.from('contas_receber').select('id,valor,valor_recebido').eq('pedido_id',pedidoId)
+  if(cErr)return{ok:false,motivo:'erro_consulta',error:cErr}
+  const recebidas=(contas||[]).filter(c=>Number(c.valor_recebido||0)>0)
+  if(recebidas.length){
+    const totalRecebido=recebidas.reduce((s,c)=>s+Number(c.valor_recebido||0),0)
+    return{ok:false,motivo:'tem_recebimento',totalRecebido}
+  }
+  if(contas&&contas.length){const{error}=await supabase.from('contas_receber').delete().eq('pedido_id',pedidoId);if(error)return{ok:false,motivo:'erro_conta',error}}
+  await supabase.from('historico').delete().eq('pedido_id',pedidoId)
+  const{error}=await supabase.from('pedidos').delete().eq('id',pedidoId)
+  if(error)return{ok:false,motivo:'erro_pedido',error}
+  return{ok:true}
+}
+
+// Upload genérico preservando o contentType (NF pode ser PDF, imagem ou XML).
+export async function uploadArquivo(file,folder){
+  const cleanName=file.name.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_')
+  const filename=`${folder}/${Date.now()}_${cleanName}`
+  const{error}=await supabase.storage.from('documentos').upload(filename,file,{contentType:file.type||'application/octet-stream'})
+  if(error){console.error('Upload error:',error);return null}
+  const{data:urlData}=supabase.storage.from('documentos').getPublicUrl(filename);return urlData.publicUrl
+}
+
+// Total vendido HOJE, direto do banco, com a MESMA regra do dashboard admin
+// (STATUS_VENDA + dia local). Usado no Step 3 "Venda concluída" — já inclui a venda
+// recém-finalizada. Fonte única evita divergência com o card "VENDAS HOJE".
+export async function fetchTotalVendidoHoje(){
+  const ini=new Date();ini.setHours(0,0,0,0)
+  const{data,error}=await supabase.from('pedidos').select('valor_total,status,criado_em').gte('criado_em',ini.toISOString()).in('status',STATUS_VENDA)
+  if(error){console.error(error);return 0}
+  return (data||[]).reduce((s,p)=>s+(Number(p.valor_total)||0),0)
 }

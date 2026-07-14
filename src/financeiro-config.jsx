@@ -1,6 +1,31 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fmtCnpj, inputStyle, btnPrimary, btnSmall, card } from './db.js'
+import { fmtCnpj, fmtMoney, inputStyle, btnPrimary, btnSmall, card, fetchMetaDiaria, setConfiguracao } from './db.js'
 import { fetchCategoriasDespesa, createCategoriaDespesa, deleteCategoriaDespesa, fetchFornecedores, createFornecedor, updateFornecedor, deleteFornecedor, fetchConfigFinanceiro, updateConfigFinanceiro, backfillContasReceber } from './financeiro-db.js'
+
+// Meta diária de vendas (tabela `configuracoes`, chave meta_diaria_vendas). Editável
+// sem deploy; alimenta a barra da meta no Step 3 "Venda concluída".
+function MetaDiariaSection() {
+  const [valor, setValor] = useState('')
+  const [salvo, setSalvo] = useState(null)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { fetchMetaDiaria().then(m => { setValor(String(m)); setSalvo(m) }) }, [])
+  const salvar = async () => {
+    const n = Number(valor)
+    if (!Number.isFinite(n) || n <= 0) { alert('Informe um valor de meta maior que zero'); return }
+    setSaving(true); await setConfiguracao('meta_diaria_vendas', n); setSalvo(n); setSaving(false)
+  }
+  return (
+    <div style={{ ...card, padding: 18, marginBottom: 16 }}>
+      <h4 style={{ margin: '0 0 4px', fontSize: 14, color: '#0A1628' }}>🎯 Meta diária de vendas</h4>
+      <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 12px' }}>Usada na tela "Venda concluída" (barra da meta). Vale para o total vendido do dia.</p>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input value={valor} onChange={e => setValor(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="26000" style={{ ...inputStyle, width: 160 }} />
+        <button onClick={salvar} disabled={saving} style={{ ...btnPrimary, height: 42, opacity: saving ? 0.6 : 1 }}>{saving ? 'Salvando...' : 'Salvar meta'}</button>
+        {salvo != null && <span style={{ fontSize: 12, color: '#64748B' }}>Atual: <b>{fmtMoney(salvo)}</b></span>}
+      </div>
+    </div>
+  )
+}
 
 const TIPOS = ['fornecedor', 'salario', 'infra', 'veiculo', 'imposto', 'operacional', 'obra', 'reembolso', 'outros']
 
@@ -196,6 +221,7 @@ function BackfillSection() {
 export function ConfiguracoesTab() {
   return (
     <div>
+      <MetaDiariaSection />
       <AlertasSection />
       <BackfillSection />
       <CategoriasSection />
