@@ -8,8 +8,8 @@ import { Field, FormAlert } from './field.jsx'
 import { Stepper, Progress, Badge, Skeleton, Separator } from './ui-primitives.jsx'
 import { criarNotificacao } from './notificacoes.js'
 import { upsertContaReceberDoPedido, isFormaBoleto } from './financeiro-db.js'
-import { transcreverNf } from './ai.js'
-import { extrairDadosNfDeXml, extrairDadosNfDeTexto, ehXmlNfe } from './nf-extractor.js'
+import { extrairNfPdfRapido, transcreverNf } from './ai.js'
+import { extrairDadosNfDeTexto, parseValorBR } from './nf-extractor.js'
 
 // ─── Wizard "Anexar NF + Boleto" (3 steps) ─────────────────────────────────────
 // Substitui o antigo AnexarNfBoletoModal. Step 1 extrai da NF (XML determinístico
@@ -68,16 +68,29 @@ export function NfBoletoWizard({ pedido, clientes = [], user, onClose, onSaved, 
   // ── Extração ao anexar a NF ──
   const extrair = useCallback(async (file) => {
     setErro(''); setExtraindo(true); setExtraiu(false)
+    const objUrl = URL.createObjectURL(file)
     try {
       let dados
-      if (ehXmlNfe(file.name) || (file.type || '').includes('xml')) {
-        dados = extrairDadosNfDeXml(await file.text())
-      } else {
-        const objUrl = URL.createObjectURL(file)
-        try {
-          const texto = await transcreverNf(objUrl, file.type || 'application/pdf')
-          dados = extrairDadosNfDeTexto(texto)
-        } finally { URL.revokeObjectURL(objUrl) }
+      try {
+        // Primário: Haiku + JSON compacto (rápido; lê a grade do DANFE e o rótulo).
+        const j = await extrairNfPdfRapido(objUrl, file.type || 'application/pdf')
+        dados = {
+          numero: j.numero ? String(j.numero).replace(/\D/g, '') : null,
+          valorTotal: parseValorBR(j.valor_total),
+          valorIncerto: false,
+          itens: (j.itens || []).map(it => ({
+            codigo: it.codigo ? String(it.codigo).replace(/\./g, '') : '',
+            nome_produto: it.nome || '',
+            quantidade: it.qtd ?? '',
+            unidade: it.unidade || 'un',
+            preco_unitario: it.unitario ?? '',
+          })),
+        }
+      } catch (e1) {
+        if (e1?.code === 'NF_OCR_TIMEOUT') throw e1        // não encadeia outra espera longa
+        // Fallback: transcrição (Haiku) + parser determinístico ancorado no rótulo.
+        const texto = await transcreverNf(objUrl, file.type || 'application/pdf')
+        dados = extrairDadosNfDeTexto(texto)
       }
       if (dados.numero) setNumNf(dados.numero)
       if (dados.valorTotal != null) setValor(String(dados.valorTotal))
@@ -93,7 +106,7 @@ export function NfBoletoWizard({ pedido, clientes = [], user, onClose, onSaved, 
         ? 'A leitura automática passou de 30 segundos. Preencha os campos abaixo ou tente novamente.'
         : 'Não consegui ler a NF automaticamente. Preencha os campos manualmente abaixo.')
       setExtraiu(true) // libera edição manual — usuário nunca fica travado
-    } finally { setExtraindo(false) }
+    } finally { URL.revokeObjectURL(objUrl); setExtraindo(false) }
   }, [])
 
   const onNfFiles = (files) => {
@@ -210,8 +223,8 @@ export function NfBoletoWizard({ pedido, clientes = [], user, onClose, onSaved, 
 function Step1({ numNf, setNumNf, valor, setValor, valorIncerto, itens, updItem, removeItem, addItem, nfFile, onNfFiles, extraindo, extraiu, existingUrl, erro, podeContinuar, saving, onContinuar }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Field label="Nota Fiscal (XML da NF-e, PDF ou imagem)" hint="XML é o mais preciso. Até 10 MB.">
-        <AttachmentInput files={nfFile ? [nfFile] : []} onFiles={onNfFiles} accept=".xml,.pdf,image/*" existingUrl={existingUrl} />
+      <Field label="Nota Fiscal (PDF ou foto)" hint="Anexe o PDF ou uma foto da NF. Até 10 MB.">
+        <AttachmentInput files={nfFile ? [nfFile] : []} onFiles={onNfFiles} accept=".pdf,image/*" existingUrl={existingUrl} />
       </Field>
 
       {extraindo && (

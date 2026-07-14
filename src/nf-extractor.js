@@ -61,15 +61,24 @@ function norm(s) {
   return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[ \t]+/g, ' ')
 }
 
-// Primeiro valor monetário estrito que aparece DEPOIS de um dos rótulos (N já normalizado).
-function valorAposRotulo(N, rotulos) {
-  for (const r of rotulos) {
-    const alvo = norm(r)
+// Valor total da nota — ancorado no rótulo, cobrindo os DOIS layouts de DANFE:
+//  (a) "RÓTULO valor" na mesma linha;
+//  (b) GRADE padrão (SEFAZ): rótulos numa linha e os valores na linha seguinte. Como
+//      VALOR TOTAL DA NOTA é a ÚLTIMA coluna do bloco de totais, o valor é o ÚLTIMO
+//      número da 1ª linha de valores após o rótulo. Nunca pega base/alíquota/produtos.
+const reMoneyLinha = () => /-?\d{1,3}(?:\.\d{3})*,\d{2}(?!\d)/g
+function valorTotalDaNota(N) {
+  const rotulos = ['VALOR TOTAL DA NOTA', 'V. TOTAL DA NOTA', 'VALOR TOTAL DA NF', 'VLR TOTAL DA NOTA'].map(norm)
+  for (const alvo of rotulos) {
     let idx = N.indexOf(alvo)
     while (idx !== -1) {
-      const janela = N.slice(idx + alvo.length, idx + alvo.length + 120)
-      const m = janela.match(/-?\d{1,3}(?:\.\d{3})*,\d{2}(?!\d)/)
-      if (m) { const v = parseValorBR(m[0]); if (v != null) return v }
+      const linhas = N.slice(idx + alvo.length).split('\n')
+      const mesma = (linhas[0] || '').match(reMoneyLinha())      // valor na mesma linha do rótulo
+      if (mesma) { const v = parseValorBR(mesma[0]); if (v != null && v > 0) return v }
+      for (let i = 1; i < linhas.length && i < 6; i++) {         // grade: valores na linha seguinte
+        const monies = (linhas[i] || '').match(reMoneyLinha())
+        if (monies) { const v = parseValorBR(monies[monies.length - 1]); if (v != null && v > 0) return v }
+      }
       idx = N.indexOf(alvo, idx + alvo.length)
     }
   }
@@ -82,10 +91,8 @@ export function extrairDadosNfDeTexto(texto) {
   if (!texto || !String(texto).trim()) return res
   const N = norm(texto)
 
-  // 1) Valor total — ancorado no rótulo oficial (aceita variações de caixa/espaço).
-  const valorRotulo = valorAposRotulo(N, [
-    'VALOR TOTAL DA NOTA', 'V. TOTAL DA NOTA', 'VALOR TOTAL DA NF', 'VLR TOTAL DA NOTA',
-  ])
+  // 1) Valor total — ancorado no rótulo oficial (grade DANFE ou mesma linha).
+  const valorRotulo = valorTotalDaNota(N)
   if (valorRotulo != null && valorRotulo > 0) {
     res.valorTotal = valorRotulo
     res.valorIncerto = false

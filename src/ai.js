@@ -119,3 +119,40 @@ export async function transcreverNf(url, mediaType = 'application/pdf') {
   const data = await res.json()
   return data.content?.[0]?.text?.trim() || ''
 }
+
+// Extração RÁPIDA da NF (PDF/imagem): Haiku + JSON compacto. Poucos tokens de saída =
+// baixa latência (bem mais rápido que transcrever o DANFE). O modelo lê a GRADE do
+// DANFE (rótulo em cima, valor embaixo) e devolve o valor da célula "VALOR TOTAL DA
+// NOTA" — NUNCA soma itens/alíquota (origem do bug do "1,04"). O valor volta como
+// string e é normalizado por parseValorBR no chamador. Caminho primário do wizard;
+// o transcreverNf + parser determinístico fica como fallback.
+export async function extrairNfPdfRapido(url, mediaType = 'application/pdf') {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('Configure VITE_ANTHROPIC_API_KEY no arquivo .env')
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error('Não foi possível baixar o arquivo da NF')
+  const base64 = await blobToBase64(await resp.blob())
+  const source = { type: 'base64', media_type: mediaType, data: base64 }
+  const bloco = mediaType.startsWith('image/') ? { type: 'image', source } : { type: 'document', source }
+  const prompt = 'Leia esta nota fiscal (DANFE) e responda APENAS um JSON, sem texto antes ou depois:\n' +
+    '{"numero":"","valor_total":"","data_emissao":"AAAA-MM-DD","itens":[{"codigo":"","nome":"","qtd":0,"unidade":"","unitario":0}]}\n' +
+    'REGRAS:\n' +
+    '- "valor_total": o número da célula "VALOR TOTAL DA NOTA" (bloco CÁLCULO DO IMPOSTO). No DANFE os rótulos ficam em uma linha e os valores na linha de baixo; VALOR TOTAL DA NOTA é a ÚLTIMA coluna. NUNCA some itens, NUNCA use base de cálculo, alíquota, valor dos produtos nem valor unitário. Mantenha o formato do documento (ex.: 475,62).\n' +
+    '- "numero": número da NF (rótulo Nº), só dígitos.\n' +
+    '- "itens": uma entrada por produto da tabela DADOS DO PRODUTO/SERVIÇO (código, descrição, quantidade, valor unitário).\n' +
+    '- Campo ausente = string vazia. Só o JSON.'
+  const res = await fetchComTimeout(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: NF_OCR_MODEL, max_tokens: 1500, messages: [{ role: 'user', content: [bloco, { type: 'text', text: prompt }] }] })
+  }, NF_OCR_TIMEOUT_MS)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const e = new Error(err.error?.message || `Erro ${res.status}`); e.status = res.status; throw e
+  }
+  const data = await res.json()
+  const text = data.content?.[0]?.text?.trim() || ''
+  const m = text.match(/\{[\s\S]*\}/)
+  if (!m) throw new Error('IA não retornou JSON válido')
+  return JSON.parse(m[0])
+}

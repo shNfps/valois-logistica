@@ -76,6 +76,31 @@ test('Sem rótulo: usa o maior valor monetário e marca como incerto', () => {
   assert.notEqual(r.valorTotal, 1.04)
 })
 
+// ─── Fixture 4: DANFE REAL da Valois (NF 23.038) — layout de GRADE ───
+// Extraído do PDF do usuário. Rótulos numa linha, valores na linha seguinte, e
+// VALOR TOTAL DA NOTA é a ÚLTIMA coluna (475,62 — não o 0,00 do frete).
+const DANFE_REAL = `NF-e
+Nº 23.038
+Série 1
+DATA DE EMISSÃO 13/07/2026
+CÁLCULO DO IMPOSTO
+BASE DE CÁLCULO DO ICMS VALOR DO ICMS FCP BASE DE CALCULO DE ICMS ST. VALOR DO ICMS ST FCP ST VALOR DO PIS VALOR TOTAL DOS PRODUTOS
+0,00 0,00 0,00 0,00 0,00 - 7,85 475,62
+VALOR DO FRETE VALOR DO SEGURO DESCONTO ICMS Desonerado OUTRAS DESPESAS ACESSÓRIAS VALOR TOTAL DA NOTA
+VALOR DO IPI VALOR DA COFINS
+0,00 0,00 0,00 0,00 0,00 0,00 36,15 475,62
+DADOS DO PRODUTO/SERVIÇO`
+
+test('DANFE real (grade): pega 475,62 do VALOR TOTAL DA NOTA, não o 0,00 do frete', () => {
+  const r = extrairDadosNfDeTexto(DANFE_REAL)
+  assert.equal(r.valorTotal, 475.62)
+  assert.equal(r.valorIncerto, false)
+  assert.equal(r.numero, '23038')
+  assert.equal(r.dataEmissao, '2026-07-13')
+  assert.notEqual(r.valorTotal, 0)      // não pega o primeiro valor da linha (frete)
+  assert.notEqual(r.valorTotal, 7.85)   // nem o PIS
+})
+
 // ─── Regressão focada no bug relatado ───
 test('nunca retorna 1,04 quando existe um total maior', () => {
   assert.notEqual(extrairDadosNfDeTexto(DANFE_LABEL).valorTotal, 1.04)
