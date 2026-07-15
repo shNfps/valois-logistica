@@ -66,7 +66,7 @@ LANGUAGE sql STABLE AS $$
     AND (p_vendedores IS NULL OR v.vendedor = ANY(p_vendedores))
     AND (p_segmentos  IS NULL OR v.segmento = ANY(p_segmentos))
   GROUP BY v.vendedor
-  ORDER BY faturamento DESC, pedidos DESC;
+  ORDER BY 3 DESC, 2 DESC;  -- 3=faturamento, 2=pedidos (nomes do RETURNS TABLE não são visíveis no corpo)
 $$;
 
 -- 4) TOP PRODUTOS por vendedor (Completo) — base pedido_itens ───────────────────
