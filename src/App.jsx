@@ -17,6 +17,7 @@ import { EloBadgeAuto } from './performance-rank.jsx'
 import RelatorioDiagnosticoTop20 from './relatorios-diagnostico.jsx'
 import RelatorioVisitasPendentes from './relatorios-visitas.jsx'
 import RelatorioTop50Produtos from './relatorios-produtos.jsx'
+import RelatorioVendasVendedor from './relatorios-vendedores.jsx'
 
 // Usuários liberados para a aba "Relatórios" (diagnóstico Top 20, visitas de retenção, top 50 produtos).
 // Hardcoded por nome — alinhado com a decisão do projeto.
@@ -27,10 +28,11 @@ const RELATORIOS_USERS = ['Matheus']
 const TOP50_USERS = ['Matheus']
 
 // Sub-abas controladas pelo side menu (Checkpoint 4): recebe `sub` por prop.
-function RelatoriosView({ user, sub = 'diagnostico' }) {
+function RelatoriosView({ user, sub = 'vendedores' }) {
   const podeTop50 = TOP50_USERS.includes(user.nome)
   return (
     <div>
+      {sub === 'vendedores'  && <RelatorioVendasVendedor />}
       {sub === 'diagnostico' && <RelatorioDiagnosticoTop20 user={user} />}
       {sub === 'visitas'     && <RelatorioVisitasPendentes />}
       {sub === 'top50' && (podeTop50

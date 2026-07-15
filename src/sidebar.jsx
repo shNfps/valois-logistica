@@ -61,6 +61,7 @@ export const MODULE_SUBTABS = {
     { key: 'config', label: 'Configurações', icon: '⚙️' },
   ],
   relatorios: [
+    { key: 'vendedores', label: 'Vendas por Vendedor', icon: '🏆' },
     { key: 'diagnostico', label: 'Diagnóstico Top 20', icon: '🔬' },
     { key: 'visitas', label: 'Visitas Pendentes', icon: '📅' },
     { key: 'top50', label: 'Top 50 SKUs', icon: '📦' },

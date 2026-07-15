@@ -264,3 +264,41 @@ export async function exportarDiagnosticoExcel(linhas) {
   const fname = `valois-diagnostico-top20-${new Date().toISOString().slice(0, 10)}.xlsx`
   XLSX.writeFile(wb, fname, { cellStyles: true })
 }
+
+// ============= Relatório de Vendas por Vendedor =============
+// RPCs em supabase_migration_relatorio_vendedores.sql. Agregação SEMPRE no banco.
+// inicio/fim = ISO strings; intervalo [inicio, fim) (fim exclusivo).
+// vendedores/segmentos = arrays de string (ou null = sem filtro; [] = nada marcado → vazio).
+export async function fetchRankingVendedores(inicio, fim, vendedores = null, segmentos = null) {
+  const { data, error } = await supabase.rpc('get_ranking_vendedores',
+    { p_inicio: inicio, p_fim: fim, p_vendedores: vendedores, p_segmentos: segmentos })
+  if (error) console.error('get_ranking_vendedores:', error)
+  return { data: data || [], error: error || null }
+}
+
+export async function fetchTopProdutosVendedor(inicio, fim, { limit = 10, vendedores = null, segmentos = null } = {}) {
+  const { data, error } = await supabase.rpc('get_top_produtos_por_vendedor',
+    { p_inicio: inicio, p_fim: fim, p_limit: limit, p_vendedores: vendedores, p_segmentos: segmentos })
+  if (error) console.error('get_top_produtos_por_vendedor:', error)
+  return { data: data || [], error: error || null }
+}
+
+export async function fetchTopClientesVendedor(inicio, fim, { limit = 10, vendedores = null, segmentos = null } = {}) {
+  const { data, error } = await supabase.rpc('get_top_clientes_por_vendedor',
+    { p_inicio: inicio, p_fim: fim, p_limit: limit, p_vendedores: vendedores, p_segmentos: segmentos })
+  if (error) console.error('get_top_clientes_por_vendedor:', error)
+  return { data: data || [], error: error || null }
+}
+
+export async function fetchPedidosVendedor(inicio, fim, { vendedores = null, segmentos = null } = {}) {
+  const { data, error } = await supabase.rpc('get_pedidos_por_vendedor',
+    { p_inicio: inicio, p_fim: fim, p_vendedores: vendedores, p_segmentos: segmentos })
+  if (error) console.error('get_pedidos_por_vendedor:', error)
+  return { data: data || [], error: error || null }
+}
+
+export async function fetchSegmentosClientes() {
+  const { data, error } = await supabase.rpc('get_segmentos_clientes')
+  if (error) console.error('get_segmentos_clientes:', error)
+  return { data: data || [], error: error || null }
+}
