@@ -94,8 +94,11 @@ function RankingRow({ v, i }) {
 }
 
 const secTitle = { fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, margin: '2px 0 6px' }
-const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0 18px' }
+// SEMPRE duas colunas (1º–5º esquerda, 6º–10º direita) — nunca colapsar em lista única.
+const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 18px' }
 const vazioStyle = { fontSize: 12, color: 'var(--text-secondary)', padding: '2px 0 6px' }
+// Ordenação aplicada no resultado FINAL exibido (garante decrescente mesmo pós-filtro).
+const ordenarPorFaturamento = arr => [...(arr || [])].sort((a, b) => Number(b.faturamento || 0) - Number(a.faturamento || 0))
 
 function VendedorSection({ v, i, produtos, clientes, pedidos, expanded, onToggle }) {
   const prod = produtos || [], cli = clientes || [], peds = pedidos || []
@@ -281,7 +284,7 @@ export default function RelatorioVendasVendedor() {
       if (tab === 'simples') {
         const r = await fetchRankingVendedores(ini, fim)
         if (!alive) return
-        setRanking(r.data || []); setErro(r.error)
+        setRanking(ordenarPorFaturamento(r.data)); setErro(r.error)
       } else {
         const [rk, pr, cl, pd] = await Promise.all([
           fetchRankingVendedores(ini, fim, vFilter, sFilter),
@@ -290,7 +293,7 @@ export default function RelatorioVendasVendedor() {
           fetchPedidosVendedor(ini, fim, { vendedores: vFilter, segmentos: sFilter }),
         ])
         if (!alive) return
-        setRanking(rk.data || []); setProdutos(groupBy(pr.data)); setClientes(groupBy(cl.data)); setPedidos(groupBy(pd.data))
+        setRanking(ordenarPorFaturamento(rk.data)); setProdutos(groupBy(pr.data)); setClientes(groupBy(cl.data)); setPedidos(groupBy(pd.data))
         setErro(rk.error || pr.error || cl.error || pd.error)
         setExpanded(new Set((rk.data || []).slice(0, 1).map(v => v.vendedor))) // 1º expandido
       }

@@ -132,9 +132,10 @@ function tabelaRanking(doc, y, w, ranking) {
 export function gerarPdfSimples({ periodo, ranking, geradoEm = new Date() }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight()
+  const rk = ordenarPorFaturamento(ranking) // maior → menor, sempre
   let y = cabecalho(doc, w, { tipo: 'simples', periodo, geradoEm })
-  y = cardsResumo(doc, y, w, ranking)
-  tabelaRanking(doc, y, w, ranking)
+  y = cardsResumo(doc, y, w, rk)
+  tabelaRanking(doc, y, w, rk)
   rodapes(doc, w, h)
   return doc
 }
@@ -145,6 +146,20 @@ const MARGENS = { left: 14, right: 14, top: 16, bottom: 16 } // top/bottom → c
 function espacoOuPagina(doc, y, precisa, h) {
   if (y + precisa > h - 16) { doc.addPage(); return 18 }
   return y
+}
+
+// Ordenação SEMPRE aplicada no resultado final (decrescente por faturamento),
+// mesmo que o chamador passe outra ordem (ex.: Personalizado pós-filtro).
+const ordenarPorFaturamento = (arr) => [...(arr || [])].sort((a, b) => Number(b.faturamento || 0) - Number(a.faturamento || 0))
+
+// Trunca nomes longos p/ caber na meia-coluna (limite ≈ 2 linhas no PDF).
+const truncar = (s, max = 66) => { const t = String(s || ''); return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t }
+
+// Página "em branco" = nada desenhado (nem texto nem retângulo). É o artefato que o
+// autotable deixa quando a última linha cai exatamente no limite da página.
+function paginaVazia(doc, n) {
+  const ops = (doc.internal.pages[n] || []).join('\n')
+  return !ops.includes('Tj') && !ops.includes(' re')
 }
 
 function bandaVendedor(doc, y, w, v) {
@@ -164,16 +179,37 @@ function tituloMini(doc, y, txt) {
   return y + 1
 }
 
-function tabelaDoisCampos(doc, y, w, head2, rows, vazio) {
-  doc.autoTable({
-    startY: y + 1, margin: MARGENS, theme: 'grid',
-    head: [head2], body: rows.length ? rows : [[vazio, '—']],
-    headStyles: { fillColor: BLUE_DK, textColor: 255, fontSize: 8.5, fontStyle: 'bold' },
-    styles: { fontSize: 8.5, cellPadding: 2, textColor: TXT, lineColor: LINE, lineWidth: 0.2 },
-    alternateRowStyles: { fillColor: BG },
-    columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 38, halign: 'right', fontStyle: 'bold' } },
-  })
-  return doc.lastAutoTable.finalY
+// Top 10 em DUAS COLUNAS de 5: 1º–5º na tabela da esquerda, 6º–10º na da direita.
+// Com <10 itens, a esquerda preenche primeiro (ex.: 7 → 5 esq + 2 dir); ≤5 → só esquerda.
+// Cada bloco cabe inteiro na página (garantido pelo espacoOuPagina do chamador),
+// então as duas metades nunca paginam nem se intercalam.
+function tabelaTopDuasColunas(doc, y, w, colLabel, rows, vazio) {
+  if (!rows.length) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED)
+    doc.text(vazio, 14, y + 4)
+    return y + 8
+  }
+  const meio = w / 2
+  const startY = y + 1
+  const metade = (dados, margin) => {
+    doc.autoTable({
+      startY, margin, theme: 'grid',
+      head: [['#', colLabel, 'Valor']],
+      body: dados.map(r => [String(r.pos), truncar(r.nome), fmtMoney(r.valor)]),
+      headStyles: { fillColor: BLUE_DK, textColor: 255, fontSize: 8, fontStyle: 'bold' },
+      styles: { fontSize: 8, cellPadding: 1.8, textColor: TXT, lineColor: LINE, lineWidth: 0.2, overflow: 'linebreak', valign: 'middle' },
+      alternateRowStyles: { fillColor: BG },
+      columnStyles: {
+        0: { cellWidth: 8, halign: 'center', textColor: MUTED },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 24, halign: 'right', fontStyle: 'bold' },
+      },
+    })
+    return doc.lastAutoTable.finalY
+  }
+  const fEsq = metade(rows.slice(0, 5), { ...MARGENS, left: 14, right: w - meio + 2 })
+  const fDir = rows.length > 5 ? metade(rows.slice(5, 10), { ...MARGENS, left: meio + 2, right: 14 }) : startY
+  return Math.max(fEsq, fDir)
 }
 
 function tabelaPedidos(doc, y, w, peds) {
@@ -204,21 +240,29 @@ export function gerarPdfCompleto({ tipo = 'completo', periodo, ranking, produtos
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight()
   const topo = cabecalho(doc, w, { tipo, periodo, geradoEm, filtros })
-  if (!ranking.length) { rodapes(doc, w, h); return doc }
+  const rk = ordenarPorFaturamento(ranking)     // maior → menor, sempre (mesmo pós-filtro)
+  if (!rk.length) { rodapes(doc, w, h); return doc }
 
   const faixas = []
-  ranking.forEach((v, i) => {
+  rk.forEach((v, i) => {
     if (i > 0) doc.addPage()                    // cada vendedor começa em página nova
     const from = doc.getNumberOfPages()         // página onde a banda do vendedor é desenhada
     let y = bandaVendedor(doc, i === 0 ? topo + 2 : 18, w, v)
     y = tituloMini(doc, y, 'Top 10 produtos vendidos')
-    y = tabelaDoisCampos(doc, y, w, ['Produto', 'Valor'], (produtos[v.vendedor] || []).map(p => [p.produto, fmtMoney(p.valor)]), 'Sem itens lançados no período') + 6
-    y = espacoOuPagina(doc, y, 34, h)
+    y = tabelaTopDuasColunas(doc, y, w, 'Produto',
+      (produtos[v.vendedor] || []).map((p, ix) => ({ pos: p.posicao ?? ix + 1, nome: p.produto, valor: p.valor })),
+      'Sem itens lançados no período') + 6
+    y = espacoOuPagina(doc, y, 50, h)
     y = tituloMini(doc, y, 'Top 10 clientes')
-    y = tabelaDoisCampos(doc, y, w, ['Cliente', 'Valor'], (clientes[v.vendedor] || []).map(c => [c.cliente, fmtMoney(c.valor)]), 'Sem clientes no período') + 6
+    y = tabelaTopDuasColunas(doc, y, w, 'Cliente',
+      (clientes[v.vendedor] || []).map((c, ix) => ({ pos: c.posicao ?? ix + 1, nome: c.cliente, valor: c.valor })),
+      'Sem clientes no período') + 6
     y = espacoOuPagina(doc, y, 34, h)
     y = tituloMini(doc, y, 'Pedidos do período')
     tabelaPedidos(doc, y, w, pedidos[v.vendedor] || [])
+    // Artefato do autotable: quebra exata pode deixar uma última página SEM nada desenhado.
+    // Remove antes de registrar a faixa — assim o "(continuação)" nunca cai em página vazia.
+    while (doc.getNumberOfPages() > from && paginaVazia(doc, doc.getNumberOfPages())) doc.deletePage(doc.getNumberOfPages())
     faixas.push({ vendedor: v.vendedor, from, to: doc.getNumberOfPages() })
   })
 
