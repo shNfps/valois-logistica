@@ -6,6 +6,7 @@ import {
   fetchRankingVendedores, fetchTopProdutosVendedor, fetchTopClientesVendedor,
   fetchPedidosVendedor, fetchSegmentosClientes,
 } from './relatorios-db.js'
+import { baixarRelatorioVendedoresPdf } from './relatorios-vendedores-pdf.js'
 
 const LS_FILTROS = 'valois_relatorio_vend_filtros'
 const medalha = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`
@@ -222,6 +223,8 @@ export default function RelatorioVendasVendedor() {
   const [vendSel, setVendSel] = useState(null) // Set | null (null = ainda não inicializado)
   const [segSel, setSegSel] = useState(null)
   const savedRef = useRef(null)
+  const [gerando, setGerando] = useState(false)
+  const [erroPdf, setErroPdf] = useState('')
 
   // Config salva (Personalizado) — carrega uma vez.
   useEffect(() => {
@@ -306,6 +309,30 @@ export default function RelatorioVendasVendedor() {
   const toggleSet = (setter) => (val) => setter(s => { const n = new Set(s); n.has(val) ? n.delete(val) : n.add(val); return n })
   const semSegCount = segOptions.find(s => s.segmento === 'Sem segmento')?.clientes || 0
 
+  // Toast de erro do PDF some sozinho.
+  useEffect(() => { if (!erroPdf) return; const t = setTimeout(() => setErroPdf(''), 4000); return () => clearTimeout(t) }, [erroPdf])
+
+  // Filtros aplicados (só Personalizado) → cabeçalho do PDF. 'todos' quando nada foi restringido.
+  const filtrosPdf = () => {
+    if (!isPerso) return undefined
+    const vArr = vendOptions.filter(v => (vendSel || new Set()).has(v))
+    const sArr = segOptions.map(s => s.segmento).filter(s => (segSel || new Set()).has(s))
+    return {
+      vendedores: vArr.length >= vendOptions.length ? ['todos'] : vArr,
+      segmentos: sArr.length >= segOptions.length ? ['todos'] : sArr,
+    }
+  }
+
+  // Gera o PDF do relatório ATUAL com os MESMOS dados já na tela (nunca recalcula).
+  const baixarPdf = async () => {
+    setGerando(true); setErroPdf('')
+    await new Promise(r => setTimeout(r, 30)) // deixa o "Gerando…" pintar antes do trabalho síncrono do jspdf
+    try {
+      baixarRelatorioVendedoresPdf({ tipo: tab, periodo: range, ranking, produtos, clientes, pedidos, filtros: filtrosPdf() })
+    } catch (e) { console.error('PDF vendedores:', e); setErroPdf('Falha ao gerar o PDF. Tente novamente.') }
+    finally { setGerando(false) }
+  }
+
   return (
     <div style={{ maxWidth: 940, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -313,7 +340,17 @@ export default function RelatorioVendasVendedor() {
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>Vendas por vendedor</div>
           <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 2 }}>Somente pedidos com NF emitida · ordenado por faturamento</div>
         </div>
-        <DateRangePicker value={range} onChange={setRange} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button onClick={baixarPdf} disabled={gerando || loading || !ranking.length} title="Baixar PDF do relatório atual" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, height: 42, padding: '0 16px',
+            borderRadius: 'var(--radius-control)', border: '1px solid var(--valois-blue)',
+            background: gerando ? 'var(--valois-blue-soft)' : 'var(--valois-blue)',
+            color: gerando ? 'var(--valois-blue)' : '#fff', fontSize: 14, fontWeight: 600, fontFamily: "'Inter',sans-serif",
+            cursor: (gerando || loading || !ranking.length) ? 'default' : 'pointer',
+            opacity: (loading || !ranking.length) && !gerando ? 0.55 : 1,
+          }}>{gerando ? '⏳ Gerando…' : '⬇ Baixar PDF'}</button>
+          <DateRangePicker value={range} onChange={setRange} />
+        </div>
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -366,6 +403,12 @@ export default function RelatorioVendasVendedor() {
             ))}
           </div>
         </>
+      )}
+
+      {erroPdf && (
+        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 300, background: 'var(--danger)', color: '#fff', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 6px 20px rgba(0,0,0,0.22)' }}>
+          {erroPdf}
+        </div>
       )}
     </div>
   )
