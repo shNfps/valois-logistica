@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { PRAZO_POR_FORMA } from './db.js'
 
 // ─── Categorias de despesa ───
 export async function fetchCategoriasDespesa() {
@@ -199,7 +200,7 @@ export function contaVencida(c) { return contaEmAberto(c) && diasAte(c.data_venc
 export function diasAtrasoConta(c) { return contaVencida(c) ? -diasAte(c.data_vencimento) : 0 }
 
 // ─── Auto-criação/atualização de conta a receber a partir do pedido ───
-const PRAZO_FORMA = { a_vista: 0, boleto_7: 7, boleto_14: 14, boleto_21: 21, boleto_28: 28, cartao: 0, pix: 0 }
+const PRAZO_FORMA = PRAZO_POR_FORMA // fonte única em db.js (inclui prazo_15/prazo_30)
 export function isFormaBoleto(forma) { return String(forma || '').startsWith('boleto') }
 export function formaToCR(forma) {
   if (isFormaBoleto(forma)) return 'boleto'
@@ -236,7 +237,9 @@ export async function upsertContaReceberDoPedido(pedido, opts = {}) {
     existente = (data && data[0]) || null
   }
 
-  const { venc, automatico } = resolverVencimento(pedido, opts.baseIso)
+  // Âncora do vencimento = data de emissão da conta (não "hoje"): recalcular a condição
+  // de um pedido antigo recomputa o venc a partir da emissão original, sem drift.
+  const { venc, automatico } = resolverVencimento(pedido, opts.baseIso || existente?.data_emissao)
   const meta = {
     numero_nf,
     cliente_id: pedido.cliente_id || null,
@@ -285,6 +288,27 @@ export async function upsertContaReceberDoPedido(pedido, opts = {}) {
 export async function criarContaReceberDoPedido(pedido, opts) {
   const r = await upsertContaReceberDoPedido(pedido, opts)
   return r.ok ? r.conta : (r.conta || null)
+}
+
+// Corrige a condição de pagamento de um pedido existente e RECALCULA o vencimento da
+// conta a receber (venc = emissão + novo prazo). Limpa o vencimento exato antigo para o
+// venc ser recomputado pelo novo prazo. Correção manual, um pedido por vez (nada em massa).
+export async function corrigirCondicaoPagamento(pedido, novaForma) {
+  if (!pedido?.id || !novaForma) return { ok: false, motivo: 'parametros' }
+  const dias = PRAZO_POR_FORMA[novaForma] ?? 0
+  const patch = { forma_pagamento: novaForma, prazo_pagamento_dias: dias, data_vencimento_pagamento: null, atualizado_em: new Date().toISOString() }
+  const { error } = await supabase.from('pedidos').update(patch).eq('id', pedido.id)
+  if (error) { console.error('[corrigirCondicao] pedido:', error); return { ok: false, motivo: 'erro_pedido', error } }
+  // Recalcula a conta (se já existir). Pré-NF (sem conta) segue sem erro.
+  const r = await upsertContaReceberDoPedido({ ...pedido, ...patch })
+  return { ok: true, dias, conta: r.conta || null, contaRecalculada: !!r.ok }
+}
+
+// IDs de pedidos com conta a receber EM ABERTO (base do filtro de triagem "à vista não pagos").
+export async function fetchPedidoIdsContasEmAberto() {
+  const { data, error } = await supabase.from('contas_receber').select('pedido_id,status,valor,valor_recebido,saldo_em_aberto,data_vencimento')
+  if (error) { console.error('[contas em aberto]:', error); return [] }
+  return (data || []).filter(c => c.pedido_id && contaEmAberto(c)).map(c => c.pedido_id)
 }
 
 // Pendência financeira do pedido: o que falta para gerar a conta a receber.

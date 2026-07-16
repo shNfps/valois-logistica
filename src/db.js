@@ -13,17 +13,27 @@ export const CIDADES = ['Araruama','São Pedro da Aldeia','Cabo Frio','Arraial d
 export const VEICULOS = [{key:'van',label:'Van',icon:'🚐'},{key:'kombi',label:'Kombi',icon:'🚌'},{key:'carro',label:'Carro',icon:'🚗'},{key:'moto',label:'Moto',icon:'🏍️'}]
 export const ROTA_ORDEM = {'Araruama':1,'São Pedro da Aldeia':2,'Cabo Frio':3,'Arraial do Cabo':4,'Búzios':5,'Rio das Ostras':6,'Macaé':7,'Campos':8,'Nova Friburgo':9}
 export const CATEGORIAS_PRODUTO = ['Descartáveis','Químicos','Higiene Pessoal','Limpeza Geral','Equipamentos','Papel','Outros']
-// Formas de pagamento do pedido (fonte única: usada no Novo Pedido e no anexo de NF/boleto).
-// `dias` alimenta prazo_pagamento_dias — fallback quando não há data exata de vencimento.
+// Condições de pagamento do pedido (FONTE ÚNICA: criação, wizard de NF e cálculo de prazo).
+// `dias` alimenta prazo_pagamento_dias e o vencimento. Convenção do valor:
+//   boleto_*  → exige boleto + vencimento na emissão da NF
+//   prazo_*   → prazo SEM boleto (pago por transferência/PIX no prazo)
+//   a_vista/pix → vencem na emissão
+// `legado: true` NÃO aparece na criação (mantido só p/ rótulo/prazo de pedidos antigos).
 export const FORMAS_PAGAMENTO_PEDIDO = [
-  { v: 'a_vista', l: 'À vista', dias: 0 },
-  { v: 'boleto_7', l: 'Boleto 7 dias', dias: 7 },
+  { v: 'a_vista',  l: 'À vista',         dias: 0 },
+  { v: 'pix',      l: 'PIX',             dias: 0 },
+  { v: 'boleto_7', l: 'Boleto 7 dias',   dias: 7 },
   { v: 'boleto_14', l: 'Boleto 14 dias', dias: 14 },
   { v: 'boleto_21', l: 'Boleto 21 dias', dias: 21 },
   { v: 'boleto_28', l: 'Boleto 28 dias', dias: 28 },
-  { v: 'cartao', l: 'Cartão', dias: 0 },
-  { v: 'pix', l: 'PIX', dias: 0 }
+  { v: 'prazo_15', l: '15 dias',         dias: 15 },
+  { v: 'prazo_30', l: '30 dias',         dias: 30 },
+  { v: 'cartao',   l: 'Cartão',          dias: 0, legado: true },
 ]
+// Opções oferecidas na CRIAÇÃO do pedido (sem cartão; escolha obrigatória, sem default).
+export const CONDICOES_CRIACAO = FORMAS_PAGAMENTO_PEDIDO.filter(f => !f.legado)
+// Prazo (dias) por forma — fonte única do cálculo de vencimento (usada em financeiro-db.js).
+export const PRAZO_POR_FORMA = Object.fromEntries(FORMAS_PAGAMENTO_PEDIDO.map(f => [f.v, f.dias]))
 // Segmentos de cliente — usado em /admin-clientes (form, listagem, filtro, ordenação)
 // e no relatório de diagnóstico (mediana YoY por segmento).
 // Ordem do array é a ordem que aparece no dropdown.

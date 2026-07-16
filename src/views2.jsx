@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FORMAS_PAGAMENTO_PEDIDO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, fetchMetas, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
+import { fmt, fmtMoney, groupByDate, groupByDateDetalhado, groupByCidade, filterPedidos, CIDADES, CATEGORIAS_PRODUTO, FORMAS_PAGAMENTO_PEDIDO, CONDICOES_CRIACAO, inputStyle, btnPrimary, btnSmall, card, fetchProdutos, fetchClientes, fetchMetas, addHistorico, uploadPdf, createPedido, updatePedido, fmtCnpj } from './db.js'
 import { AtrasoBadge, ResumoComercialAtrasos, atrasoRowStyle, atrasoKeyframes } from './alertas-entrega.jsx'
 import { criarNotificacao } from './notificacoes.js'
 import { Badge, RefBadge, PdfViewer, SearchBar, DateGroup, CidadeGroup, HistoricoView, PedidoDetail, SignaturePad } from './components.jsx'
@@ -13,7 +13,7 @@ import { PerformanceVendedorTab } from './performance-vendedor.jsx'
 import { PerformanceComercialTab } from './performance-comercial.jsx'
 import { SolicitarManutencaoTab } from './manutencao-solicit.jsx'
 import { ReembolsosFuncionarioTab } from './reembolsos.jsx'
-import { pedidoFinanceiroPendente } from './financeiro-db.js'
+import { pedidoFinanceiroPendente, corrigirCondicaoPagamento, fetchPedidoIdsContasEmAberto } from './financeiro-db.js'
 import { NfBoletoWizard } from './nf-boleto-wizard.jsx'
 import { AlertaInadimplencia } from './alerta-inadimplencia.jsx'
 import { InadimplenciaReadonly } from './financeiro-inadimplencia.jsx'
@@ -41,30 +41,71 @@ function ProdutoPopup({prod,onClose,onAdd}){
   )
 }
 
+// Edição da condição de pagamento de um pedido existente (recalcula o vencimento).
+function CondicaoEditor({ pedido, user, onSaved }) {
+  const atualLabel = FORMAS_PAGAMENTO_PEDIDO.find(f=>f.v===pedido.forma_pagamento)?.l || pedido.forma_pagamento || '—'
+  const [open,setOpen]=useState(false)
+  const [val,setVal]=useState(pedido.forma_pagamento||'')
+  const [saving,setSaving]=useState(false)
+  const salvar=async(e)=>{
+    e.stopPropagation()
+    if(!val||val===pedido.forma_pagamento){setOpen(false);return}
+    setSaving(true)
+    const novoLabel=FORMAS_PAGAMENTO_PEDIDO.find(f=>f.v===val)?.l||val
+    const r=await corrigirCondicaoPagamento(pedido,val)
+    if(r.ok){await addHistorico(pedido.id,user.nome,`Corrigiu condição de pagamento: ${atualLabel} → ${novoLabel}${r.contaRecalculada?' (vencimento recalculado)':''}`);onSaved?.()}
+    else alert('Não foi possível salvar a condição. Tente novamente.')
+    setSaving(false);setOpen(false)
+  }
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:8,fontSize:12.5,color:'#475569'}}>
+      <span>💳 Condição: <b style={{color:'#0A1628'}}>{atualLabel}</b></span>
+      {!open
+        ? <button onClick={e=>{e.stopPropagation();setVal(pedido.forma_pagamento||'');setOpen(true)}} style={{...btnSmall,fontSize:11,padding:'3px 9px'}}>✏️ Corrigir</button>
+        : <>
+            <select value={val} onClick={e=>e.stopPropagation()} onChange={e=>setVal(e.target.value)} style={{...inputStyle,height:32,width:'auto',marginBottom:0,fontSize:12.5,padding:'0 8px',cursor:'pointer'}}>
+              <option value="">Selecione…</option>
+              {CONDICOES_CRIACAO.map(f=><option key={f.v} value={f.v}>{f.l}</option>)}
+            </select>
+            <button onClick={salvar} disabled={saving||!val} style={{...btnSmall,fontSize:11,padding:'3px 9px',background:'var(--valois-blue)',color:'#fff',border:'none',opacity:(saving||!val)?0.6:1}}>{saving?'Salvando…':'Salvar'}</button>
+            <button onClick={e=>{e.stopPropagation();setOpen(false)}} style={{...btnSmall,fontSize:11,padding:'3px 9px'}}>Cancelar</button>
+          </>}
+    </div>
+  )
+}
+
 // ─── COMERCIAL VIEW ───
 export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
   const [numero,setNumero]=useState('');const [cliente,setCliente]=useState('');const [cidade,setCidade]=useState('')
   const [arquivo,setArquivo]=useState(null);const [uploading,setUploading]=useState(false);const [search,setSearch]=useState('');const [anexandoNf,setAnexandoNf]=useState(null)
   const [clientes,setClientes]=useState([]);const [clienteId,setClienteId]=useState(null);const [clienteSel,setClienteSel]=useState(null);const [extractingPedido,setExtractingPedido]=useState(null)
   const [novoClienteNome,setNovoClienteNome]=useState(null);const [expandedId,setExpandedId]=useState(null)
-  const [formaPagamento,setFormaPagamento]=useState('a_vista')
+  const [formaPagamento,setFormaPagamento]=useState('') // sem default: escolha obrigatória
+  const [erroForma,setErroForma]=useState(false)
   const [obsComercial,setObsComercial]=useState('')
   const [editObsPedido,setEditObsPedido]=useState(null)
+  const [triagem,setTriagem]=useState(false)
+  const [abertoIds,setAbertoIds]=useState(null)
   const fileRef=useRef(null);const orcCorrigidoRefs=useRef({})
   useEffect(()=>{fetchClientes().then(setClientes)},[]) // eslint-disable-line
+  useEffect(()=>{ if(triagem&&abertoIds===null) fetchPedidoIdsContasEmAberto().then(ids=>setAbertoIds(new Set(ids))) },[triagem,abertoIds])
   const handleFileSelect=(e)=>{const file=e.target.files[0];if(file)setArquivo(file)}
   const handleSubmit=async()=>{
     if(!cliente.trim()){alert('Informe o nome do cliente');return}
     if(!cidade){alert('Selecione a cidade');return}
     if(!arquivo){alert('Selecione o PDF do orçamento');return}
+    if(!formaPagamento){setErroForma(true);return}
     setUploading(true)
-    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const fp=FORMAS_PAGAMENTO_PEDIDO.find(x=>x.v===formaPagamento);const obsTxt=obsComercial.trim();const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId,formaPagamento,fp?.dias||0,obsTxt||null);if(pedido){const acaoCriar=obsTxt?`Criou o pedido com observação: ${obsTxt}`:'Criou o pedido';await addHistorico(pedido.id,user.nome,acaoCriar);const msgObs=obsTxt?(isUrgente(obsTxt)?` · 📢 ${obsTxt}`:` · 📢 Obs do comercial`):'';await criarNotificacao('galpao',`📦 Novo pedido de ${cliente.trim()} - ${cidade}`,`Aguardando conferência · Por: ${user.nome}${msgObs}`,pedido.id)}setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);setFormaPagamento('a_vista');setObsComercial('');if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
+    try{const url=await uploadPdf(arquivo,'orcamentos');if(url){const fp=FORMAS_PAGAMENTO_PEDIDO.find(x=>x.v===formaPagamento);const obsTxt=obsComercial.trim();const pedido=await createPedido(cliente.trim(),'',cidade,url,user.nome,numero.trim(),clienteId,formaPagamento,fp?.dias||0,obsTxt||null);if(pedido){const acaoCriar=obsTxt?`Criou o pedido com observação: ${obsTxt}`:'Criou o pedido';await addHistorico(pedido.id,user.nome,acaoCriar);const msgObs=obsTxt?(isUrgente(obsTxt)?` · 📢 ${obsTxt}`:` · 📢 Obs do comercial`):'';await criarNotificacao('galpao',`📦 Novo pedido de ${cliente.trim()} - ${cidade}`,`Aguardando conferência · Por: ${user.nome}${msgObs}`,pedido.id)}setNumero('');setCliente('');setCidade('');setClienteId(null);setArquivo(null);setFormaPagamento('');setErroForma(false);setObsComercial('');if(fileRef.current)fileRef.current.value='';refresh()}}finally{setUploading(false)}
   }
   const handleOrcamentoCorrigido=async(pedidoId,e)=>{
     const file=e.target.files[0];if(!file)return;setUploading(true)
     try{const url=await uploadPdf(file,'orcamentos');if(url){await updatePedido(pedidoId,{orcamento_url:url,status:'PENDENTE'});await addHistorico(pedidoId,user.nome,'Enviou orçamento corrigido');refresh()}}finally{setUploading(false);e.target.value=''}
   }
-  const filtrados=filterPedidos(pedidos,search);const agrupados=groupByDateDetalhado(filtrados)
+  const diasDesde=iso=>(Date.now()-new Date(iso).getTime())/86400000
+  let baseLista=filterPedidos(pedidos,search)
+  if(triagem)baseLista=baseLista.filter(p=>p.forma_pagamento==='a_vista'&&diasDesde(p.criado_em)<=14&&(abertoIds?abertoIds.has(p.id):false))
+  const filtrados=baseLista;const agrupados=groupByDateDetalhado(filtrados)
   const renderRow=(p)=>{const isExp=expandedId===p.id
     return(<div key={p.id}>
       <div onClick={()=>setExpandedId(v=>v===p.id?null:p.id)} onMouseEnter={e=>{if(!isExp)e.currentTarget.style.background='#F8FAFC'}} onMouseLeave={e=>{if(!isExp)e.currentTarget.style.background='#fff'}} style={{display:'flex',alignItems:'center',gap:6,padding:'10px 14px',borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:isExp?'#F8FAFC':'#fff',...atrasoRowStyle(p)}}>
@@ -76,6 +117,7 @@ export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
       </div>
       {isExp&&(<div style={{padding:'10px 14px',background:'#F8FAFC',borderBottom:'1px solid #F1F5F9'}}>
         <ObsComercialInline texto={p.obs_comercial}/>
+        <CondicaoEditor pedido={p} user={user} onSaved={refresh}/>
         {p.status==='PENDENTE'&&<div style={{marginBottom:8}}><button onClick={e=>{e.stopPropagation();setEditObsPedido(p)}} style={{...btnSmall,fontSize:11,padding:'4px 10px',color:'#92400E',borderColor:'#FDE68A'}}>✏️ {p.obs_comercial?'Editar':'Adicionar'} observação</button></div>}
         {p.obs&&p.status==='INCOMPLETO'&&<div style={{background:'#FEE2E2',padding:'8px 12px',borderRadius:8,fontSize:13,color:'#991B1B',marginBottom:8,fontWeight:600,border:'1px solid #FECACA'}}>⚠️ Galpão: {p.obs}</div>}
         {p.obs&&p.status!=='INCOMPLETO'&&<div style={{background:'#FEF3C7',padding:'6px 10px',borderRadius:8,fontSize:12,color:'#92400E',marginBottom:8}}>📋 {p.obs}</div>}
@@ -108,15 +150,29 @@ export function ComercialView({ pedidos, refresh, user, tab='pedidos' }) {
         <select value={cidade} onChange={e=>setCidade(e.target.value)} style={{...inputStyle,marginBottom:10,cursor:'pointer',color:cidade?'#0A1628':'#94A3B8'}}>
           <option value="">Selecione a cidade...</option>{CIDADES.map(c=><option key={c} value={c}>{c}</option>)}
         </select>
-        <select value={formaPagamento} onChange={e=>setFormaPagamento(e.target.value)} style={{...inputStyle,marginBottom:12,cursor:'pointer'}}>
-          {FORMAS_PAGAMENTO_PEDIDO.map(f=><option key={f.v} value={f.v}>💳 {f.l}</option>)}
-        </select>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:600,color:'#0A1628',marginBottom:6}}>Condição de pagamento <span style={{color:'#EF4444'}}>*</span></div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {CONDICOES_CRIACAO.map(f=>{const sel=formaPagamento===f.v;return(
+              <button type="button" key={f.v} onClick={()=>{setFormaPagamento(f.v);setErroForma(false)}} style={{display:'inline-flex',alignItems:'center',gap:7,padding:'8px 12px',borderRadius:10,cursor:'pointer',fontFamily:"'Inter',sans-serif",fontSize:13,fontWeight:sel?700:500,border:`1.5px solid ${sel?'var(--valois-blue)':(erroForma?'#EF4444':'#CBD5E1')}`,background:sel?'var(--valois-blue-soft)':'#fff',color:sel?'var(--valois-blue)':'#475569'}}>
+                <span style={{width:15,height:15,borderRadius:'50%',flexShrink:0,border:`2px solid ${sel?'var(--valois-blue)':'#CBD5E1'}`,display:'inline-flex',alignItems:'center',justifyContent:'center'}}>{sel&&<span style={{width:7,height:7,borderRadius:'50%',background:'var(--valois-blue)'}}/>}</span>
+                {f.l}
+              </button>)})}
+          </div>
+          {!formaPagamento&&<div style={{fontSize:11.5,marginTop:6,fontWeight:erroForma?600:400,color:erroForma?'#EF4444':'#94A3B8'}}>{erroForma?'⚠️ Selecione a condição de pagamento para salvar o pedido.':'Selecione a condição de pagamento'}</div>}
+        </div>
         <ObsComercialInput value={obsComercial} onChange={setObsComercial}/>
         <input type="file" accept=".pdf" ref={fileRef} onChange={handleFileSelect} style={{display:'none'}}/>
         <button onClick={()=>fileRef.current.click()} style={{...btnSmall,width:'100%',justifyContent:'center',marginBottom:12,borderColor:arquivo?'#10B981':'#CBD5E1',color:arquivo?'#10B981':'#64748B'}}>
           {arquivo?`✓ ${arquivo.name}`:'📎 Selecionar PDF do Orçamento *'}
         </button>
         <button onClick={handleSubmit} disabled={uploading} style={{...btnPrimary,width:'100%',opacity:uploading?0.6:1}}>{uploading?'Enviando...':'+ Criar Pedido'}</button>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:10,margin:'0 0 12px',flexWrap:'wrap'}}>
+        <button onClick={()=>setTriagem(t=>!t)} style={{display:'inline-flex',alignItems:'center',gap:6,height:34,padding:'0 12px',borderRadius:10,cursor:'pointer',fontFamily:"'Inter',sans-serif",fontSize:12.5,fontWeight:600,border:`1.5px solid ${triagem?'#B45309':'#E2E8F0'}`,background:triagem?'#FEF3C7':'#fff',color:triagem?'#92400E':'#64748B'}}>
+          🔎 À vista p/ revisar (últimos 14 dias)
+        </button>
+        {triagem&&<span style={{fontSize:12,color:'#92400E',fontWeight:600}}>{abertoIds===null?'carregando…':`${filtrados.length} pedido(s) — corrija a condição real de cada um`}</span>}
       </div>
       {agrupados.map(g=><DateGroup key={g.label} label={g.label} count={g.items.length} valor={g.items.reduce((s,p)=>s+(Number(p.valor_total)||0),0)} defaultOpen={g.label==='Hoje'||g.label==='Ontem'}><div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',overflow:'hidden'}}>{g.items.map(renderRow)}</div></DateGroup>)}
       {agrupados.length===0&&<div style={{textAlign:'center',padding:40,color:'#94A3B8'}}>Nenhum pedido encontrado</div>}
